@@ -1,0 +1,29 @@
+{
+  "appShell": {
+    "sidebar": {
+      "position": "left",
+      "width": 264,
+      "behavior": "fixed",
+      "collapsedOnMobile": true
+    },
+    "topbar": {
+      "brandPosition": "center",
+      "brandText": "OpsiaFinance",
+      "brandAction": "go-home",
+      "height": 72,
+      "showDivider": true
+    },
+    "content": {
+      "maxWidth": 1440,
+      "paddingX": 24,
+      "paddingY": 20,
+      "sectionGap": 24
+    }
+  },
+  "home": {
+    "initialCards": ["Settings", "Dades"],
+    "cardLayout": "2-up",
+    "allowSummaryWidgets": false,
+    "cardMinHeight": 220
+  }
+}

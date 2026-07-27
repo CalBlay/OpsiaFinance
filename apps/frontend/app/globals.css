@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+/* ─── Tailwind Theme — mapeja tokens OpsiaFinance a utilitats Tailwind ──────── */
+@theme inline {
+  --color-background: var(--opsia-bg-app);
+  --color-foreground: var(--opsia-ink-strong);
+  --color-card: var(--opsia-bg-card);
+  --color-card-foreground: var(--opsia-ink-strong);
+  --color-primary: var(--opsia-accent-primary);
+  --color-primary-foreground: #ffffff;
+  --color-secondary: var(--opsia-bg-panel);
+  --color-secondary-foreground: var(--opsia-ink-strong);
+  --color-muted: var(--opsia-bg-panel);
+  --color-muted-foreground: var(--opsia-ink-soft);
+  --color-accent: var(--opsia-accent-secondary);
+  --color-accent-foreground: #ffffff;
+  --color-destructive: var(--opsia-ui-danger);
+  --color-destructive-foreground: #ffffff;
+  --color-border: var(--opsia-line-soft);
+  --color-input: var(--opsia-line-soft);
+  --color-ring: var(--opsia-accent-primary);
+  --color-success: var(--opsia-ui-success);
+  --color-warning: var(--opsia-ui-warning);
+  --color-info: var(--opsia-ui-info);
+
+  --radius: var(--opsia-radius-sm);
+  --radius-sm: calc(var(--opsia-radius-sm) - 4px);
+  --radius-md: var(--opsia-radius-md);
+  --radius-lg: var(--opsia-radius-lg);
+
+  --font-sans: var(--opsia-font-sans);
+}
+
+/* ─── Base ───────────────────────────────────────────────────────────────────── */
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--opsia-font-sans);
+  font-size: var(--opsia-font-size-base);
+  color: var(--opsia-ink-strong);
+  background: var(--opsia-bg-app);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}

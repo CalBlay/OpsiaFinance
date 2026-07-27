@@ -1,0 +1,22 @@
+{
+  "items": [
+    {
+      "id": "home",
+      "label": "Inici",
+      "icon": "home",
+      "module": "home"
+    },
+    {
+      "id": "settings",
+      "label": "Settings",
+      "icon": "settings",
+      "module": "settings"
+    },
+    {
+      "id": "data",
+      "label": "Dades",
+      "icon": "database",
+      "module": "data"
+    }
+  ]
+}

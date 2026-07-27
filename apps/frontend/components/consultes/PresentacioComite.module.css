@@ -1,0 +1,136 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.hero {
+  padding: 1.15rem 1.35rem 1.25rem;
+  border-radius: 1rem;
+  border: 1px solid var(--color-border);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, #0ea5e9 8%, var(--color-card)) 0%,
+    var(--color-card) 55%,
+    color-mix(in srgb, #16a34a 6%, var(--color-card)) 100%
+  );
+}
+
+.eyebrow {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-foreground);
+  line-height: 1.15;
+}
+
+.heroPeriode {
+  margin: 0.35rem 0 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+}
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.kpiCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-card);
+}
+
+.kpiCard[data-accent="ingressos"] {
+  border-color: color-mix(in srgb, #0ea5e9 40%, var(--color-border));
+  background: color-mix(in srgb, #0ea5e9 7%, var(--color-card));
+}
+
+.kpiCard[data-accent="ebitda"] {
+  border-color: color-mix(in srgb, #16a34a 40%, var(--color-border));
+  background: color-mix(in srgb, #16a34a 7%, var(--color-card));
+}
+
+.kpiCard[data-accent="cost"] {
+  border-color: color-mix(in srgb, #6366f1 28%, var(--color-border));
+  background: color-mix(in srgb, #6366f1 5%, var(--color-card));
+}
+
+.kpiLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.kpiValue {
+  font-size: clamp(1.2rem, 2vw, 1.55rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--color-foreground);
+}
+
+.kpiHint {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 960px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chartCard,
+.chartWide {
+  border: 1px solid var(--color-border);
+  border-radius: 0.85rem;
+  background: var(--color-card);
+  padding: 1rem 1.15rem 1.1rem;
+}
+
+.chartTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-foreground);
+}
+
+.chartLead {
+  margin: 0.3rem 0 0.85rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--color-muted-foreground);
+}
+
+.chartBody {
+  width: 100%;
+  min-height: 280px;
+}

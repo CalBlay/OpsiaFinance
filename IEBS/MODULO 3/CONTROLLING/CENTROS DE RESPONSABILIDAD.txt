@@ -1,0 +1,126 @@
+CENTROS DE RESPONSABILIDAD
+
+Centros de Costes y beneficios:
+
+Hacia donde queremos ir.que queremos obtener de ese sostema de coste, de ese analisis de coste.
+
+Centros de coste pueden ser Eficacia, Eficiencia y tipologia:
+
+
+CECOS (centros de coste), es una ubicación ( no necesaria fisica) que generan coste.
+Primera finalidad: obtener un registro difernciado de los gastos por naturaleza de la empresa.
+
+Un CECO debe de ser medible, quantificable y gestionable, y tner al menos una actividad asociada.
+
+	- Analizar el alcance de lo que se quiere conseguir
+	- Agrupar los gastos gnerales con cireterio de generacion del gasto.
+	- Desglosar las actividades que hacen que ocurran
+
+Un cnetro de coste puede ser:
+
+	Un departamento
+	Una máquina
+	Un vehículo
+	Un centro suministrador
+	Un servicio externo
+	Un proyecto
+
+TIPOLOGIA
+
+Organizativa: responsabilidad sobre sus getión
+Operativo : sin necesidad de ser un departamento, pero que aglutina funciones homogéneas.
+
+Centro de beneficio no solo recibe gastos, sino tmbién ingresos, pudiendo reflejar un neto de los ingresos y gastos realcionados con su conjunto de actividades.
+
+Criterios de reparto.
+
+Deben hacerse siguiendo a través de elementos cuantificables vinculados a dichas actividades.
+
+Cecos que detallan las horas o que no registran la actividad, no tienen contador de horas
+
+
+Capacidad y Sabactividad,
+
+Proyecto / producto/ actividad
+
+Proyecto = es la boda, pone limite, fechas
+Producto = el menu CB2
+Actividad = Organitzar bodes
+
+
+Precios de Transferencia: Criterios y métodos
+
+Intra sociedad : entre deapatmentos, delegaciones ( cunina central - restaurants)
+Inter sociedad : sociedades difrents, son vinculadas o asociadas.  (font de la canya)
+
+Debe cumplir el criterio de libre competencia o valor de mercado.
+
+Metodos: Transaccion o por Beneficio
+
+Precio libre comparable: MPLC servicio o bien sea comparable con otra compañia, comapra precios.
+coste incrementado: MCI coste de produccion y se le añaden aquellos gastos "normales" más un margen "normal"
+Precio de reventa: MPR cual es el precio que revendria a un 3ero y descuenta la parte con el vendeor cubriria sus gastos. compra venta inmobilairio % por hacer la gestion 
+
+
+
+Metodo Distribucion de resultados, Margen Neto y SErivicio Intragrupo
+
+distribucion de Resultados MDR BAse esta identificar el beneficio comun entre empresas. SE suele aplicar cuando se comparta intangibles, estan muy relacinadas, no esta definido hasta donde llega uno y llega otra.
+Criterios de reparto:
+	Aportaciones
+		Valoracion de funciones realizadas por cada participante.
+	Reparto faseado
+		Fase 1  Cada compalñia se asegura un mínimo de rendimientp su actividad
+		Fase 2	El beneficiio o perdida que resulte 
+
+Metodo Margen Neto MMN se basa en comparar el benefici global de uan transaccion controlada realizadas por entidades qeu llevan a cabo funciones equivalentes y asumen riesgo similares. Similar MPR u al MCI pero trabaja con el margen neto no con el margen bruto.
+
+Requiere: 
+	Seleccionar en la transaccion laparte analizada
+	Determinar el nivel de estructuracion de costes
+	Buscar commpañias comaprables
+	Selecionar ejercicios a comparar
+	Seleccionar el indicador más fiable parar la asignación del margen
+
+SErvicios Intragrupo:
+
+Cuando una empresa presta servicoa a otra empresa del grupo, dichos servicios deberán ser facturados a precios de plena competencia.
+
+	Existencia del servicio intragrupo: ( font de la cnay, Cal Blay, contabilitat, RRHH, Mkt)
+
+		No ser actividades por razon del accionista
+		No haya sevicios duplicados
+	Determinacion de la retibucion
+		Conforme a una empesa independiente en mismas circunstancias
+
+
+Ejemplo de Precios de Transferencia:
+
+Si el precio fijado para una operacios de arrendamiento de equipos entre empresas vinculadas, cju ple con los requisitos de ÇPrecio Libre de Mercado.
+
+1: Selección de la metodologia
+2.- aplicaciond del método
+	Selecciondel indicador de rentabilidad
+	Busqueda de infromacion comaprable
+		Criterio de busqueda
+	Revision manual de entidades comparables
+3.- Aplicacion de rango de valores segun metodologia
+4.- Rsultados
+5.- Conclusiones
+
+
+1.- Se seleciciona el Margen Neto, se exluyen MPLC por no realizarse actividades iguales o similares
+	MPR.MCI y MDR, por naturaleza de la transaccion vinculada,. no era comkericalizacion, no era productiva
+
+2.- Indicador rentabilidada ROA, Rentabilidad sobre Activo
+
+EL PESIMISTA SE QUEJA DEL VIENTO. EL OPTIMISTA ESPERA QUE CAMBIE. EL REALISTA AJUSTA LAS VELAS (cambiar velas por coste)
+
+	
+
+
+
+
+
+
+

@@ -1,0 +1,99 @@
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--opsia-space-2);
+}
+.wrap:hover .editTrigger {
+  opacity: 1;
+}
+
+.value {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 500;
+  color: var(--opsia-ink-strong);
+}
+
+.noData {
+  color: var(--opsia-ink-soft);
+  font-style: italic;
+  font-weight: 400;
+}
+
+.editWrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--opsia-space-2);
+  position: relative;
+}
+
+.select {
+  min-width: 200px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: var(--opsia-font-size-sm);
+  border: 1.5px solid var(--opsia-accent-primary);
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+}
+
+.editBtn {
+  height: 28px;
+  width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--opsia-radius-sm);
+  cursor: pointer;
+  background: var(--opsia-accent-primary);
+  color: #fff;
+}
+
+.editBtn:disabled {
+  opacity: 0.5;
+}
+
+.editBtnCancel {
+  height: 28px;
+  width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--opsia-radius-sm);
+  cursor: pointer;
+  background: var(--opsia-bg-panel);
+  color: var(--opsia-ink-soft);
+}
+
+.editBtnCancel:hover {
+  background: var(--opsia-line-soft);
+}
+.editBtnCancel:disabled {
+  opacity: 0.5;
+}
+
+.editTrigger {
+  opacity: 0;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  color: var(--opsia-ink-soft);
+  border-radius: var(--opsia-radius-sm);
+  transition: opacity 0.15s, background 0.15s;
+  line-height: 0;
+}
+
+.editTrigger:hover {
+  background: var(--opsia-bg-panel);
+  color: var(--opsia-accent-primary);
+}
+
+.error {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--color-destructive, #dc2626);
+}

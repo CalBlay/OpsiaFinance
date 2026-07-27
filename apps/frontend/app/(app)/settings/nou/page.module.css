@@ -1,0 +1,77 @@
+.page {
+  padding: var(--opsia-space-8) var(--opsia-space-10);
+  max-width: 600px;
+}
+
+.title {
+  font-size: var(--opsia-font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--opsia-ink-strong);
+  margin-bottom: var(--opsia-space-8);
+}
+
+/* ─── Formulari ──────────────────────────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-5);
+}
+
+/* ─── Select (no té component Tailwind propi encara) ────────────────────────── */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-2);
+}
+
+.label {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 600;
+  color: var(--opsia-ink-strong);
+}
+
+.required {
+  color: var(--opsia-ui-danger);
+  margin-left: 2px;
+}
+
+.select {
+  height: 44px;
+  padding: 0 var(--opsia-space-4);
+  border-radius: var(--opsia-radius-sm);
+  border: 1px solid var(--opsia-line-soft);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+  font-size: var(--opsia-font-size-base);
+  outline: none;
+  transition: border-color var(--opsia-transition-fast);
+  width: 100%;
+}
+
+.select:focus {
+  border-color: var(--opsia-accent-primary);
+}
+
+.hint {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+  margin-top: var(--opsia-space-1);
+}
+
+/* ─── Error ──────────────────────────────────────────────────────────────────── */
+.error {
+  padding: var(--opsia-space-3) var(--opsia-space-4);
+  border-radius: var(--opsia-radius-sm);
+  background: rgba(192, 57, 43, 0.07);
+  color: var(--opsia-ui-danger);
+  font-size: var(--opsia-font-size-sm);
+  border: 1px solid rgba(192, 57, 43, 0.15);
+}
+
+/* ─── Accions ────────────────────────────────────────────────────────────────── */
+.formActions {
+  display: flex;
+  gap: var(--opsia-space-3);
+  padding-top: var(--opsia-space-3);
+}

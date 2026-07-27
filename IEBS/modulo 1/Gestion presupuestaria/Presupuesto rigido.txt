@@ -1,0 +1,74 @@
+Presupuesto rigido:
+PAra nalizar un area consigue un objetivo
+Util y aplicable cuando se asume que las estimacines tienen muy pcoo margen osciliación
+PAra un volumen concreto de actividad
+Estimaciones globales
+No se pueden contolas las actividades si se registran cambios.
+
+Corto plazo( 3meses)
+
+Presupuesto flexibles
+
+En base a distinitos niveles de actividad.
+Las estimacines puedemn ajustarse
+Implica revisar, replantear cuando se dan los camibos
+PErmiten adaptarse al entorno
+Mas laborioso
+El control presupuestario hay que ahcerlo teniendo en los escenarios: tener encuento objetivos desvirtuados o no comparables.
+
+ejemplo fabricacion toallas largo plazo año variacion de ventas en verano o invierno, variacion de precios dependiendo epoca del año de la lana.
+
+
+Presupuesto base cero.
+Identificar capital no productivo y reinvertirlo en activaidades que supongona innovacion, crecimineto y rentabilidad.
+Priorizar la visibilidad de resultados concretos.
+Implica cambios en la cultura de la organización, y priorización en todos los niveles.
+
+Implicaciones tiene:
+Actividades deben revisarse en cada ejercicio
+Ordenamiento de las actividades en base al beneficio
+Cada responsable jsutifica el gasto de si area
+Se suprimen actividades innecesarias recurrentes
+Se ordenen tarieas por importancia
+Evaluar alternativas de reducir costes
+
+Parte de ceroo: no contempla datos historicos
+Las estimacinses se rañizan partiendo de los objetivos fijados y recalculando los factores que intervienen.
+
+Presupuesto por programas
+Es un modelo de presupuesto que se utiliza para lacanzar metas y objetivos a traves de la planifiacacion de distintas politcas y de la asignacin de Recuros
+
+Usado prinicpalmemntsector publico.
+Primero objetivos
+Posteriormente diseñan programs
+Definir recursos
+Establecer indicadores.
+
+Se necesita conocer los costos de los programas
+Seleccionar indicadores de confianza
+finalidad: Presupuesto tradionoanl: gasta vs vende en el de programas en lo que se hace. ejemplo Presupuesto del EStado.
+
+Lanzamiento de un producto nuevo
+Objetivo lanzar producto nuevo
+Actividades: I+d definir etiquetados ; Produccion; Marketing; distribucion
+
+
+Preupuesto por actividades
+
+empresa se divide en actividades
+Las actividades añaden valor al bien os ervicio
+Analziar la rentabilidad de cada actividad en base los recursops que cosnume.
+sigue bases ABC sistema de costes basado en actividades
+Mediciones distintos procesos relevantes
+
+Reaqueire:
+Aplicar reingeneria dde procdesos
+Cambios organizacion
+Sistema de informacios
+Id procesos
+Distinguiir actividades
+Definir centros de coste
+Agrupacion de costes por grupos
+Id portadores para cada grupo de coste
+
+ 

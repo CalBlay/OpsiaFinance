@@ -1,0 +1,410 @@
+/* ─── Pàgina ──────────────────────────────────────────────────────────────────── */
+.page {
+  padding: 1.5rem 2.5rem 3rem;
+  max-width: 1200px;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-foreground);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  margin-top: 0.3rem;
+}
+
+/* ─── Barra d'estadístiques ─────────────────────────────────────────────────────── */
+.statsBar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.statCard {
+  flex: 1;
+  min-width: 130px;
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  padding: 0.85rem 1rem;
+  background: var(--color-card);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.statIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+.statIconLn {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
+}
+.statIconCe {
+  background: color-mix(in srgb, #0ea5e9 15%, transparent);
+  color: #0ea5e9;
+}
+.statIconDe {
+  background: color-mix(in srgb, #8b5cf6 15%, transparent);
+  color: #8b5cf6;
+}
+
+.statValue {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-foreground);
+}
+.statLabel {
+  font-size: 0.72rem;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 0.2rem;
+}
+
+/* ─── Barra d'eines ─────────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.search {
+  flex: 1;
+  min-width: 200px;
+  position: relative;
+}
+.searchInput {
+  width: 100%;
+  padding: 0.5rem 0.75rem 0.5rem 2.2rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-size: 0.875rem;
+  outline: none;
+}
+.searchInput:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+.searchIcon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-muted-foreground);
+  pointer-events: none;
+}
+
+.linkBtn {
+  background: none;
+  border: none;
+  color: var(--color-muted-foreground);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.4rem;
+}
+.linkBtn:hover {
+  color: var(--color-foreground);
+  background: var(--color-muted);
+}
+
+/* ─── Missatge feedback ─────────────────────────────────────────────────────────── */
+.feedback {
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.5rem;
+  font-size: 0.83rem;
+  margin-bottom: 1rem;
+}
+.feedbackOk {
+  background: color-mix(in srgb, #16a34a 12%, transparent);
+  color: #15803d;
+}
+.feedbackErr {
+  background: color-mix(in srgb, var(--color-destructive) 12%, transparent);
+  color: var(--color-destructive);
+}
+
+/* ─── Arbre ─────────────────────────────────────────────────────────────────────── */
+.tree {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+/* Node genèric */
+.node {
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background 0.12s;
+}
+.row:hover {
+  background: var(--color-muted);
+}
+.row:hover .actions {
+  opacity: 1;
+}
+
+/* Nivells */
+.lnRow {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+}
+.lnRow:hover {
+  background: var(--color-muted);
+}
+
+.centreRow {
+  margin-left: 1.75rem;
+}
+.deptRow {
+  margin-left: 3.5rem;
+}
+
+.inactiveRow {
+  opacity: 0.5;
+}
+
+/* Botó expandir */
+.expandBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.1rem;
+  color: var(--color-muted-foreground);
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+  flex-shrink: 0;
+  width: 1.3rem;
+  height: 1.3rem;
+  justify-content: center;
+}
+.expandBtn:hover {
+  background: var(--color-border);
+}
+.expandSpacer {
+  width: 1.3rem;
+  flex-shrink: 0;
+}
+
+/* Pastilla de codi */
+.codePill {
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.12rem 0.45rem;
+  border-radius: 0.35rem;
+  flex-shrink: 0;
+  letter-spacing: 0.01em;
+}
+.codeLn {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
+}
+.codeCe {
+  background: color-mix(in srgb, #0ea5e9 14%, transparent);
+  color: #0284c7;
+}
+.codeDe {
+  background: color-mix(in srgb, #8b5cf6 14%, transparent);
+  color: #7c3aed;
+}
+
+/* Nom */
+.name {
+  font-size: 0.9rem;
+  color: var(--color-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lnName {
+  font-weight: 700;
+}
+.centreName {
+  font-weight: 500;
+}
+.deptName {
+  font-weight: 400;
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+}
+
+/* Comptador de fills */
+.count {
+  font-size: 0.72rem;
+  color: var(--color-muted-foreground);
+  margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Etiqueta inactiu */
+.inactiveTag {
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+
+/* Accions */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  opacity: 0;
+  transition: opacity 0.12s;
+  flex-shrink: 0;
+}
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  color: var(--color-muted-foreground);
+  transition: background 0.12s, color 0.12s;
+}
+.iconBtn:hover {
+  background: var(--color-border);
+  color: var(--color-foreground);
+}
+.iconBtnDanger:hover {
+  background: color-mix(in srgb, var(--color-destructive) 15%, transparent);
+  color: var(--color-destructive);
+}
+
+/* Fills */
+.children {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+/* ─── Edició en línia ───────────────────────────────────────────────────────────── */
+.editRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+.editCode {
+  width: 6.5rem;
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  outline: none;
+  flex-shrink: 0;
+}
+.editName {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.88rem;
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  outline: none;
+}
+.editCode:focus,
+.editName:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+/* Fila "afegir" */
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.75rem;
+}
+.addTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  border: 1px dashed var(--color-border);
+  color: var(--color-muted-foreground);
+  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+}
+.addTrigger:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.centreAdd {
+  margin-left: 1.75rem;
+}
+.deptAdd {
+  margin-left: 3.5rem;
+}
+
+/* ─── Estat buit ────────────────────────────────────────────────────────────────── */
+.emptyState {
+  text-align: center;
+  padding: 4rem 2rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.75rem;
+}
+.emptyState h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+  color: var(--color-foreground);
+}
+.emptyState p {
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+  margin: 0 auto;
+  max-width: 420px;
+}

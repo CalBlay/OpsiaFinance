@@ -1,0 +1,49 @@
+:root {
+  --opsia-color-stone-50: #fbf9f5;
+  --opsia-color-stone-100: #f5f3ee;
+  --opsia-color-stone-200: #ece7de;
+  --opsia-color-stone-300: #d4dad7;
+
+  --opsia-color-slate-700: #5c6b73;
+  --opsia-color-slate-900: #22313f;
+
+  --opsia-color-teal-600: #2f6f6d;
+  --opsia-color-steel-500: #6e8ca0;
+  --opsia-color-amber-500: #c59b57;
+
+  --opsia-bg-app: var(--opsia-color-stone-100);
+  --opsia-bg-panel: var(--opsia-color-stone-200);
+  --opsia-bg-card: var(--opsia-color-stone-50);
+  --opsia-bg-sidebar: #dce4e6;
+
+  --opsia-ink-strong: var(--opsia-color-slate-900);
+  --opsia-ink-soft: var(--opsia-color-slate-700);
+  --opsia-line-soft: var(--opsia-color-stone-300);
+
+  --opsia-accent-primary: var(--opsia-color-teal-600);
+  --opsia-accent-secondary: var(--opsia-color-steel-500);
+  --opsia-accent-warning: var(--opsia-color-amber-500);
+
+  --opsia-ui-success: var(--opsia-color-teal-600);
+  --opsia-ui-info: var(--opsia-color-steel-500);
+  --opsia-ui-warning: var(--opsia-color-amber-500);
+
+  --opsia-radius-sm: 10px;
+  --opsia-radius-md: 16px;
+  --opsia-radius-lg: 24px;
+
+  --opsia-space-2: 8px;
+  --opsia-space-3: 12px;
+  --opsia-space-4: 16px;
+  --opsia-space-5: 20px;
+  --opsia-space-6: 24px;
+  --opsia-space-8: 32px;
+
+  --opsia-shadow-soft: 0 10px 30px rgba(34, 49, 63, 0.08);
+}
+
+/*
+  Llibreria corporativa inicial.
+  Aquest fitxer ha de ser la font comuna de color, espais i radi
+  per evitar que cada modul inventi el seu propi estil.
+*/

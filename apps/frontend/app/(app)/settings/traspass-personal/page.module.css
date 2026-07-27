@@ -1,0 +1,56 @@
+@import "../repartiment/page.module.css";
+
+.inlineForm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.input {
+  min-width: 280px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--opsia-border);
+  border-radius: var(--opsia-radius-sm);
+  font-size: var(--opsia-font-size-sm);
+}
+
+.select {
+  min-width: 220px;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--opsia-border);
+  border-radius: var(--opsia-radius-sm);
+  font-size: var(--opsia-font-size-sm);
+}
+
+.rowActions {
+  display: flex;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.rowActions button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--opsia-ink-soft);
+  padding: 0.2rem;
+}
+
+.muted {
+  color: var(--opsia-ink-soft);
+  font-size: var(--opsia-font-size-sm);
+}
+
+.fileInput {
+  font-size: var(--opsia-font-size-sm);
+}
+
+.checkLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  white-space: nowrap;
+}

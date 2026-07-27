@@ -1,0 +1,16 @@
+tipo de coste directo / indirecto
+metode analiss d coste ABC
+Calculo coste imputacion, cose agruipado por servicios, productos de venta.
+
+fijar precio a cada producto.
+Servicios intragrupo.
+ARgumenta la sensibilidad este precio, segun posiles cambios pueden efectar.
+
+
+
+
+
+Objetivo y criterios de entrega
+El objetivo de este proyecto es afianzar los criterios a la hora de decidir un método para análisis de costes y usarlo respecto de la toma de decisiones.
+
+Criterios de entrega: Se valorará adicionalmente la aplicación de conocimientos de validación de precios intragrupo, y la determinación del impacto que una variación en el análisis de costes realizado pueda tener en la validación o fijación de precios.

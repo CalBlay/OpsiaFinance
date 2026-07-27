@@ -1,0 +1,13 @@
+{
+  "primaryFamily": "Manrope",
+  "alternatives": ["IBM Plex Sans", "Plus Jakarta Sans"],
+  "weights": {
+    "body": "regular",
+    "label": "medium",
+    "title": "semibold"
+  },
+  "rules": {
+    "singleFamilyUi": true,
+    "allowDecorativeFonts": false
+  }
+}

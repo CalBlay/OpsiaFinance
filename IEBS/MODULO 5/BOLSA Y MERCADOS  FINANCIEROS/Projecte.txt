@@ -1,0 +1,7 @@
+Projecte
+
+empresasa del sector industrial, automotriz tienden a tener un beta>1
+
+- Sectores más cíclicos (como el sector industrial, automotriz o de bienes de consumo) tienden a tener betas más altas (>1). Esto se debe a que sus acciones suelen ser más sensibles a los cambios en las condiciones económicas generales.
+
+- Sectores más defensivos (como el sector de servicios públicos, farmacéutico o de consumo básico) tienden a tener betas más bajas (<1). Estos sectores son menos volátiles y están menos expuestos a las fluctuaciones del mercado.

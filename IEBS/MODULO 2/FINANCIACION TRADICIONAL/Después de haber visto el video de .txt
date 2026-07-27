@@ -1,0 +1,57 @@
+Después de haber visto el video de la Masterclass, en qué aspectos de la actividad bancaria crees que afecta el rating otorgado por una entidad financiera a un cliente.
+
+
+No impagos
+Banco tiene que dotar con capital segun el riesgo del cliente, % tiene que tenr guardado, % es el riesgo
+No es el mismo todas operaciones ni todos los clientes.
+Coberturas de garantias
+Provsion de perdida esperada
+
+CAPITAL REGULATORIO
+
+Scoring puntuaciones sobre la inforamacion del cliente
+Rating Califiacacion de los acreditados de Personas jurídicas (empresas AA, BB+, CCc posibilidad de impago
+
+como mas perfiles podemos mejorar el patron.
+
+Sistemas homogeneos.
+
+modelo estadistico 
+
+Lops datos esten bien entrados, hay probabilidad de error. 
+Seguimiento del clietne a traves de las notas del scoring.Detectar posibles cambios, evoluciones...
+
+Comparacion de la teopria (nota¨) con la realidad (pago o impago).
+
+PAra que usan el rating los bancos:  Ca
+
+Calibracions PD: Asgnacios prob. Incumplimiento
+Sistemas regulatorio
+Sistema de adminsion
+
+SEguimiento para no sufrir deterioros respecte a las previsones sobre posibles pérdidas.
+
+cliente le afecta: Si tiene un nivel de rating malo, existen raeglñas automaticas donde, a partir de un nivel de riesgo concreto, la decision final se no darle el crédito. Este empeoramiento provocará aumento en los precios (subida en los tipos de interés) de las futuras negocioaciones/renovaciones, por lo que el cliente tendrá que pagas más. siempre es importante conocer sus planacas fianncieras y evaluar si propia empresa con el fin de llegar a tenener buena capacidad negociadora, sobre todo si no se consigue mantener un buen perfil crecditicio. 
+sobretodo cuando hay un deterioro, pero tambien opuede ser positivo en una mejora de las ituación.
+
+Como se construye esta modelo:
+
+Cartera de clientes
+Horizonte temporal
+Informacion de diferentes bloques
+
+Rating es mensual al información
+
+fuentes de inforamcion para el cálculo:
+Financiera ( endeudamiento, liquidez, solvencia, endeudamiento, rentabilidad...comparatoivas con el sctor y tamaño, tambien impuesto de sociedades o cuentas anuales.
+
+Cualitativa: Situacion del sector, colvencia tecnica
+
+Comportamental : Uso lineas crédito, variaciones riesgo concedido, imapgaos,s aldo medio, historial de cuentas...comportamiento del cliente repesto la entidad.
+
+Mejor modelo es ese que sabe diferneciar el bueno del malo, sepa separar uno y otros. La curva ROC
+ 
+
+
+
+

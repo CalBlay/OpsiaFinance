@@ -1,0 +1,61 @@
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  height: var(--opsia-topbar-height);
+  padding: 0 var(--opsia-space-6);
+  background: var(--opsia-bg-topbar);
+  border-bottom: 1px solid var(--opsia-line-soft);
+  backdrop-filter: blur(8px);
+}
+
+/* ─── Brand ─────────────────────────────────────────────────────────────────── */
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  justify-self: center;
+  font-size: var(--opsia-font-size-xl);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+.brandOpsia {
+  font-weight: 400;
+  color: var(--opsia-ink-soft);
+}
+
+.brandFinance {
+  font-weight: 700;
+  color: var(--opsia-accent-warm);
+}
+
+/* ─── Accions ────────────────────────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-3);
+  justify-self: end;
+}
+
+.userBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--opsia-line-soft);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-soft);
+  cursor: pointer;
+  transition: background var(--opsia-transition-fast), color var(--opsia-transition-fast);
+}
+
+.userBtn:hover {
+  background: var(--opsia-bg-panel);
+  color: var(--opsia-ink-strong);
+}

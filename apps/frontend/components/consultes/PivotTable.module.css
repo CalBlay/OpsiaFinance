@@ -1,0 +1,105 @@
+.wrapper {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  background: var(--color-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* Capçalera */
+.th {
+  padding: 0.6rem 0.8rem;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.colLabel {
+  display: block;
+}
+.colSub {
+  display: block;
+  font-weight: 400;
+  font-size: 0.66rem;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.75;
+}
+
+/* Cel·les */
+.td {
+  padding: 0.4rem 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+}
+
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.concept {
+  color: var(--color-foreground);
+  font-weight: 400;
+}
+
+/* Primera columna fixa */
+.stickyCol {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-card);
+  min-width: 220px;
+  max-width: 320px;
+  white-space: normal;
+}
+.th.stickyCol {
+  z-index: 3;
+  background: var(--color-muted);
+}
+
+/* Files de subtotal */
+.subtotalRow {
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+  font-weight: 700;
+}
+.subtotalRow .concept {
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+.subtotalRow .stickyCol {
+  background: color-mix(in srgb, var(--color-primary) 8%, var(--color-card));
+}
+
+/* Columna de total */
+.totalCol {
+  border-left: 1px solid var(--color-border);
+  font-weight: 600;
+}
+
+/* Valors */
+.pos {
+  color: var(--color-foreground);
+}
+.neg {
+  color: var(--color-destructive);
+}
+.zero {
+  color: var(--color-muted-foreground);
+  opacity: 0.5;
+}

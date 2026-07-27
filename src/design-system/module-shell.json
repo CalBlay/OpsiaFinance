@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "useSharedLayout": true,
+    "useSharedTokens": true,
+    "allowCustomColorsPerModule": false,
+    "allowCustomSidebarPerModule": false,
+    "allowCustomTopbarPerModule": false
+  },
+  "moduleAreas": ["header", "actions", "content"],
+  "uiPrinciples": [
+    "few-clicks",
+    "little-text",
+    "clear-actions",
+    "high-legibility",
+    "corporate-consistency"
+  ]
+}

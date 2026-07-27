@@ -1,0 +1,41 @@
+.page {
+  padding: 1.5rem 2.5rem;
+  width: 100%;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+
+.subtitle {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+}
+
+/* ─── Cel·les de la fila d'usuari ────────────────────────────────────────────── */
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.userName {
+  font-weight: 600;
+  font-size: var(--opsia-font-size-base);
+  color: var(--opsia-ink-strong);
+}
+
+.userEmail {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page {
+    padding: var(--opsia-space-5) var(--opsia-space-4);
+  }
+}

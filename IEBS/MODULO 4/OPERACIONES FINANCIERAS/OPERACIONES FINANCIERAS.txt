@@ -1,0 +1,50 @@
+OPERACIONES FINANCIERAS
+
+
+Acreedor: sujeto que cede el capital
+Deudor : sujeto uqe recibe el capital y tiene que devolverlo
+
+diferencia entre los tipos de interes
+
+
+	Efectivo : Iguala los flujos de caja positivos y negativos.
+	Nominal : Sin tener en cuneta el ambito temporal
+	TAE	: tipo efectivo, tiene en cuenta todos los costes que tiene el contrato (ej. comision de apertura)
+
+
+Capitalziación simple:
+
+Una operacion cantidad inicial es la unica que genera intereses. corto plazo
+
+Capitalizcion compuesta:
+
+Media y largo plazo la cantidad inicial genera uno sinteres de forma periódica que se van acumulando
+
+
+Tipos de operaciones financieras:
+
+	Operaciones de iversion
+	Operaciones de financiación
+	Operaciones de cobertura
+
+
+Operaciones financieras: cp
+
+	FACTOIRING : Adelantan el cobro de sus facturas comerciales. Intereses y comisiones
+
+		Sin recurso: asume el riesgo no pago entidad fiannciera
+
+		Con rescurso: la empresa asume le riesgo de no pago
+
+	DESCUENTO DE EFECTOS COMERCIALES: Adelantatn fondos, intereses, comisiones mas otros gastos
+
+		Pagares, financiación cp.
+		anticipan deudas.
+		Mayores costes, no se pueden anular o retroceder los gastos e intereses, el cliente siempre asume el riesgo, gastos 			adicionaes pro la devolucion y el proteso.
+
+
+
+OPERACIONES A MEDIO Y LARGO PLAZO
+
+Creéditos:
+

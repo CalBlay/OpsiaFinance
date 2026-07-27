@@ -1,0 +1,312 @@
+.page {
+  padding: var(--opsia-space-8) var(--opsia-space-10);
+  max-width: 900px;
+}
+
+/* ─── Capçalera ──────────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--opsia-space-6);
+  margin-bottom: var(--opsia-space-8);
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-3);
+  min-width: 0;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-3);
+}
+
+.fileIcon {
+  color: var(--opsia-accent-primary);
+  flex-shrink: 0;
+}
+
+.title {
+  font-size: var(--opsia-font-size-xl);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--opsia-ink-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-4);
+}
+
+.metaItem {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+}
+
+/* ─── Fitxa de dades ─────────────────────────────────────────────────────────── */
+.card {
+  background: var(--opsia-bg-card);
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-md);
+  padding: var(--opsia-space-5) var(--opsia-space-6);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--opsia-space-4) var(--opsia-space-6);
+  margin-bottom: var(--opsia-space-8);
+}
+
+.cardItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-1);
+}
+
+.cardIcon {
+  display: none;
+}
+
+.cardLabel {
+  font-size: var(--opsia-font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--opsia-ink-soft);
+}
+
+.cardValue {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 500;
+  color: var(--opsia-ink-strong);
+}
+
+.noData {
+  color: var(--opsia-ink-soft);
+  font-style: italic;
+  font-weight: 400;
+}
+
+/* ─── Secció de files ────────────────────────────────────────────────────────── */
+.rowsSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-4);
+}
+
+.sectionTitle {
+  font-size: var(--opsia-font-size-lg);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--opsia-ink-strong);
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-2);
+}
+
+.rowCount {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 400;
+  color: var(--opsia-ink-soft);
+  background: var(--opsia-bg-panel);
+  padding: 2px 8px;
+  border-radius: 99px;
+}
+
+.noRows {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  line-height: 1.7;
+  padding: var(--opsia-space-8) 0;
+}
+
+/* ─── Taula de files ─────────────────────────────────────────────────────────── */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-md);
+  overflow: hidden;
+  background: var(--opsia-bg-card);
+  font-size: var(--opsia-font-size-sm);
+}
+
+.table thead th {
+  padding: var(--opsia-space-3) var(--opsia-space-5);
+  text-align: left;
+  font-size: var(--opsia-font-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--opsia-ink-soft);
+  background: var(--opsia-bg-panel);
+  border-bottom: 1px solid var(--opsia-line-soft);
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--opsia-line-soft);
+}
+
+.table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.table tbody tr:hover {
+  background: var(--opsia-bg-app);
+}
+
+.table tbody td {
+  padding: var(--opsia-space-3) var(--opsia-space-5);
+  vertical-align: middle;
+  color: var(--opsia-ink-strong);
+}
+
+.subtotal td {
+  background: rgba(47, 111, 109, 0.05);
+  font-weight: 600;
+}
+
+.subtotalLabel {
+  display: inline-block;
+  margin-left: var(--opsia-space-2);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--opsia-ink-soft);
+  background: var(--opsia-bg-panel);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.codiCompte {
+  display: block;
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+  font-family: monospace;
+}
+
+.nomCompte {
+  display: block;
+  font-weight: 500;
+}
+
+.dim {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+  font-family: monospace;
+}
+
+.right {
+  text-align: right;
+}
+
+.importCell {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─── Edició inline de valors ────────────────────────────────────────────────── */
+.editHint {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+  padding: var(--opsia-space-2) var(--opsia-space-3);
+  background: var(--opsia-bg-panel);
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-sm);
+}
+.editHintIcon { opacity: 0.7; }
+
+/* Cel·la en mode visualització: valor + llapis ocult */
+.importWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--opsia-space-2);
+  cursor: default;
+}
+.importWrap:hover .editTrigger { opacity: 1; }
+
+.editTrigger {
+  opacity: 0;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  color: var(--opsia-ink-soft);
+  border-radius: var(--opsia-radius-sm);
+  transition: opacity 0.15s, background 0.15s;
+  line-height: 0;
+}
+.editTrigger:hover { background: var(--opsia-bg-panel); color: var(--opsia-accent-primary); }
+
+/* Cel·la en mode edició: input + botons */
+.editWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  position: relative;
+}
+.editInput {
+  width: 180px;
+  height: 28px;
+  padding: 0 6px;
+  font-size: var(--opsia-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  border: 1.5px solid var(--opsia-accent-primary);
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+  outline: none;
+}
+.editBtn {
+  height: 28px;
+  width: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--opsia-radius-sm);
+  cursor: pointer;
+  background: var(--opsia-accent-primary);
+  color: #fff;
+}
+.editBtn:disabled { opacity: 0.5; }
+.editBtnCancel {
+  composes: editBtn;
+  background: var(--opsia-bg-panel);
+  color: var(--opsia-ink-soft);
+}
+.editBtnCancel:hover { background: var(--opsia-line-soft); }
+.editError {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 0;
+  font-size: 11px;
+  color: var(--color-destructive, #dc2626);
+  white-space: nowrap;
+  background: var(--opsia-bg-card);
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-sm);
+  padding: 2px 6px;
+  z-index: 10;
+}
+
+.neg { color: var(--color-destructive, #dc2626); }
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page {
+    padding: var(--opsia-space-5) var(--opsia-space-4);
+  }
+
+  .header {
+    flex-direction: column;
+  }
+}

@@ -1,0 +1,65 @@
+VISIONA2
+
+METRIQUES:
+
+la espera a la asignación
+de mesa
+
+como cambia el nivel promedio de satisfacción ante la distribución de las mesas de
+una forma o de otra
+	
+de la distancia de separación entre mesas
+de la temperatura del local
+el tipo de música ambiental
+
+La variedad de targets hace incluso más interesante  (esdeveniments)
+
+OBJETIVOS
+
+Objetivos
+El objetivo principal es encontrar nuevas aplicaciones de la visión por computador para
+mejorar la experiencia de usuario y la eficiencia en restauración. De manera más específica,
+se consideran estos objetivos:
+● Reducción tiempos de espera en colas (teoría de colas)
+● Mejorar la experiencia de usuario adecuando AA, música, luz, etc al arquetipo
+visitante en cada momento y eficienciando emisiones, energía y resto de consumos
+● Conectividad de dispositivos (IoT, cámaras, TPV, WiFi, etc..)
+● Promover la salud ambiental como atributo de sostenibilidad durante el diseño de
+espacios, tanto para los comensales como para el personal.
+Sistematizar la detección y recuperación de datos de carácter objetivo (evidencias)
+sobre la relación entre el espacio y su impacto en la productividad del personal.
+● Habilitar la integración y la gestión combinada de la información sobre la experiencia
+del cliente y el staff junto a otras fuentes de datos disponibles sobre XXX para
+determinar indicadores de negocio valiosos que permitan YYY
+● Probar el uso de mecanismos de análisis instantáneo de datos que permitan la
+recuperación y el análisis de datos generados por el sistema en tiempo real (que
+permitan complementar las técnicas de procesamiento y volcado de datos de tipo
+“batch” o agregadas implementadas durante la primera fase del proyecto).
+● Promocionar la oferta en momentos de menor afluencia de consumidores
+● Comparativa entre restaurantes con oferta similar
+● Monetizar la información valorable por fabricantes y distribuidores
+● Añadir opciones de filtrado avanzado que permitan la segmentación del análisis en
+base al perfil de los comensales (familias, parejas, grupos, individuos), distribución
+horaria y tipos de actividades realizadas
+● Definir los requerimientos legales, en materia de seguridad, sostenibilidad y eficiencia
+energética, que impactan, a partir del análisis de las Directivas, Normas Armonizadas y
+legislación existente.
+● Definir los parámetros para poder analizar la materialidad y alinear los objetivos del
+proyecto con las necesidades de los stakeholders.
+● Definir, de forma general, los criterios necesarios para evaluar la sostenibilidad
+definiendo los parámetros a gestionar (control de emisiones GEI, uso sostenible de los
+recursos, economía circular, prevención y gestión de residuos, protección de la
+biodiversidad, etc.) acordes con las soluciones tecnológicas adoptadas.
+
+
+establecer relaciones más precisas entre la percepción, la respuesta emocional, las
+preferencias y el comportamiento
+
+pag 23
+
+
+Gestores gastronómicos
+Los gestores gastronómicos y encargados de configuración de menú y recetas de los mismos,
+podrán elegir combinaciones de estos que eleven la experiencia de usuario. El objetivo de este
+punto es que con nuestro proyecto las personas que hacen menús y recetas tengan una nueva
+fuente de información

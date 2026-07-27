@@ -1,0 +1,58 @@
+@import "../page.module.css";
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.subtitle {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  margin-top: 0.35rem;
+  max-width: 52rem;
+}
+
+.helpText {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  margin: 0 0 0.75rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.linkBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  font-size: var(--opsia-font-size-sm);
+  border: 1px solid var(--opsia-border);
+  border-radius: var(--opsia-radius-sm);
+  text-decoration: none;
+  color: var(--opsia-ink-strong);
+}
+
+.linkBtn:hover {
+  background: var(--opsia-muted, #f4f4f5);
+}
+
+.anySelect {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--opsia-font-size-sm);
+}
+
+.anySelect select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--opsia-border);
+  border-radius: var(--opsia-radius-sm);
+}
+
+.cardTitle {
+  font-size: var(--opsia-font-size-base);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}

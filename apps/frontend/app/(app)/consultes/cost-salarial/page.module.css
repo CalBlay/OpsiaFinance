@@ -1,0 +1,64 @@
+.section {
+  margin-top: 1.5rem;
+}
+.sectionTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  color: var(--color-foreground);
+}
+
+.tableWrap {
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  overflow-x: auto;
+  background: var(--color-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted-foreground);
+  font-weight: 600;
+  background: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table td {
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+  color: var(--color-foreground);
+}
+
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.totalRow td {
+  font-weight: 700;
+  background: color-mix(in srgb, var(--color-muted) 55%, transparent);
+}
+
+.link {
+  color: var(--color-foreground);
+  text-decoration: none;
+  font-weight: 600;
+}
+.link:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}

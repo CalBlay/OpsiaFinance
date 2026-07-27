@@ -1,0 +1,64 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--opsia-space-5);
+  min-height: 260px;
+  padding: var(--opsia-space-10) var(--opsia-space-8);
+  border-radius: var(--opsia-radius-lg);
+  border: 1px solid var(--opsia-line-soft);
+  background: var(--opsia-bg-card);
+  text-align: center;
+  cursor: pointer;
+  transition: transform var(--opsia-transition-base), box-shadow var(--opsia-transition-base),
+    border-color var(--opsia-transition-base);
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--opsia-shadow-soft);
+  border-color: transparent;
+}
+
+.iconWrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  background: var(--opsia-bg-panel);
+}
+
+.title {
+  font-size: var(--opsia-font-size-3xl);
+  font-weight: 700;
+  letter-spacing: -0.05em;
+  color: var(--opsia-ink-strong);
+  line-height: 1.1;
+}
+
+.description {
+  font-size: var(--opsia-font-size-base);
+  color: var(--opsia-ink-soft);
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+/* ─── Variants per mòdul ─────────────────────────────────────────────────────── */
+.settings .iconWrapper {
+  color: var(--opsia-accent-warm);
+}
+
+.settings:hover {
+  border-color: rgba(197, 155, 87, 0.2);
+}
+
+.dades .iconWrapper {
+  color: var(--opsia-accent-primary);
+}
+
+.dades:hover {
+  border-color: rgba(47, 111, 109, 0.2);
+}

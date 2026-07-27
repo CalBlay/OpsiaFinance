@@ -1,0 +1,21 @@
+.page {
+  padding: var(--opsia-space-10) var(--opsia-space-10);
+  width: 100%;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--opsia-space-6);
+  max-width: 900px;
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: var(--opsia-space-6) var(--opsia-space-4);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,237 @@
+.page {
+  padding: var(--opsia-space-8) var(--opsia-space-10);
+  max-width: 720px;
+}
+
+.title {
+  font-size: var(--opsia-font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--opsia-ink-strong);
+  margin-bottom: var(--opsia-space-2);
+}
+
+.subtitle {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  margin-bottom: var(--opsia-space-8);
+  line-height: 1.6;
+}
+
+/* ─── Formulari ──────────────────────────────────────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-8);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-4);
+}
+
+.sectionLabel {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--opsia-ink-soft);
+}
+
+.optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--opsia-font-size-xs);
+}
+
+/* ─── Zona d'upload ──────────────────────────────────────────────────────────── */
+.dropZone {
+  border: 2px dashed var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-md);
+  padding: var(--opsia-space-10) var(--opsia-space-6);
+  background: var(--opsia-bg-card);
+  cursor: pointer;
+  transition: border-color var(--opsia-transition-base), background var(--opsia-transition-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+}
+
+.dropZone:hover,
+.dragging {
+  border-color: var(--opsia-accent-primary);
+  background: rgba(47, 111, 109, 0.04);
+}
+
+.hasFile {
+  border-style: solid;
+  border-color: var(--opsia-accent-primary);
+  cursor: default;
+}
+
+.dropPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--opsia-space-3);
+  text-align: center;
+}
+
+.uploadIcon {
+  color: var(--opsia-accent-secondary);
+}
+
+.dropTitle {
+  font-size: var(--opsia-font-size-base);
+  font-weight: 600;
+  color: var(--opsia-ink-strong);
+}
+
+.dropHint {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+}
+
+/* ─── Fitxer seleccionat ─────────────────────────────────────────────────────── */
+.fileSelected {
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-4);
+  width: 100%;
+  padding: 0 var(--opsia-space-2);
+}
+
+.fileIcon {
+  color: var(--opsia-accent-primary);
+  flex-shrink: 0;
+}
+
+.fileDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.fileName {
+  font-weight: 600;
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-strong);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fileSize {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+}
+
+.removeFile {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--opsia-space-2);
+  color: var(--opsia-ink-soft);
+  border-radius: var(--opsia-radius-sm);
+  transition: color var(--opsia-transition-fast), background var(--opsia-transition-fast);
+  flex-shrink: 0;
+}
+
+.removeFile:hover {
+  color: var(--opsia-ui-danger);
+  background: rgba(192, 57, 43, 0.07);
+}
+
+/* ─── Grid de classificació ─────────────────────────────────────────────────── */
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: var(--opsia-space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-2);
+}
+
+.label {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 600;
+  color: var(--opsia-ink-strong);
+}
+
+.required {
+  color: var(--opsia-ui-danger);
+  margin-left: 2px;
+}
+
+.select {
+  height: 44px;
+  padding: 0 var(--opsia-space-4);
+  border-radius: var(--opsia-radius-sm);
+  border: 1px solid var(--opsia-line-soft);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+  font-size: var(--opsia-font-size-base);
+  outline: none;
+  transition: border-color var(--opsia-transition-fast);
+  width: 100%;
+}
+
+.select:focus {
+  border-color: var(--opsia-accent-primary);
+}
+
+/* ─── Textarea de notes ──────────────────────────────────────────────────────── */
+.textarea {
+  padding: var(--opsia-space-3) var(--opsia-space-4);
+  border-radius: var(--opsia-radius-sm);
+  border: 1px solid var(--opsia-line-soft);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+  font-size: var(--opsia-font-size-base);
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+  transition: border-color var(--opsia-transition-fast);
+  width: 100%;
+  font-family: var(--opsia-font-sans);
+}
+
+.textarea:focus {
+  border-color: var(--opsia-accent-primary);
+}
+
+/* ─── Error ──────────────────────────────────────────────────────────────────── */
+.error {
+  padding: var(--opsia-space-3) var(--opsia-space-4);
+  border-radius: var(--opsia-radius-sm);
+  background: rgba(192, 57, 43, 0.07);
+  color: var(--opsia-ui-danger);
+  font-size: var(--opsia-font-size-sm);
+  border: 1px solid rgba(192, 57, 43, 0.15);
+}
+
+/* ─── Accions ────────────────────────────────────────────────────────────────── */
+.actions {
+  display: flex;
+  gap: var(--opsia-space-3);
+  padding-top: var(--opsia-space-2);
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .page {
+    padding: var(--opsia-space-5) var(--opsia-space-4);
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

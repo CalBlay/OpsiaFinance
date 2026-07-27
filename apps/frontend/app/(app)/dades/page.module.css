@@ -1,0 +1,184 @@
+.page {
+  padding: var(--opsia-space-8) var(--opsia-space-10);
+  width: 100%;
+}
+
+/* ─── Capçalera ──────────────────────────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  margin-bottom: var(--opsia-space-8);
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-1);
+}
+
+.title {
+  font-size: var(--opsia-font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--opsia-ink-strong);
+  line-height: 1.1;
+}
+
+.subtitle {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+}
+
+/* ─── Cerca ──────────────────────────────────────────────────────────────────── */
+.cercaWrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-3);
+  margin-bottom: var(--opsia-space-6);
+}
+
+.cercaInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.cercaIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--opsia-ink-soft);
+  pointer-events: none;
+}
+
+.cercaInput {
+  width: 100%;
+  height: 40px;
+  padding: 0 40px 0 36px;
+  font-size: var(--opsia-font-size-sm);
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-md);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.cercaInput:focus {
+  border-color: var(--opsia-accent-primary);
+}
+
+.cercaInput::placeholder {
+  color: var(--opsia-ink-soft);
+}
+
+.cercaClear {
+  position: absolute;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--opsia-radius-sm);
+  background: transparent;
+  color: var(--opsia-ink-soft);
+  cursor: pointer;
+}
+
+.cercaClear:hover {
+  background: var(--opsia-bg-panel);
+  color: var(--opsia-ink-strong);
+}
+
+.filtresRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--opsia-space-2);
+}
+
+.filtreSelect {
+  height: 34px;
+  padding: 0 10px;
+  font-size: var(--opsia-font-size-sm);
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+  min-width: 140px;
+}
+
+.cercaResum {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  margin: 0;
+}
+
+/* ─── Taula ──────────────────────────────────────────────────────────────────── */
+.fileLink {
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-2);
+  text-decoration: none;
+}
+
+.fileLink:hover .fileName {
+  text-decoration: underline;
+}
+
+.fileIcon {
+  color: var(--opsia-accent-primary);
+  flex-shrink: 0;
+}
+
+.fileName {
+  font-weight: 600;
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-strong);
+}
+
+.meta {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+}
+
+.noData {
+  color: var(--opsia-line-soft);
+}
+
+/* ─── Estat buit ─────────────────────────────────────────────────────────────── */
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--opsia-space-12) var(--opsia-space-6);
+  gap: var(--opsia-space-3);
+  text-align: center;
+}
+
+.emptyIcon {
+  color: var(--opsia-line-soft);
+  margin-bottom: var(--opsia-space-2);
+}
+
+.emptyTitle {
+  font-size: var(--opsia-font-size-lg);
+  font-weight: 600;
+  color: var(--opsia-ink-strong);
+}
+
+.emptyText {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  max-width: 340px;
+  line-height: 1.6;
+}
+
+/* ─── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .page {
+    padding: var(--opsia-space-5) var(--opsia-space-4);
+  }
+}

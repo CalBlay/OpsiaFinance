@@ -1,0 +1,175 @@
+PLAN ESTRATEGICO, TACTICO Y OPERATIVO
+
+
+Objetivos a medio - largo plazo 3 a 5 años
+
+Va marcar hojs de ruta.
+
+Pq es importante tener etrategia?
+
+Parar a pensar y refelexionar.
+
+Proceso de planifiacacion estrategica:
+
+1 Vision
+Identidad de la empresa cuales somn el econjunto de caracteristicas que nos definen. Mejor claros y concisos.
+ Mision: Es la oidea principa, la razon de ser de la emprea.
+ vision: Habla del futuro, dnde nos vemos en unos años.
+ V alores: Principios eticos y profesionales qye han de regir toda actuación.
+
+2 Analisis interno y externo
+Interno: cual es nuestro cuore, cuales son aquellas actividades que maximizan el valor de la compañia.
+Esquema muy utilizado Cadena de Valor de Poter
+
+Externo: Aspectos externos que inciden en el desarrollo de nuestra actividad. 
+Analisis macro PESTEL antiguo PEST
+Analasisi sectorial  Modelo de las 5 fuerzas de Porter: Amaenazas competidores, poder de negocicaion de clientes, amenaza de sustitutos, poder negociacion proveedores, Rivalidad entre competidores existentes
+
+3 DAFO
+
+Fuerzas de Porter: 
+Amenaza de nuevos entrantes
+Rivalidad entre competidores existentes
+Amenaza de sustitutos
+Poder negociacion de los proveedores
+Poder de negociadion del los clietnes
+
+DAFO: 
+Metodologia CAME diferentes estrategias a partir del analisis DAFo:
+ 1 Estrategia de superviviencia : Marcas coches han tenido de ceder a la energia eléctrica.
+ 2 Estrategia defensiva: Moviles sacando modelos nuveos y anunciado nueva tecnologia
+ 3 Estrategia e reorientacion: ejemplo digitiaclizacion entidades financieras
+ 4 Estrategia ofensiva ejemplo grandes consultoras cada vez se meten mas en el capo de la tecnologia.
+
+4 Ventaja competitiva
+
+Que nos hace diferentes?
+Pq un cliente se va dirigir a nosotros y no a la competencia?
+Aportamos algo disitnto, tangible o intangible (know how)
+
+Diferenciación de producto
+Liderazgo en costes
+Segmentacion
+
+5 Opciones estratégicas
+
+Analisis y genreacion de modelos de negocio:
+
+	Partner clave ( subcontractacion)
+	Actividades clave
+	Recursos clave
+	Propuesta de valor
+	Relaciones con los clientes
+	Canales de comunicación/distribucoión
+	Segmentos de clientes
+	Estructura de costes
+	Flujo de Ingresos
+
+Para ello vamos utilizar EVA ( Valor Economico Añadido) que trata de medir el beneficio obtenido descontados todos los costes, incluyendo en los mismos la rentabilidad exigida pro los accionistas.
+
+EVA = Capitales empleados * (ROCE - WACC)
+
+Capitales empleados = Inmovilizado neto + NOF ( activos dt de las amortizacions)
+NOF = Necesidades oeprativas de fondos =  AC operativo - PC oeprativo (acitvo corrietne - Pasivo corriente)
+
+Es decir no incluimos partidas financieras a corto plazo, ni de inversion ni de financiacion.
+
+ROCE= Rentabilidad capitales empleados = EBIT (1-t)/Capitales empleados
+EBIT = Beneficio antes intereses e impuestos
+WAC = Coste capital ( coste promedio recursos ajenos + propios)
+
+ROCE = EBIT(1-t)/Capitales empleados = EBIT(1-t)/Ventas * Ventas/Capitales empleados
+
+ASi que para crear valor, tenomos las siguientes posibilidades:
+
+Incrementar el ROCE:
+	Incrementar margen de ventas ( via reduccion sotes o incremento precios)
+	Incrementar volumen de vetnas
+	Optimar los activos
+Disminuir el WACC:
+	Reducir coste fuentes financiación
+
+Llevandolo a acciones concretas, para crear valor economico, popdemos trabar en las siguientesposibilidades:
+
+RACIONALIZAR
+
+Reduciendo costes:
+
+	Costes fijos:
+		Incrementando cantidad producto/servicio por cada unidad de coste fijo
+		Variabilizando los costes:
+			Alquiler vs compra
+			Subcontratar vs fabricar
+	Costes Vairables
+		aprovechando economías de escala que nos permita mejorar los precios materiales/servicios.
+		Optimizando mano de obra
+		Optimizando el campital empleado
+			Via NOF
+				Mejorando PMA, PMC y PMP Periodo media de Almacenamiento, periodo medio de cobro, periodo medio de pago
+				Incrementando rotacion
+		via capital fijo
+			Elimindando activos ociosos
+			Subcontratando a otros nuestro eceso de capacidad
+
+CRECER:
+	Con clientes actuales:
+		Fdelizando a los clientes
+			Incrementado su frecuencia de compra
+			Incremetando tamaña de compra
+		Ofreciendo nuevos productos
+	Coin nuevos clientes
+	con nuevos negocios
+		Basico parovechar sinergias
+			Horizontal 
+			Vertical  (hacia delante o dtras en la cadena logisitca)
+
+Ke EN Excel  Datos
+		analisis de hipotesis
+			buscar objetivos
+
+
+6 Recursos
+Propuesta de valor; Reucrsos, Procesos y Capacidades ; Rentabilidad
+
+Hay combinar las 3 patas
+
+7 Análisis de escenarios
+
+Pesimista
+Realista
+Optimista
+
+8 Eleccion estrategia
+
+Podemos utilizar BSC o Cuadro de Mando
+Balance Scorecard define:
+	Perspectiva financiera
+	Perspectiva de clientes
+	Perspectiva de procesos
+	Perspectiva de aprendizaje y crecimiento	
+
+Planes tacticos por departamentos para aplicar el plan estrategico  : revisar contratos de proveedores
+Planes operativos acciones concretas de cada plan tactico : Establecer parametros, kpi dde cada proveedor, 
+
+
+
+9 Planes tácticos
+10 Planes operativos
+11 Presupuesto
+Base de las cuentas previsionales
+
+Hacer seguimineto, revidsar las desviaciones y establezer medidas correctoras
+
+La planificacin estratégica, tatica y operativa debe estar muy organizada y rigurosos cpn los tiempos. 
+Planificar supone controlar el trabajo realizao y los resultados
+
+Una buena planificacion es base del crecimineto sosenible, imprescindible para la consecucion de objetivos, as como, para tener el conrol sobre el imnpacto del entorno y mno quedar a su merced
+Macrcate un objetivo ultimo y, divide el caminoi en pequeños escalones a cosneguir para ir llegando a él.
+
+
+
+12 Control
+13 Revisión
+14 Cambio o adaptación
+
+

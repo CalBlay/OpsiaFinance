@@ -1,0 +1,9 @@
+PRÉSTAMOS Y CRÉDITOS
+
+tie ES EL QUE USAREMO PARA EL CALCULO PAGAO DE LAS CUOTAS
+
+Sistema americano: AL vencimineto final del contrato. no pagos de amortizacion si intereses. Paga mas interses. Siempe sobre slado inicial.
+
+Sistema Italiano: Amortizacion es constante, intereses es vaiable cada año, reduce pq depende sobre capital pendiente de la operación
+
+Sisema frances: cuota a pagar es constante 

@@ -1,0 +1,98 @@
+/*
+ * OpsiaFinance — Tokens corporatius
+ * Font única de veritat per a color, espai, tipografia i radi.
+ * Mai editar valors directament als components: usar sempre aquests tokens.
+ *
+ * Origen: src/design-system/tokens.css (sincronitzat manualment)
+ */
+
+:root {
+  /* ─── Paleta primitiva ─────────────────────────────────────────────────── */
+  --opsia-color-stone-50: #fbf9f5;
+  --opsia-color-stone-100: #f5f3ee;
+  --opsia-color-stone-200: #ece7de;
+  --opsia-color-stone-300: #d4dad7;
+
+  --opsia-color-slate-700: #5c6b73;
+  --opsia-color-slate-900: #22313f;
+
+  --opsia-color-teal-600: #2f6f6d;
+  --opsia-color-steel-500: #6e8ca0;
+  --opsia-color-amber-500: #c59b57;
+
+  /* ─── Superfícies ──────────────────────────────────────────────────────── */
+  --opsia-bg-app: var(--opsia-color-stone-100);
+  --opsia-bg-panel: var(--opsia-color-stone-200);
+  --opsia-bg-card: var(--opsia-color-stone-50);
+  --opsia-bg-sidebar: #dce4e6;
+  --opsia-bg-topbar: rgba(255, 255, 255, 0.94);
+
+  /* ─── Text ─────────────────────────────────────────────────────────────── */
+  --opsia-ink-strong: var(--opsia-color-slate-900);
+  --opsia-ink-soft: var(--opsia-color-slate-700);
+  --opsia-line-soft: var(--opsia-color-stone-300);
+
+  /* ─── Accent ────────────────────────────────────────────────────────────── */
+  --opsia-accent-primary: var(--opsia-color-teal-600);
+  --opsia-accent-secondary: var(--opsia-color-steel-500);
+  --opsia-accent-warm: var(--opsia-color-amber-500);
+
+  /* ─── Estat ─────────────────────────────────────────────────────────────── */
+  --opsia-ui-success: var(--opsia-color-teal-600);
+  --opsia-ui-info: var(--opsia-color-steel-500);
+  --opsia-ui-warning: var(--opsia-color-amber-500);
+  --opsia-ui-danger: #c0392b;
+
+  /* ─── Radi ──────────────────────────────────────────────────────────────── */
+  --opsia-radius-sm: 10px;
+  --opsia-radius-md: 16px;
+  --opsia-radius-lg: 24px;
+
+  /* ─── Espai ─────────────────────────────────────────────────────────────── */
+  --opsia-space-1: 4px;
+  --opsia-space-2: 8px;
+  --opsia-space-3: 12px;
+  --opsia-space-4: 16px;
+  --opsia-space-5: 20px;
+  --opsia-space-6: 24px;
+  --opsia-space-8: 32px;
+  --opsia-space-10: 40px;
+  --opsia-space-12: 48px;
+
+  /* ─── Ombra ─────────────────────────────────────────────────────────────── */
+  --opsia-shadow-soft: 0 8px 24px rgba(34, 49, 63, 0.07);
+  --opsia-shadow-card: 0 2px 8px rgba(34, 49, 63, 0.05);
+
+  /* ─── Layout ────────────────────────────────────────────────────────────── */
+  --opsia-sidebar-width: 220px;
+  --opsia-topbar-height: 60px;
+
+  /* ─── Tipografia ────────────────────────────────────────────────────────── */
+  --opsia-font-sans: Manrope, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --opsia-font-size-xs: 13px;
+  --opsia-font-size-sm: 15px;
+  --opsia-font-size-base: 17px;
+  --opsia-font-size-lg: 21px;
+  --opsia-font-size-xl: 25px;
+  --opsia-font-size-2xl: 32px;
+  --opsia-font-size-3xl: 42px;
+
+  /* ─── Transicions ───────────────────────────────────────────────────────── */
+  --opsia-transition-fast: 120ms ease;
+  --opsia-transition-base: 200ms ease;
+
+  /* ─── Padding de pàgina (responsive) ───────────────────────────────────── */
+  --opsia-page-padding: 40px;
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --opsia-page-padding: 24px;
+  }
+}
+
+@media (max-width: 768px) {
+  :root {
+    --opsia-page-padding: 16px;
+  }
+}

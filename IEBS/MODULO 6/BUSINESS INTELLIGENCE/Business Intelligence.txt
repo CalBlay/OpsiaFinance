@@ -1,0 +1,42 @@
+Business Intelligence
+
+
+INICIO
+ARCHIVO
+Dimensiones
+Serie DWH
+viernes, 12 de junio de 2009
+Aunque las dimensiones de un sistema Business Intelligence se suelen representar gráficamente como un cubo de tres dimensiones, el sistema se puede generalizar a N dimensiones
+Denominamos dimensiones a aquellos datos que nos permiten filtrar, agrupar o seccionar la información. El término "dimensión" sigue teniendo un cierta connotación técnica, por lo que muchas personas lo siguen denominando "atributo", "característica", "propiedad", "campo", o incluso "cuadradito azul" (en el caso de una instalación de BO).
+
+Algunas aplicaciones Business Intelligence utilizan el término "dimensión" como equivalente a "jerarquía" (especialmente en bases de datos multidimensionales). De esta manera, se habla de la dimensión geográfica que agrupa los diferentes niveles de continentes, países, regiones, provincias y localidades.
+
+Típica jerarquía geográfica en un sistema Business Intelligence
+Personalmente, prefiero reservar el término "dimension" para referirme a cada uno de los niveles de la jerarquía.
+
+En el modelo relacional del datawarehouse las dimensiones se almacenan en las "tablas de dimensión", lo que nos lleva al error número 11 de nuestra serie :
+
+Error 11: Abreviar las descripciones en las tablas de dimensión con la intención de reducir el espacio requerido.
+
+El espacio requerido por las tablas de dimensión es despreciable frente a lo que ocupan los hechos. Por ejemplo, una cadena como Zara puede tener unas 5000 tiendas, y debe generar unos 3 o 4 millones de registros de venta diarios. En este y otros ejemplos que podríamos citar, también las dimensiones de cliente o producto son despreciable frente a las ventas, los envíos o la producción diaria.
+
+Por lo tanto, no debemos considerar el espacio como un aspecto determinante para modelizar las dimensiones. En particular, cada código debe tener su descripción. Las dimensiones son la interfaz que tendrán los usuarios para navegar por la información, por lo que conviene que sean lo más explícitas y claras posible.
+
+Incluso debemos plantearnos la necesidad real de introducir los códigos en la capa de presentación a los usuarios. Aunque algunos trabajadores pueden estar acostumbrados a trabajar con los códigos de familia, las referencias o los códigos de proveedor, nadie los conoce todos, y especialmente los nuevos empleados pueden tener dificultades para reconocerlos. Siempre son preferibles las descripciones.
+
+Personalmente, omito por defecto todos los códigos de la capa de presentación, y sólo cuando algún usuario lo solicita explícitamente lo añado en el sistema. Esta manera de actuar nunca me ha generado un problema. De hecho, es sorprendente lo rápido que se acostumbran los usuarios a trabajar con las descripciones y lo rápido que se olvidan de los códigos con los que han trabajado toda la vida... (una causa de esto es que con una herramienta Business Intelligence raramente se ha de teclear un código, ya que se trabaja con clics de ratón y con listas de valores).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

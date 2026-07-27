@@ -1,0 +1,25 @@
+{
+  "card": {
+    "radius": 24,
+    "padding": 24,
+    "shadow": "soft",
+    "borderStyle": "soft-line",
+    "accentBar": true
+  },
+  "sidebar": {
+    "width": 264,
+    "itemHeight": 48,
+    "itemGap": 8,
+    "iconSize": 18
+  },
+  "topbar": {
+    "height": 72,
+    "showCenterBrand": true,
+    "showBottomDivider": true
+  },
+  "homeCards": {
+    "layout": "2-up",
+    "minimumHeight": 220,
+    "primaryActionOnly": true
+  }
+}

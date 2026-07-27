@@ -1,0 +1,144 @@
+Balance
+
+DEber = inversion activo     		no corriente largo plazo / activo corriente corto plazo (existencias)
+
+Haber =  financiacion			fondos a largo plazo, fonos propios o ajenos (deudas) / pasivo corto plazo
+
+Optima financiacio largo plazo > Inversion no corriente
+
+Mayor financiacion con acreedores mejor, entonces menor deuda a corto  ( ej, pagar 120 dias)
+
+Proveedores que pagamos a 60 dias podemos pedir dte por pronto pago.
+
+Fondos propios vs fondos ajenos
+
+Mayor riesgo en fondos propios
+propio coste mayor y no deducible, el ajeno es deducible
+En  fondo ajeno tendremos peor ratio equilibrio y autonomía
+No pagamos impuestos por ese importe
+Sobre dividiendo si pago.
+
+Valoracion de la s empresas:
+
+Valor contable, mirar los balances, dif. emtre 
+
+
+Valor flujos futuros
+
+
+WACC = Ke * (E/E+D) + kd * (D/E+D)
+
+Kd= cOSTE DE LA DEUDA
+Ke = COSTE FONDOS PROPIOS
+WACC = COSTE CAPITAL TOTAL
+D = DEUDA
+E = FONDOS PROPIOS
+Rdo = RESULTADO DE LA EMPRESA
+
+Ke= Rdo + ( D/E) * ( Rdo- Kd))
+
+
+Si no hay deuda, D/E= 0 y WAQCC = ke= Rdo, si hay deuda mayor el cociente D/E y con ello mayor Ke. Es decir, mayor apalancamiento mas carols los pfondos propios. Es decir los accionistas van pedir un mayor porcentaje cunado el Ke sea mayor.
+
+Mayor apalancamiento mas caros son los fondos propios
+apalancamiento = coste de la deuda (Kd)
+
+
+MAs deuda mas ahorro fiscal, no se pagan impuestos sobre deudas. mayor crecimiento. fijarnos estrictamente en la rentabilidad
+
+V= E + D  Valor dela empresa
+Coste Capital WACC = Ke * (E/E+D) + Kd * D/ (E+D)  con impuestos  WACC = ke* E/(E+D) + Kd* D(1-i)/(E+D)
+
+Sin crecimiento	 Rdo = WACC  con impuestos Rdo (1-i) = WACC
+con crecimineto  V = Resultado/WACC  con impuestos BAII=  Resultado (1-i)/WACC
+Coste fondos propios ( Ke) Ke= Rdo + (D/E*(rdo-Kd))  con impuestos Ke= Rdo + (D/E*(Rdo - Kd)*(1-i))
+
+(1-i) = despueste de pagar impuestos
+
+
+COSTES DE INSOLVENCIA= cuandto mas endeudamiento, incremnta el riesgo de que pueda tener problemas de liquidez a ka de hacer frente a los pagos, e incluso llegar situacion de quiebra.
+
+Se da dinero al que lo tiene
+
+Hasta cierta deuda nos interesa hast un punto probabilidad de insolvencia financieraanulara los efectos positivos del ahorro fiscal.
+
+
+
+SABer parametros ratios de edudamiento dels sector 
+
+Costes de agencia: merman el valor de la empresa. son derivados del control que debe ejercers sobre directivos o gestores por parte de los accionistas o propietarios, en pro de asegurarse, que velan pro su mismo objetivo. 
+
+
+CICLO DE VIDA DE LA EMPRESA:
+
+1 EXISTENCIA
+2 SUPERVIVIENCIA
+3 EXITO INICIAL
+4 EXITO FORMAL (CRECIMIENTO O ARRANQUE)
+5 MADUREZ O CRECIMIENTO POTENCIAL.
+
+
+1 iNCIA EN SOLITARIO.
+2 PROPIETARIO CARA VISIBLE,YA REALIZADO DIVERSAS CONTRATACIONES
+	Responable de Administracin y fiananzas se ocupa de todo tipo de tareas, en solitario primero, varias personas con el tiempo de perfiles polivalentes.
+	R.fiannzas sigue directirices del gerente, bajo supervisiomn y mas o menos estrecha del dueño.
+
+ Empiezza reportes analiticos, pero limitacines por las herramientas
+ Cuando se invierte un ERP de gestion
+ La empresa empieza a trabajar en procedimientos, organizacion de tareas, presupuestos...
+ Es muy sensible a la liquidez, hay que ajustar las necesidades de inversion y fianciacion. Más estrutuctura fija menos agiles
+
+iMPORTANTE ESTABLECER PROTOCOLO FAMILIAR
+
+3 ERP integrado totalemente. Suele conformarse un Dept de Sistemas
+  aEA DE MARKETING, asesores puntuales
+ Desde el punto de vista financiero, sigue delgando y formando equipo cran posciones de controling y tesoreria. director financierodecisiones tacticas y operativas del area, normalmente tienen firma, para operaines financieras. 
+Propietario fuera de la gestion del dia a dia 
+
+4 Equipo gerencial de alto nivel. Planifiacacion estrategica.  Mejores condiciones laborales trabajadores
+
+ dirctor fiananciero es fundamental. se requiere domini de fianzas avanzadas.
+Excesiva burocracia todo esta procedimiento, hace lentos. suele haber un gran reemplazo de directivos. 
+el apalancamiento financiero puede ser importante y mala previsiones pueden poner a la sociedad en verdaeros apuros.
+
+5 Crecoimiemnto es sostenible y las acciones de la organizacion pueden se vendidas con fcilidad. ç
+ La direccion de la empresa es mnas flexible
+
+
+No hay una estrucutra optima universal, per so fijate tu objetivo al respecto en consonancia con la situación, estrategia y el entorno en el que te muevas y mantenlo.
+
+
+"EL MERCADO PUIEDE PERMANACER IRRACIONAL MAS TIEMPO DEL QUE USTED PUEDE PERMANAECER SOLVENTE".
+
+aNALIZA LA SITUACIONJ Y ANTICIPATE A LOS CAMBIOS
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

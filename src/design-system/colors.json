@@ -1,0 +1,28 @@
+{
+  "palette": {
+    "stone-50": "#FBF9F5",
+    "stone-100": "#F5F3EE",
+    "stone-200": "#ECE7DE",
+    "stone-300": "#D4DAD7",
+    "slate-900": "#22313F",
+    "slate-700": "#5C6B73",
+    "teal-600": "#2F6F6D",
+    "steel-500": "#6E8CA0",
+    "amber-500": "#C59B57"
+  },
+  "semantic": {
+    "bg-app": "#F5F3EE",
+    "bg-panel": "#ECE7DE",
+    "bg-card": "#FBF9F5",
+    "bg-sidebar": "#DCE4E6",
+    "ink-strong": "#22313F",
+    "ink-soft": "#5C6B73",
+    "line-soft": "#D4DAD7",
+    "accent-primary": "#2F6F6D",
+    "accent-secondary": "#6E8CA0",
+    "accent-warning": "#C59B57",
+    "ui-success": "#2F6F6D",
+    "ui-info": "#6E8CA0",
+    "ui-warning": "#C59B57"
+  }
+}

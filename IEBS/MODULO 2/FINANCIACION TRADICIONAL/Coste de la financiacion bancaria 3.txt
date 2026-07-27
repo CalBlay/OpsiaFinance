@@ -1,0 +1,87 @@
+Coste de la financiacion bancaria
+
+Comisones
+El interes
+
+Comisiones:  Apertura, estudio, disponibilidad, cancelaton anticipada
+
+El interes : 
+	Ordinario :
+		Fijo  ( operaciones c.p  maximo 4 años)
+		Variable
+			euribor
+			Irmh ( garantia hipotecaria )
+				Tipo Medio phvl 3 años C.E. 
+				Euribor Hipotecario (tipo mediao a 12 meses)
+
+
+
+	Moratorio : Si no se paga las cuotas, impago
+
+Debe tener en cuenta a al hora de fijar un valor al interes:
+
+Prima de riesgo, 
+coste del dinero y el 
+margen de beneficio
+
+cuenta el año a 360 dias: operacion es € * %interes * Tiempo / 360 dias
+
+TAE es un elemento comparativo, incorpora tipo de interes, impacto de las comisiones, tae mas baja coste fianciacion mas bajo.
+
+De que depende la evolucion el tipo de interes: Tasas de inflación BCE  
+
+
+SWAPS  
+	Explicitos
+		Fijo		
+		Techo/suelo
+			CAP
+			FLOR
+	Implicitos
+	
+
+PRÉSTAMO BANCARIO
+
+A vencimineto es con prestamos a c.p 
+
+Un bullet devolucion periodica del 70-80% y el reto al vencimineto.
+
+
+Calculo de la cuota de préstamo segun sistema Francés ( el comntrato del préstamo bancario)
+
+
+Préstamo Sindicado
+
+EMpresas que necesitan volmen de préstamo muy grande, varia entidades de credito realzian un unico préstamo a un unico cliente.  A trves del banco manager o banco líder.
+
+
+Contrato de leasing o arrendamiento financiero.
+
+Activos fijo no circulante
+el banco arrendamiento financiero
+Al finalizar el plazo se fija una ocpion de compra
+
+Contrato de Renting
+
+
+Contrato de apertura de crédito
+
+Factoring:  
+
+
+
+
+
+
+
+
+
+https://www.bbva.es/finanzas-vistazo/tu-guia-bbva/empresas.html
+
+https://www.bbva.es/empresas/productos/financiacion/prestamo-para-autonomos-y-negocios.html
+
+https://www.bbva.es/general/tarifas.html
+
+https://wcm.bancosantander.es/fwm/do-o-8-2-0-precios_estandar.pdf
+
+https://portalnhb.bancosantander.es/san/wcm/connect/sanflix/2e273260-9f2e-4c52-9e00-62d4ba24670e/Cuenta+Santander+One+Empresas+%28auto%CC%81nomos%29+-+2022.pdf?MOD=AJPERES

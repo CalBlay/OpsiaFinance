@@ -1,0 +1,13 @@
+{
+  "brandElement": {
+    "type": "accent-bar",
+    "orientation": "vertical",
+    "colorToken": "accent-primary",
+    "thickness": 4,
+    "radius": 999
+  },
+  "supportElements": {
+    "headerDivider": true,
+    "roundedCards": true
+  }
+}

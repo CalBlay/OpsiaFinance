@@ -1,0 +1,123 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+}
+
+/* —— KPI strip (estil Power BI / cards executives) —— */
+.kpiStrip {
+  border: 1px solid var(--color-border);
+  border-radius: 0.85rem;
+  background: var(--color-card);
+  padding: 1.1rem 1.25rem 1.25rem;
+}
+
+.kpiHead {
+  margin-bottom: 1rem;
+}
+
+.kpiEyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+}
+
+.kpiTitle {
+  margin: 0;
+  font-size: clamp(1.2rem, 2vw, 1.5rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-foreground);
+}
+
+.kpiCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.kpiCard {
+  padding: 0.85rem 1rem;
+  border-radius: 0.6rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.kpiCard[data-accent="sala"] {
+  border-color: color-mix(in srgb, #0ea5e9 35%, var(--color-border));
+  background: color-mix(in srgb, #0ea5e9 6%, var(--color-background));
+}
+
+.kpiCard[data-accent="cuina"] {
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--color-border));
+  background: color-mix(in srgb, #f59e0b 6%, var(--color-background));
+}
+
+.kpiLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+}
+
+.kpiValue {
+  font-size: clamp(1.25rem, 2.2vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground);
+  line-height: 1.15;
+}
+
+.kpiHint {
+  font-size: 0.78rem;
+  color: var(--color-muted-foreground);
+  margin-top: 0.15rem;
+}
+
+.chartCardWide {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+  padding: 1rem 1.15rem 1.25rem;
+}
+
+.chartTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--color-foreground);
+}
+
+.chartLead {
+  margin: 0.35rem 0 0.85rem;
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.45;
+  max-width: 46rem;
+}
+
+.emptyChart {
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  text-align: center;
+  padding: 2.5rem 1rem;
+  margin: 0;
+}
+
+@media print {
+  .wrap {
+    gap: 1rem;
+  }
+  .chartCardWide {
+    break-inside: avoid;
+  }
+}
