@@ -9,11 +9,13 @@ export function DetallCompteCollapsible({
   caption,
   children,
   defaultOpen = false,
+  title = "Compte d'explotació detallat",
 }: {
   caption: string;
   children: ReactNode;
   /** Obre el compte detallat per defecte (p. ex. vista Gestió empresa). */
   defaultOpen?: boolean;
+  title?: string;
 }) {
   const [obert, setObert] = useState(defaultOpen);
 
@@ -29,7 +31,7 @@ export function DetallCompteCollapsible({
           size={16}
           className={cn(styles.detallChevron, obert && styles.detallChevronOpen)}
         />
-        Compte d&apos;explotació detallat
+        {title}
         <span className={styles.detallHint}>{obert ? "Amaga" : "Mostra"}</span>
       </button>
       {obert && (

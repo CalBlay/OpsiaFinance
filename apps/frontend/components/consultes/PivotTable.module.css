@@ -103,3 +103,106 @@
   color: var(--color-muted-foreground);
   opacity: 0.5;
 }
+
+/* Edició inline (ADMIN) */
+.editableTd {
+  min-width: 7rem;
+}
+
+.importWrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.importWrap:hover .editTrigger {
+  opacity: 1;
+}
+
+.editTrigger {
+  opacity: 0;
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+  border-radius: 0.3rem;
+  line-height: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.editTrigger:hover {
+  background: var(--color-muted);
+  color: var(--color-primary);
+}
+
+.editPanel {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+  position: relative;
+  min-width: 9rem;
+}
+
+.editInput,
+.motiuInput {
+  width: 100%;
+  height: 1.7rem;
+  padding: 0 0.4rem;
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  border: 1.5px solid var(--color-primary);
+  border-radius: 0.3rem;
+  background: var(--color-card);
+  color: var(--color-foreground);
+  outline: none;
+}
+
+.motiuInput {
+  text-align: left;
+  font-variant-numeric: normal;
+}
+
+.editActions {
+  display: inline-flex;
+  gap: 0.2rem;
+}
+
+.editBtn,
+.editBtnCancel {
+  height: 1.6rem;
+  width: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.3rem;
+  cursor: pointer;
+  line-height: 0;
+}
+
+.editBtn {
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+}
+
+.editBtnCancel {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+
+.editBtn:disabled,
+.editBtnCancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editError {
+  font-size: 0.68rem;
+  color: var(--color-destructive);
+  white-space: normal;
+  text-align: right;
+  max-width: 10rem;
+}

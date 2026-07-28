@@ -1,5 +1,6 @@
 import { recalcularCompositesOnly } from "@/lib/compte-subtotals";
 import type { ConceptePivot } from "@/lib/consultes";
+import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
 
 /** Acumula delta per centre i node. */
@@ -9,8 +10,11 @@ export function aplicarDeltaCentre(
   node: number,
   delta: number
 ): void {
-  if (!perCentre.has(centreId)) perCentre.set(centreId, new Map());
-  const nodes = perCentre.get(centreId)!;
+  let nodes = perCentre.get(centreId);
+  if (!nodes) {
+    nodes = new Map();
+    perCentre.set(centreId, nodes);
+  }
   nodes.set(node, (nodes.get(node) ?? 0) + delta);
 }
 
@@ -20,14 +24,14 @@ export function aplicarDeltaCentre(
  */
 export async function carregarDeltasTraspassPersonalPerCentre(
   any: number,
-  mes: number | null
+  rang: RangMesos
 ): Promise<Map<string, Map<number, number>>> {
   const { db } = await import("@/lib/db");
 
   const execucions = await db.execucioTraspassPersonal.findMany({
     where: {
       estat: "CONFIRMAT",
-      period: mes ? { any, mes } : { any },
+      period: prismaPeriodFilter(any, rang),
     },
     include: {
       moviments: {
@@ -84,8 +88,11 @@ export function agregarDeltasTraspassPerLn(
   for (const [centreId, nodes] of deltaByCentreNode) {
     const lnId = centreToLn.get(centreId);
     if (!lnId) continue;
-    if (!perLn.has(lnId)) perLn.set(lnId, new Map());
-    const acc = perLn.get(lnId)!;
+    let acc = perLn.get(lnId);
+    if (!acc) {
+      acc = new Map();
+      perLn.set(lnId, acc);
+    }
     for (const [node, v] of nodes) {
       acc.set(node, (acc.get(node) ?? 0) + v);
     }
@@ -158,8 +165,11 @@ export function combinarDeltasLn(
   const merged = new Map<string, Map<number, number>>();
   for (const src of [repartiment, traspass]) {
     for (const [lnId, nodes] of src) {
-      if (!merged.has(lnId)) merged.set(lnId, new Map());
-      const acc = merged.get(lnId)!;
+      let acc = merged.get(lnId);
+      if (!acc) {
+        acc = new Map();
+        merged.set(lnId, acc);
+      }
       for (const [node, v] of nodes) {
         acc.set(node, (acc.get(node) ?? 0) + v);
       }

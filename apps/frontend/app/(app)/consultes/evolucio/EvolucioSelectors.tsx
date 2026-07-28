@@ -23,6 +23,9 @@ export function EvolucioSelectors({
   any: number;
 }) {
   const router = useRouter();
+  const scopeSelectId = "evolucio-scope";
+  const lineSelectId = "evolucio-line";
+  const yearSelectId = "evolucio-year";
 
   const go = (nextScope: string, nextLn: string, nextAny: number) => {
     if (nextScope === "linia" && !nextLn) {
@@ -36,21 +39,27 @@ export function EvolucioSelectors({
   return (
     <div className={styles.selectors}>
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Àmbit</label>
+        <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
+          Àmbit
+        </label>
         <select
+          id={scopeSelectId}
           className={styles.select}
           value={scope}
           onChange={(e) => go(e.target.value, lnId ?? "", any)}
         >
-          <option value="empresa">Empresa (totes les línies)</option>
+          <option value="empresa">Empresa (Cal Blay)</option>
           <option value="linia">Una línia de negoci</option>
         </select>
       </div>
 
       {scope === "linia" && (
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Línia de negoci</label>
+          <label className={styles.fieldLabel} htmlFor={lineSelectId}>
+            Línia de negoci
+          </label>
           <select
+            id={lineSelectId}
             className={styles.select}
             value={lnId ?? ""}
             onChange={(e) => go("linia", e.target.value, any)}
@@ -66,8 +75,11 @@ export function EvolucioSelectors({
       )}
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Any</label>
+        <label className={styles.fieldLabel} htmlFor={yearSelectId}>
+          Any
+        </label>
         <select
+          id={yearSelectId}
           className={styles.select}
           style={{ minWidth: 100 }}
           value={any}

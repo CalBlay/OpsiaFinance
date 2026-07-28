@@ -1,12 +1,26 @@
 import { esSubtotalPresentacio, recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import { aplicarConsolidacio } from "@/lib/consolidacio/service";
 import { db } from "@/lib/db";
-import { GRUP_EMPRESA_DEFAULT, type GrupEmpresa, filtraLiniesPerGrup } from "@/lib/grups-empresa";
-import { lnInformePerAgregacio } from "@/lib/linia-informe";
-import { MESOS_CURTS, MESOS_LLARGS } from "@/lib/periodes";
+import {
+  GRUP_EMPRESA_DEFAULT,
+  type GrupEmpresa,
+  etiquetaGrupEmpresa,
+  filtraLiniesPerGrup,
+} from "@/lib/grups-empresa";
+import { esColumnaTotalLnRedundant, lnInformePerAgregacio } from "@/lib/linia-informe";
+import { MESOS_CURTS, MESOS_LLARGS, type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import type { Prisma } from "@prisma/client";
 
 export { MESOS_CURTS, MESOS_LLARGS } from "@/lib/periodes";
+export type { RangMesos } from "@/lib/periodes";
+export {
+  etiquetaRangMesos,
+  etiquetaRangMesosLlarga,
+  esAnyComplet,
+  esUnMes,
+  parseRangMesosFromSearchParams,
+  rangToQuery,
+} from "@/lib/periodes";
 
 async function consolidarSiEmpresaAsync(
   scope: "empresa" | "linia" | "centre",
@@ -30,6 +44,8 @@ const DADA_INFORME_SELECT = {
 
 export interface ConceptePivot {
   node: number;
+  /** Id de ConcepteResultat; necessari per editar des de consultes. */
+  concepteId?: string;
   descripcio: string;
   esSubtotal: boolean;
   valors: number[]; // longitud variable segons la vista (12 mesos, o N centres)
@@ -51,7 +67,7 @@ export interface CompteExplotacioCentre {
 export interface ComparativaLn {
   liniaNegoci: { id: string; codi: string; nom: string } | null;
   any: number;
-  mes: number | null; // null = acumulat anual
+  rang: RangMesos;
   centres: { id: string; codi: string; nom: string }[];
   concepts: ConceptePivot[];
   buit: boolean;
@@ -141,6 +157,7 @@ export async function getCompteExplotacioCentre(
     const valors = perConcepte.get(c.id)!;
     return {
       node: c.node,
+      concepteId: c.id,
       descripcio: c.descripcio,
       esSubtotal: esSubtotalPresentacio(c.node, c.esSubtotal),
       valors,
@@ -148,12 +165,14 @@ export async function getCompteExplotacioCentre(
     };
   });
 
-  let conceptsOut = rows;
+  // Subtotals a partir del detall (p.ex. TOTAL COST SALARIAL ← SOUS I SALARIS…),
+  // perquè KPIs i files de total reflecteixin ajustos manuals.
+  let conceptsOut = recalcularSubtotalsCompte(concepts, rows);
   if (vista === "gestio") {
     const { aplicarTraspassPersonalEvolucioCentre } = await import(
       "@/lib/traspass-personal/gestio-consultes"
     );
-    conceptsOut = await aplicarTraspassPersonalEvolucioCentre(centreId, any, rows);
+    conceptsOut = await aplicarTraspassPersonalEvolucioCentre(centreId, any, conceptsOut);
   }
 
   return {
@@ -173,10 +192,10 @@ export type VistaCompte = "directe" | "gestio";
 export async function getComparativaLn(
   liniaNegociId: string,
   any: number,
-  mes: number | null,
+  rang: RangMesos,
   vista: VistaCompte = "directe"
 ): Promise<ComparativaLn> {
-  const periodFilter = mes ? { any, mes } : { any };
+  const periodFilter = prismaPeriodFilter(any, rang);
   const [ln, concepts, dadesAll] = await Promise.all([
     db.liniaNegoci.findUnique({
       where: { id: liniaNegociId },
@@ -202,12 +221,14 @@ export async function getComparativaLn(
     }),
   ]);
 
-  const dades = dadesAll.filter((d) => lnInformePerAgregacio(d) === liniaNegociId);
+  const dades = dadesAll.filter(
+    (d) => !esColumnaTotalLnRedundant(d) && lnInformePerAgregacio(d) === liniaNegociId
+  );
 
   const ajustos = await db.ajust.findMany({
     where: {
-      centre: { liniaNegociId },
       period: periodFilter,
+      OR: [{ liniaNegociId }, { centre: { liniaNegociId } }],
     },
     select: { import_: true, centreId: true, concepteResultatId: true },
   });
@@ -264,11 +285,11 @@ export async function getComparativaLn(
     const { aplicarGestioRepartimentLn, carregarDeltasGestioAgregats, COL_REPARTIMENT_ID } =
       await import("@/lib/repartiment/gestio-consultes");
 
-    const deltaByCentreNode = await carregarDeltasTraspassPersonalPerCentre(any, mes);
+    const deltaByCentreNode = await carregarDeltasTraspassPersonalPerCentre(any, rang);
     const centreIds = centres.map((c) => c.id);
     rows = aplicarDeltasTraspassPersonalCentres(rows, centreIds, deltaByCentreNode);
 
-    const deltaByLnNode = await carregarDeltasGestioAgregats(any, mes);
+    const deltaByLnNode = await carregarDeltasGestioAgregats(any, rang);
     const deltaByNode = deltaByLnNode.get(liniaNegociId) ?? new Map<number, number>();
     centresOut = [
       ...centres,
@@ -280,7 +301,7 @@ export async function getComparativaLn(
   return {
     liniaNegoci: ln ? { id: ln.id, codi: ln.codi, nom: ln.nom } : null,
     any,
-    mes,
+    rang,
     centres: centresOut,
     concepts: rows,
     buit: dades.length === 0 && ajustos.length === 0,
@@ -304,6 +325,7 @@ function buildRows(concepts: ConcepteBase[], perConcepte: Map<string, number[]>)
     const valors = perConcepte.get(c.id)!;
     return {
       node: c.node,
+      concepteId: c.id,
       descripcio: c.descripcio,
       esSubtotal: esSubtotalPresentacio(c.node, c.esSubtotal),
       valors,
@@ -313,11 +335,95 @@ function buildRows(concepts: ConcepteBase[], perConcepte: Map<string, number[]>)
   return recalcularSubtotalsCompte(concepts, rows);
 }
 
+function lnIdAjust(a: {
+  liniaNegociId: string | null;
+  centre: { liniaNegociId: string } | null;
+}): string | null {
+  return a.liniaNegociId ?? a.centre?.liniaNegociId ?? null;
+}
+
+async function resolveLiniesGrup(grup: GrupEmpresa) {
+  const liniesRawAll = await db.liniaNegoci.findMany({
+    where: { isActive: true },
+    orderBy: { ordre: "asc" },
+    select: { id: true, codi: true, nom: true },
+  });
+  const linies = filtraLiniesPerGrup(liniesRawAll, grup);
+  return { linies, lnIdsGrup: new Set(linies.map((l) => l.id)) };
+}
+
+/**
+ * Dades + ajustos d'empresa amb la mateixa atribució LN que getComparativaEmpresa
+ * (`lnInformePerAgregacio` + filtre de grup Cal Blay / FDLC).
+ */
+async function carregarDadesEmpresa(
+  periodFilter: Prisma.PeriodWhereInput,
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
+) {
+  const [{ linies, lnIdsGrup }, concepts, dadesAll, ajustosAll] = await Promise.all([
+    resolveLiniesGrup(grup),
+    getConceptsActius(),
+    db.dadaResultat.findMany({
+      where: { period: periodFilter },
+      select: {
+        ...DADA_INFORME_SELECT,
+        period: { select: { any: true, mes: true } },
+      },
+    }),
+    db.ajust.findMany({
+      where: { period: periodFilter },
+      select: {
+        import_: true,
+        liniaNegociId: true,
+        concepteResultatId: true,
+        centre: { select: { liniaNegociId: true } },
+        period: { select: { any: true, mes: true } },
+      },
+    }),
+  ]);
+
+  const dades = dadesAll.filter((d) => {
+    if (esColumnaTotalLnRedundant(d)) return false;
+    const lnId = lnInformePerAgregacio(d);
+    return !!lnId && lnIdsGrup.has(lnId);
+  });
+  const ajustos = ajustosAll.filter((a) => {
+    const lnId = lnIdAjust(a);
+    return !!lnId && lnIdsGrup.has(lnId);
+  });
+
+  return {
+    concepts,
+    linies,
+    lnIdsGrup,
+    dades,
+    ajustos,
+    titol: etiquetaGrupEmpresa(grup),
+  };
+}
+
+/** Pivot 12 mesos a partir de dades ja filtrades (empresa o LN). */
+function pivotMensualDesDeMoviments(
+  concepts: ConcepteBase[],
+  moviments: { import_: unknown; concepteResultatId: string; period: { mes: number } }[]
+): ConceptePivot[] {
+  const perConcepte = new Map<string, number[]>();
+  for (const c of concepts) perConcepte.set(c.id, new Array(12).fill(0));
+
+  for (const d of moviments) {
+    const arr = perConcepte.get(d.concepteResultatId);
+    if (!arr) continue;
+    const idx = d.period.mes - 1;
+    if (idx >= 0 && idx < 12) arr[idx] += Number(d.import_);
+  }
+  return buildRows(concepts, perConcepte);
+}
+
 /* ─── Consulta: C.Explotació d'empresa (columnes = línies de negoci) ───────────── */
 
 export interface ComparativaEmpresa {
   any: number;
-  mes: number | null;
+  rang: RangMesos;
   linies: { id: string; codi: string; nom: string }[];
   concepts: ConceptePivot[];
   buit: boolean;
@@ -325,11 +431,11 @@ export interface ComparativaEmpresa {
 
 export async function getComparativaEmpresa(
   any: number,
-  mes: number | null,
+  rang: RangMesos,
   vista: VistaCompte = "directe",
   grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<ComparativaEmpresa> {
-  const periodFilter = mes ? { any, mes } : { any };
+  const periodFilter = prismaPeriodFilter(any, rang);
   const [liniesRawAll, concepts, dades, ajustos] = await Promise.all([
     db.liniaNegoci.findMany({
       where: { isActive: true },
@@ -387,9 +493,9 @@ export async function getComparativaEmpresa(
     perConcepte.get(d.concepteResultatId)![col] += val;
   }
 
-  /** Columnes sense centre (codi desconegut o LN agregat) s'acumulen sempre; no es descarten. */
+  /** Columnes sense centre de codi desconegut: s'acumulen. Les columnes total LN del propi fitxer ja s'han exclòs. */
   for (const d of dades) {
-    if (d.senseCentre || d.centreId) continue;
+    if (d.senseCentre || d.centreId || esColumnaTotalLnRedundant(d)) continue;
     const lnId = lnInformePerAgregacio(d);
     if (!lnId || !lnIdsGrup.has(lnId)) continue;
     const col = lnIdx.get(lnId);
@@ -436,8 +542,8 @@ export async function getComparativaEmpresa(
     const centreToLn = new Map(centresActius.map((c) => [c.id, c.liniaNegociId]));
 
     const [deltaRepartiment, deltaTraspassCentre] = await Promise.all([
-      carregarDeltasGestioAgregats(any, mes),
-      carregarDeltasTraspassPersonalPerCentre(any, mes),
+      carregarDeltasGestioAgregats(any, rang),
+      carregarDeltasTraspassPersonalPerCentre(any, rang),
     ]);
     const deltaTraspassLn = agregarDeltasTraspassPerLn(deltaTraspassCentre, centreToLn);
     const deltaByLnNode = combinarDeltasLn(deltaRepartiment, deltaTraspassLn);
@@ -457,7 +563,7 @@ export async function getComparativaEmpresa(
 
   return {
     any,
-    mes,
+    rang,
     linies,
     concepts:
       grup === "calblay"
@@ -482,64 +588,57 @@ export interface EvolucioMensual {
 export async function getEvolucioMensual(
   scope: AmbitEvolucio,
   liniaNegociId: string | null,
-  any: number
+  any: number,
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<EvolucioMensual> {
-  const concepts = await getConceptsActius();
-
-  let titol = "Empresa (totes les línies)";
   if (scope === "linia" && liniaNegociId) {
-    const ln = await db.liniaNegoci.findUnique({
-      where: { id: liniaNegociId },
-      select: { codi: true, nom: true },
-    });
-    titol = ln ? `${ln.codi} · ${ln.nom}` : "Línia de negoci";
-  }
-
-  const dadesWhere: Prisma.DadaResultatWhereInput =
-    scope === "linia" && liniaNegociId
-      ? {
+    const [ln, concepts, dadesAll, ajustosAll] = await Promise.all([
+      db.liniaNegoci.findUnique({
+        where: { id: liniaNegociId },
+        select: { codi: true, nom: true },
+      }),
+      getConceptsActius(),
+      db.dadaResultat.findMany({
+        where: { period: { any } },
+        select: {
+          ...DADA_INFORME_SELECT,
+          period: { select: { mes: true } },
+        },
+      }),
+      db.ajust.findMany({
+        where: {
           period: { any },
-          OR: [
-            { importacio: { liniaNegociId } },
-            { liniaNegociId, importacio: { liniaNegociId: null } },
-          ],
-        }
-      : { period: { any }, liniaNegociId: { not: null } };
+          OR: [{ liniaNegociId }, { centre: { liniaNegociId } }],
+        },
+        select: {
+          import_: true,
+          concepteResultatId: true,
+          period: { select: { mes: true } },
+        },
+      }),
+    ]);
 
-  const ajustWhere =
-    scope === "linia" && liniaNegociId
-      ? { period: { any }, OR: [{ liniaNegociId }, { centre: { liniaNegociId } }] }
-      : { period: { any } };
-
-  const [dades, ajustos] = await Promise.all([
-    db.dadaResultat.findMany({
-      where: dadesWhere,
-      select: { import_: true, period: { select: { mes: true } }, concepteResultatId: true },
-    }),
-    db.ajust.findMany({
-      where: ajustWhere,
-      select: { import_: true, period: { select: { mes: true } }, concepteResultatId: true },
-    }),
-  ]);
-
-  const perConcepte = new Map<string, number[]>();
-  for (const c of concepts) perConcepte.set(c.id, new Array(12).fill(0));
-
-  for (const d of [...dades, ...ajustos]) {
-    const arr = perConcepte.get(d.concepteResultatId);
-    if (!arr) continue;
-    const idx = d.period.mes - 1;
-    if (idx >= 0 && idx < 12) arr[idx] += Number(d.import_);
+    const dades = dadesAll.filter(
+      (d) => !esColumnaTotalLnRedundant(d) && lnInformePerAgregacio(d) === liniaNegociId
+    );
+    const rows = pivotMensualDesDeMoviments(concepts, [...dades, ...ajustosAll]);
+    return {
+      scope,
+      titol: ln ? `${ln.codi} · ${ln.nom}` : "Línia de negoci",
+      any,
+      concepts: rows,
+      buit: dades.length === 0 && ajustosAll.length === 0,
+    };
   }
 
-  const rows = buildRows(concepts, perConcepte);
-  const conceptRows =
-    scope === "empresa" ? await consolidarSiEmpresaAsync(scope, rows, "temporal") : rows;
+  // Empresa: mateixa base que getComparativaEmpresa (grup + lnInformePerAgregacio)
+  const { concepts, dades, ajustos, titol } = await carregarDadesEmpresa({ any }, grup);
+  const rows = pivotMensualDesDeMoviments(concepts, [...dades, ...ajustos]);
   return {
-    scope,
+    scope: "empresa",
     titol,
     any,
-    concepts: conceptRows,
+    concepts: await consolidarSiEmpresaAsync("empresa", rows, "temporal"),
     buit: dades.length === 0 && ajustos.length === 0,
   };
 }
@@ -559,32 +658,124 @@ export interface ComparativaTemporal {
   periodeDesc: string;
 }
 
-async function resolveAmbitTemporal(scope: AmbitTemporal, id: string | null) {
-  let titol = "Empresa (totes les línies)";
-  let dadesWhere: Prisma.DadaResultatWhereInput = { liniaNegociId: { not: null } };
-  let ajustWhere: Prisma.AjustWhereInput = {};
-
+async function resolveAmbitTemporal(
+  scope: AmbitTemporal,
+  id: string | null,
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
+): Promise<
+  | { mode: "empresa"; titol: string; grup: GrupEmpresa }
+  | { mode: "linia"; titol: string; liniaNegociId: string }
+  | { mode: "centre"; titol: string; centreId: string }
+> {
   if (scope === "linia" && id) {
     const ln = await db.liniaNegoci.findUnique({
       where: { id },
       select: { codi: true, nom: true },
     });
-    titol = ln ? `${ln.codi} · ${ln.nom}` : "Línia de negoci";
-    dadesWhere = {
-      OR: [
-        { importacio: { liniaNegociId: id } },
-        { liniaNegociId: id, importacio: { liniaNegociId: null } },
-      ],
+    return {
+      mode: "linia",
+      titol: ln ? `${ln.codi} · ${ln.nom}` : "Línia de negoci",
+      liniaNegociId: id,
     };
-    ajustWhere = { OR: [{ liniaNegociId: id }, { centre: { liniaNegociId: id } }] };
-  } else if (scope === "centre" && id) {
+  }
+  if (scope === "centre" && id) {
     const c = await db.centre.findUnique({ where: { id }, select: { codi: true, nom: true } });
-    titol = c ? `${c.codi} · ${c.nom}` : "Centre";
-    dadesWhere = { centreId: id };
-    ajustWhere = { centreId: id };
+    return {
+      mode: "centre",
+      titol: c ? `${c.codi} · ${c.nom}` : "Centre",
+      centreId: id,
+    };
+  }
+  return { mode: "empresa", titol: etiquetaGrupEmpresa(grup), grup };
+}
+
+/** Carrega moviments amb la mateixa regla d'atribució a totes les consultes. */
+async function carregarMovimentsAmbit(
+  ambit: Awaited<ReturnType<typeof resolveAmbitTemporal>>,
+  periodFilter: Prisma.PeriodWhereInput
+): Promise<{
+  concepts: ConcepteBase[];
+  moviments: {
+    import_: unknown;
+    concepteResultatId: string;
+    period: { any: number; mes: number };
+  }[];
+  titol: string;
+  buit: boolean;
+}> {
+  if (ambit.mode === "empresa") {
+    const { concepts, dades, ajustos, titol } = await carregarDadesEmpresa(
+      periodFilter,
+      ambit.grup
+    );
+    return {
+      concepts,
+      moviments: [...dades, ...ajustos],
+      titol,
+      buit: dades.length === 0 && ajustos.length === 0,
+    };
   }
 
-  return { titol, dadesWhere, ajustWhere };
+  if (ambit.mode === "linia") {
+    const { liniaNegociId, titol } = ambit;
+    const [concepts, dadesAll, ajustos] = await Promise.all([
+      getConceptsActius(),
+      db.dadaResultat.findMany({
+        where: { period: periodFilter },
+        select: {
+          ...DADA_INFORME_SELECT,
+          period: { select: { any: true, mes: true } },
+        },
+      }),
+      db.ajust.findMany({
+        where: {
+          period: periodFilter,
+          OR: [{ liniaNegociId }, { centre: { liniaNegociId } }],
+        },
+        select: {
+          import_: true,
+          concepteResultatId: true,
+          period: { select: { any: true, mes: true } },
+        },
+      }),
+    ]);
+    const dades = dadesAll.filter(
+      (d) => !esColumnaTotalLnRedundant(d) && lnInformePerAgregacio(d) === liniaNegociId
+    );
+    return {
+      concepts,
+      moviments: [...dades, ...ajustos],
+      titol,
+      buit: dades.length === 0 && ajustos.length === 0,
+    };
+  }
+
+  const { centreId, titol } = ambit;
+  const [concepts, dades, ajustos] = await Promise.all([
+    getConceptsActius(),
+    db.dadaResultat.findMany({
+      where: { centreId, period: periodFilter },
+      select: {
+        import_: true,
+        concepteResultatId: true,
+        period: { select: { any: true, mes: true } },
+      },
+    }),
+    db.ajust.findMany({
+      where: { centreId, period: periodFilter },
+      select: {
+        import_: true,
+        concepteResultatId: true,
+        period: { select: { any: true, mes: true } },
+      },
+    }),
+  ]);
+  return {
+    concepts,
+    moviments: [...dades, ...ajustos],
+    titol,
+    buit: dades.length === 0 && ajustos.length === 0,
+  };
 }
 
 export interface ComparativaMensualAnys {
@@ -602,28 +793,11 @@ export async function getComparativaMensualEntreAnys(
   id: string | null,
   anys: number[]
 ): Promise<ComparativaMensualAnys> {
-  const concepts = await getConceptsActius();
-  const { titol, dadesWhere, ajustWhere } = await resolveAmbitTemporal(scope, id);
+  const ambit = await resolveAmbitTemporal(scope, id);
   const anysOrdenats = [...anys].sort((a, b) => a - b);
-
-  const [dades, ajustos] = await Promise.all([
-    db.dadaResultat.findMany({
-      where: { AND: [dadesWhere, { period: { any: { in: anysOrdenats } } }] },
-      select: {
-        import_: true,
-        period: { select: { any: true, mes: true } },
-        concepteResultatId: true,
-      },
-    }),
-    db.ajust.findMany({
-      where: { AND: [ajustWhere, { period: { any: { in: anysOrdenats } } }] },
-      select: {
-        import_: true,
-        period: { select: { any: true, mes: true } },
-        concepteResultatId: true,
-      },
-    }),
-  ]);
+  const { concepts, moviments, titol, buit } = await carregarMovimentsAmbit(ambit, {
+    any: { in: anysOrdenats },
+  });
 
   const perAnyConcepte = new Map<number, Map<string, number[]>>();
   for (const year of anysOrdenats) {
@@ -632,7 +806,7 @@ export async function getComparativaMensualEntreAnys(
     perAnyConcepte.set(year, m);
   }
 
-  for (const d of [...dades, ...ajustos]) {
+  for (const d of moviments) {
     const yearMap = perAnyConcepte.get(d.period.any);
     if (!yearMap) continue;
     const arr = yearMap.get(d.concepteResultatId);
@@ -656,7 +830,7 @@ export async function getComparativaMensualEntreAnys(
     titol,
     anys: anysFinals,
     perAny,
-    buit: dades.length === 0 && ajustos.length === 0,
+    buit,
     periodeDesc: `Comparació mensual · ${anysFinals.join(" vs ")}`,
   };
 }
@@ -671,42 +845,21 @@ export async function getComparativaTemporal(
     mes?: number;
   }
 ): Promise<ComparativaTemporal> {
-  const concepts = await getConceptsActius();
-  const { titol, dadesWhere, ajustWhere } = await resolveAmbitTemporal(scope, id);
+  const ambit = await resolveAmbitTemporal(scope, id);
   const { granularitat, anys, any, mes } = opts;
 
   // ─── Mensual: 12 columnes = mesos d'un any concret ───────────────────────────
   if (granularitat === "mensual" && any) {
-    const [dades, ajustos] = await Promise.all([
-      db.dadaResultat.findMany({
-        where: { AND: [dadesWhere, { period: { any } }] },
-        select: { import_: true, period: { select: { mes: true } }, concepteResultatId: true },
-      }),
-      db.ajust.findMany({
-        where: { AND: [ajustWhere, { period: { any } }] },
-        select: { import_: true, period: { select: { mes: true } }, concepteResultatId: true },
-      }),
-    ]);
-
-    const perConcepte = new Map<string, number[]>();
-    for (const c of concepts) perConcepte.set(c.id, new Array(12).fill(0));
-
-    for (const d of [...dades, ...ajustos]) {
-      const arr = perConcepte.get(d.concepteResultatId);
-      if (!arr) continue;
-      const idx = d.period.mes - 1;
-      if (idx >= 0 && idx < 12) arr[idx] += Number(d.import_);
-    }
-
+    const { concepts, moviments, titol, buit } = await carregarMovimentsAmbit(ambit, { any });
+    const rows = pivotMensualDesDeMoviments(concepts, moviments);
     const columnes = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
-    const rows = buildRows(concepts, perConcepte);
     return {
       scope,
       titol,
       granularitat,
       columnes,
       concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal"),
-      buit: dades.length === 0 && ajustos.length === 0,
+      buit,
       periodeDesc: `Mes a mes · ${any}`,
     };
   }
@@ -717,21 +870,15 @@ export async function getComparativaTemporal(
     const anyIdx = new Map<number, number>();
     anysOrdenats.forEach((y, i) => anyIdx.set(y, i));
 
-    const [dades, ajustos] = await Promise.all([
-      db.dadaResultat.findMany({
-        where: { AND: [dadesWhere, { period: { any: { in: anysOrdenats }, mes } }] },
-        select: { import_: true, period: { select: { any: true } }, concepteResultatId: true },
-      }),
-      db.ajust.findMany({
-        where: { AND: [ajustWhere, { period: { any: { in: anysOrdenats }, mes } }] },
-        select: { import_: true, period: { select: { any: true } }, concepteResultatId: true },
-      }),
-    ]);
+    const { concepts, moviments, titol, buit } = await carregarMovimentsAmbit(ambit, {
+      any: { in: anysOrdenats },
+      mes,
+    });
 
     const perConcepte = new Map<string, number[]>();
     for (const c of concepts) perConcepte.set(c.id, new Array(anysOrdenats.length).fill(0));
 
-    for (const d of [...dades, ...ajustos]) {
+    for (const d of moviments) {
       const arr = perConcepte.get(d.concepteResultatId);
       if (!arr) continue;
       const col = anyIdx.get(d.period.any);
@@ -747,7 +894,7 @@ export async function getComparativaTemporal(
       granularitat,
       columnes,
       concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal"),
-      buit: dades.length === 0 && ajustos.length === 0,
+      buit,
       periodeDesc: `${MESOS_LLARGS[mes - 1]} · comparació entre anys`,
     };
   }
@@ -757,21 +904,14 @@ export async function getComparativaTemporal(
   const anyIdx = new Map<number, number>();
   anysOrdenats.forEach((y, i) => anyIdx.set(y, i));
 
-  const [dades, ajustos] = await Promise.all([
-    db.dadaResultat.findMany({
-      where: { AND: [dadesWhere, { period: { any: { in: anysOrdenats } } }] },
-      select: { import_: true, period: { select: { any: true } }, concepteResultatId: true },
-    }),
-    db.ajust.findMany({
-      where: { AND: [ajustWhere, { period: { any: { in: anysOrdenats } } }] },
-      select: { import_: true, period: { select: { any: true } }, concepteResultatId: true },
-    }),
-  ]);
+  const { concepts, moviments, titol, buit } = await carregarMovimentsAmbit(ambit, {
+    any: { in: anysOrdenats },
+  });
 
   const perConcepte = new Map<string, number[]>();
   for (const c of concepts) perConcepte.set(c.id, new Array(anysOrdenats.length).fill(0));
 
-  for (const d of [...dades, ...ajustos]) {
+  for (const d of moviments) {
     const arr = perConcepte.get(d.concepteResultatId);
     if (!arr) continue;
     const col = anyIdx.get(d.period.any);
@@ -787,7 +927,7 @@ export async function getComparativaTemporal(
     granularitat: "anual",
     columnes,
     concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal"),
-    buit: dades.length === 0 && ajustos.length === 0,
+    buit,
     periodeDesc: "Acumulat anual per exercici",
   };
 }

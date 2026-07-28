@@ -2,8 +2,8 @@
 
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useState, useTransition } from "react";
+import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { useMemo, useState, useTransition } from "react";
 import {
   type AjustInput,
   createAjustAction,
@@ -48,6 +48,10 @@ type Result = { ok: boolean; missatge: string };
 
 const ARA = new Date();
 
+function normalitza(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+}
+
 export function AjustosManager({
   arbre,
   concepts,
@@ -63,6 +67,13 @@ export function AjustosManager({
   const [feedback, setFeedback] = useState<Result | null>(null);
   const [isPending, startTransition] = useTransition();
 
+  // Filtres de la llista
+  const [q, setQ] = useState("");
+  const [filtreAny, setFiltreAny] = useState("");
+  const [filtreMes, setFiltreMes] = useState("");
+  const [filtreConcepte, setFiltreConcepte] = useState("");
+  const [filtreAmbit, setFiltreAmbit] = useState("");
+
   // Camps del formulari
   const [any, setAny] = useState(ARA.getFullYear());
   const [mes, setMes] = useState(ARA.getMonth() + 1);
@@ -73,6 +84,54 @@ export function AjustosManager({
   const [importTxt, setImportTxt] = useState("");
   const [motiu, setMotiu] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+
+  const anysDisponibles = useMemo(() => {
+    const set = new Set(ajustos.map((a) => a.periodAny));
+    return [...set].sort((a, b) => b - a);
+  }, [ajustos]);
+
+  const conceptesUsats = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const a of ajustos) map.set(a.concepteResultatId, a.concepte);
+    return [...map.entries()]
+      .map(([id, descripcio]) => ({ id, descripcio }))
+      .sort((a, b) => a.descripcio.localeCompare(b.descripcio, "ca"));
+  }, [ajustos]);
+
+  const ambitsUsats = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of ajustos) {
+      const label = a.centre ?? a.liniaNegoci;
+      if (label) set.add(label);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "ca"));
+  }, [ajustos]);
+
+  const teFiltres = !!(q || filtreAny || filtreMes || filtreConcepte || filtreAmbit);
+
+  const filtrats = useMemo(() => {
+    const qn = normalitza(q.trim());
+    return ajustos.filter((a) => {
+      if (filtreAny && a.periodAny !== Number(filtreAny)) return false;
+      if (filtreMes && a.periodMes !== Number(filtreMes)) return false;
+      if (filtreConcepte && a.concepteResultatId !== filtreConcepte) return false;
+      const ambitLabel = a.centre ?? a.liniaNegoci ?? "";
+      if (filtreAmbit && ambitLabel !== filtreAmbit) return false;
+      if (!qn) return true;
+      const haystack = normalitza(
+        [a.periodNom, ambitLabel, a.concepte, a.motiu, a.autor, formatNum(a.import_, 2)].join(" ")
+      );
+      return haystack.includes(qn);
+    });
+  }, [ajustos, q, filtreAny, filtreMes, filtreConcepte, filtreAmbit]);
+
+  const netejaFiltres = () => {
+    setQ("");
+    setFiltreAny("");
+    setFiltreMes("");
+    setFiltreConcepte("");
+    setFiltreAmbit("");
+  };
 
   const notify = (r: Result) => {
     setFeedback(r);
@@ -141,6 +200,7 @@ export function AjustosManager({
 
       {canEdit && !obert && (
         <button
+          type="button"
           className={styles.newBtn}
           onClick={() => {
             reset();
@@ -172,7 +232,7 @@ export function AjustosManager({
                 onChange={(e) => setMes(Number(e.target.value))}
               >
                 {MESOS_LLARGS.map((m, i) => (
-                  <option key={i} value={i + 1}>
+                  <option key={`${i + 1}-${m}`} value={i + 1}>
                     {m}
                   </option>
                 ))}
@@ -266,10 +326,15 @@ export function AjustosManager({
           </div>
 
           <div className={styles.formActions}>
-            <button className={styles.saveBtn} onClick={desar} disabled={isPending}>
+            <button type="button" className={styles.saveBtn} onClick={desar} disabled={isPending}>
               <Check size={15} /> {editId ? "Desa canvis" : "Crea ajust"}
             </button>
-            <button className={styles.cancelBtn} onClick={tancar} disabled={isPending}>
+            <button
+              type="button"
+              className={styles.cancelBtn}
+              onClick={tancar}
+              disabled={isPending}
+            >
               <X size={15} /> Cancel·la
             </button>
           </div>
@@ -284,55 +349,145 @@ export function AjustosManager({
           </p>
         </div>
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Període</th>
-                <th>Àmbit</th>
-                <th>Concepte</th>
-                <th className={styles.right}>Import</th>
-                <th>Motiu</th>
-                <th>Autor</th>
-                {canEdit && <th />}
-              </tr>
-            </thead>
-            <tbody>
-              {ajustos.map((a) => (
-                <tr key={a.id}>
-                  <td className={styles.nowrap}>{a.periodNom}</td>
-                  <td>{a.centre ?? a.liniaNegoci ?? "—"}</td>
-                  <td>{a.concepte}</td>
-                  <td className={cn(styles.right, styles.nowrap, a.import_ < 0 && styles.neg)}>
-                    {formatNum(a.import_, 2)} €
-                  </td>
-                  <td className={styles.motiu}>{a.motiu}</td>
-                  <td className={styles.dim}>{a.autor}</td>
-                  {canEdit && (
-                    <td className={styles.nowrap}>
-                      <button
-                        className={styles.iconBtn}
-                        title="Edita"
-                        onClick={() => editar(a)}
-                        disabled={isPending}
-                      >
-                        <Pencil size={13} />
-                      </button>
-                      <button
-                        className={cn(styles.iconBtn, styles.iconDanger)}
-                        title="Elimina"
-                        onClick={() => eliminar(a.id)}
-                        disabled={isPending}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  )}
-                </tr>
+        <>
+          <div className={styles.filters}>
+            <label className={styles.searchWrap}>
+              <Search size={15} className={styles.searchIcon} aria-hidden />
+              <input
+                className={styles.searchInput}
+                type="search"
+                placeholder="Cerca centre, concepte, motiu, autor…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                aria-label="Cerca ajustos"
+              />
+            </label>
+            <select
+              className={styles.filterSelect}
+              value={filtreAny}
+              onChange={(e) => setFiltreAny(e.target.value)}
+              aria-label="Filtra per any"
+            >
+              <option value="">Tots els anys</option>
+              {anysDisponibles.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </select>
+            <select
+              className={styles.filterSelect}
+              value={filtreMes}
+              onChange={(e) => setFiltreMes(e.target.value)}
+              aria-label="Filtra per mes"
+            >
+              <option value="">Tots els mesos</option>
+              {MESOS_LLARGS.map((m, i) => (
+                <option key={`${i + 1}-${m}`} value={i + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+            <select
+              className={styles.filterSelect}
+              value={filtreConcepte}
+              onChange={(e) => setFiltreConcepte(e.target.value)}
+              aria-label="Filtra per concepte"
+            >
+              <option value="">Tots els conceptes</option>
+              {conceptesUsats.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.descripcio}
+                </option>
+              ))}
+            </select>
+            <select
+              className={cn(styles.filterSelect, styles.filterSelectWide)}
+              value={filtreAmbit}
+              onChange={(e) => setFiltreAmbit(e.target.value)}
+              aria-label="Filtra per centre o línia"
+            >
+              <option value="">Tots els centres / LN</option>
+              {ambitsUsats.map((label) => (
+                <option key={label} value={label}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            {teFiltres && (
+              <button type="button" className={styles.clearFilters} onClick={netejaFiltres}>
+                <X size={14} /> Neteja
+              </button>
+            )}
+          </div>
+
+          <p className={styles.filterMeta}>
+            {teFiltres
+              ? `Mostrant ${filtrats.length} de ${ajustos.length} ajustos`
+              : `${ajustos.length} ajustos`}
+          </p>
+
+          {filtrats.length === 0 ? (
+            <div className={styles.empty}>
+              <p className={styles.emptyTitle}>Cap resultat</p>
+              <p className={styles.emptyText}>
+                No hi ha ajustos amb aquests criteris. Prova a canviar la cerca o els filtres.
+              </p>
+            </div>
+          ) : (
+            <div className={styles.tableWrap}>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Període</th>
+                    <th>Àmbit</th>
+                    <th>Concepte</th>
+                    <th className={styles.right}>Import</th>
+                    <th>Motiu</th>
+                    <th>Autor</th>
+                    {canEdit && <th />}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtrats.map((a) => (
+                    <tr key={a.id}>
+                      <td className={styles.nowrap}>{a.periodNom}</td>
+                      <td>{a.centre ?? a.liniaNegoci ?? "—"}</td>
+                      <td>{a.concepte}</td>
+                      <td className={cn(styles.right, styles.nowrap, a.import_ < 0 && styles.neg)}>
+                        {formatNum(a.import_, 2)} €
+                      </td>
+                      <td className={styles.motiu}>{a.motiu}</td>
+                      <td className={styles.dim}>{a.autor}</td>
+                      {canEdit && (
+                        <td className={styles.nowrap}>
+                          <button
+                            type="button"
+                            className={styles.iconBtn}
+                            title="Edita"
+                            onClick={() => editar(a)}
+                            disabled={isPending}
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className={cn(styles.iconBtn, styles.iconDanger)}
+                            title="Elimina"
+                            onClick={() => eliminar(a.id)}
+                            disabled={isPending}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
       )}
     </>
   );

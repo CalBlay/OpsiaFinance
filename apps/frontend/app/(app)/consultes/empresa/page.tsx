@@ -8,9 +8,14 @@ import {
   MESOS_CURTS,
   MESOS_LLARGS,
   type VistaCompte,
+  esAnyComplet,
+  esUnMes,
+  etiquetaRangMesos,
+  etiquetaRangMesosLlarga,
   getAnysAmbDades,
   getComparativaEmpresa,
   getEvolucioMensual,
+  parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { etiquetaGrupEmpresa, parseGrupEmpresa } from "@/lib/grups-empresa";
@@ -39,19 +44,27 @@ function pctSobreIngressos(cost: number, ingressos: number): string | undefined 
 export default async function ConsultaEmpresaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ any?: string; mes?: string; vista?: string; grup?: string }>;
+  searchParams: Promise<{
+    any?: string;
+    mes?: string;
+    des?: string;
+    fins?: string;
+    vista?: string;
+    grup?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const grup = parseGrupEmpresa(sp.grup);
   const anys = await getAnysAmbDades();
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
-  const mesActual = sp.mes ? Number(sp.mes) : null;
+  const rang = parseRangMesosFromSearchParams(sp);
   const vista: VistaCompte =
     grup === "fdlc" ? "directe" : sp.vista === "gestio" ? "gestio" : "directe";
-  const acumulatAnual = mesActual === null;
+  const acumulatAnual = esAnyComplet(rang);
+  const unMes = esUnMes(rang);
   const esPresentacioCalblay = grup === "calblay";
 
-  const comp = await getComparativaEmpresa(anyActual, mesActual, vista, grup);
+  const comp = await getComparativaEmpresa(anyActual, rang, vista, grup);
   const fdlcLnId = grup === "fdlc" ? (comp.linies[0]?.id ?? null) : null;
 
   const [evFdlc, evEmpresaRaw, infoGestio] = await Promise.all([
@@ -60,7 +73,7 @@ export default async function ConsultaEmpresaPage({
       : Promise.resolve(null),
     esPresentacioCalblay ? getEvolucioMensual("empresa", null, anyActual) : Promise.resolve(null),
     vista === "gestio" && grup === "calblay"
-      ? getInfoGestioConsulta(anyActual, mesActual)
+      ? getInfoGestioConsulta(anyActual, rang)
       : Promise.resolve(null),
   ]);
 
@@ -100,12 +113,14 @@ export default async function ConsultaEmpresaPage({
       },
     ];
     chartTickAngle = 0;
-  } else if (grup === "fdlc" && mesActual) {
-    const mesNom = MESOS_LLARGS[mesActual - 1] ?? "";
-    columns = [{ key: "fdlc", label: mesNom, sublabel: String(anyActual) }];
+  } else if (grup === "fdlc" && !acumulatAnual) {
+    const periodeNom = unMes
+      ? (MESOS_LLARGS[rang.des - 1] ?? "")
+      : etiquetaRangMesos(rang, anyActual);
+    columns = [{ key: "fdlc", label: periodeNom, sublabel: String(anyActual) }];
     pivotRows = comp.concepts.map((c) => ({ ...c, valors: [c.total], total: c.total }));
     totalLabel = "FDLC";
-    chartCategories = [mesNom];
+    chartCategories = [periodeNom];
     chartSeries = [
       { name: "Vendes", type: "bar", color: "#0ea5e9", data: [findRow(NODE_VENDES)?.total ?? 0] },
       { name: "EBITDA", type: "bar", color: "#16a34a", data: [findRow(NODE_EBITDA)?.total ?? 0] },
@@ -122,10 +137,8 @@ export default async function ConsultaEmpresaPage({
     chartTickAngle = -28;
   }
 
-  const periodeLabel = mesActual ? MESOS_LLARGS[mesActual - 1] : `Acumulat ${anyActual}`;
-  const periodePresentacio = mesActual
-    ? `${MESOS_LLARGS[mesActual - 1]} ${anyActual}`
-    : `Any ${anyActual}`;
+  const periodeLabel = etiquetaRangMesos(rang, anyActual);
+  const periodePresentacio = etiquetaRangMesosLlarga(rang, anyActual);
   const nomEmpresa = etiquetaGrupEmpresa(grup);
 
   const ingressosTotal = findRow(NODE_INGRESSOS)?.total ?? 0;
@@ -171,7 +184,7 @@ export default async function ConsultaEmpresaPage({
     grup === "fdlc" && acumulatAnual
       ? "Compte d'explotació FDLC — vista general amb desglossament mensual (columnes = mesos)."
       : grup === "fdlc"
-        ? `Compte d'explotació FDLC — ${periodeLabel} ${anyActual}.`
+        ? `Compte d'explotació FDLC — ${periodeLabel}.`
         : vista === "gestio"
           ? "Detall numèric opcional. Cada columna és una línia de negoci; l'última és el total empresa."
           : "Detall numèric opcional. Imports directes; cada columna és una línia de negoci.";
@@ -180,7 +193,7 @@ export default async function ConsultaEmpresaPage({
     grup === "fdlc" && acumulatAnual
       ? "Evolució mensual · Vendes i EBITDA"
       : grup === "fdlc"
-        ? `${periodeLabel} ${anyActual} · Vendes i EBITDA`
+        ? `${periodeLabel} · Vendes i EBITDA`
         : undefined;
 
   return (
@@ -196,7 +209,7 @@ export default async function ConsultaEmpresaPage({
             {grup === "fdlc"
               ? acumulatAnual
                 ? `Empresa FDLC — general (acumulat ${anyActual}) · evolució per mesos`
-                : `Empresa FDLC — ${periodeLabel} ${anyActual}`
+                : `Empresa FDLC — ${periodeLabel}`
               : vista === "gestio"
                 ? `Gestió: mateix total que Directe, costos repartits entre LN — ${periodePresentacio}`
                 : `Directe: costos tal com venen (sovint concentrats a Central) — ${periodePresentacio}`}
@@ -205,7 +218,7 @@ export default async function ConsultaEmpresaPage({
         <EmpresaSelectors
           anys={anys.length ? anys : [anyActual]}
           any={anyActual}
-          mes={mesActual}
+          rang={rang}
           vista={vista}
           grup={grup}
         />

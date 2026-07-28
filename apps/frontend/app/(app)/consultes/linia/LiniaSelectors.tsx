@@ -1,9 +1,11 @@
 "use client";
 
+import { PeriodRangSelectors } from "@/components/consultes/PeriodRangSelectors";
 import styles from "@/components/consultes/report.module.css";
 import type { VistaCompte } from "@/lib/consultes";
-import { MESOS_LLARGS } from "@/lib/periodes";
+import { type RangMesos, rangToQuery } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 
 interface LnOpt {
   id: string;
@@ -16,32 +18,64 @@ export function LiniaSelectors({
   anys,
   lnId,
   any,
-  mes,
+  rang,
   vista,
 }: {
   linies: LnOpt[];
   anys: number[];
   lnId: string | null;
   any: number;
-  mes: number | null;
+  rang: RangMesos;
   vista: VistaCompte;
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const lineSelectId = "linia-line";
+  const yearSelectId = "linia-year";
+  const viewSelectId = "linia-view";
 
-  const go = (nextLn: string, nextAny: number, nextMes: number | null, nextVista: VistaCompte) => {
+  const [localLn, setLocalLn] = useState(lnId ?? "");
+  const [localAny, setLocalAny] = useState(any);
+  const [localRang, setLocalRang] = useState(rang);
+  const [localVista, setLocalVista] = useState(vista);
+
+  useEffect(() => {
+    setLocalLn(lnId ?? "");
+    setLocalAny(any);
+    setLocalRang(rang);
+    setLocalVista(vista);
+  }, [lnId, any, rang, vista]);
+
+  const go = (nextLn: string, nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
     if (!nextLn) return;
-    const mesPart = nextMes ? `&mes=${nextMes}` : "";
-    router.push(`/consultes/linia?ln=${nextLn}&any=${nextAny}${mesPart}&vista=${nextVista}`);
+    setLocalLn(nextLn);
+    setLocalAny(nextAny);
+    setLocalRang(nextRang);
+    setLocalVista(nextVista);
+    startTransition(() => {
+      router.replace(
+        `/consultes/linia?ln=${nextLn}&any=${nextAny}${rangToQuery(nextRang)}&vista=${nextVista}`,
+        { scroll: false }
+      );
+    });
   };
 
   return (
-    <div className={styles.selectors}>
+    <div
+      className={styles.selectors}
+      data-pending={isPending ? "true" : undefined}
+      aria-busy={isPending}
+    >
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Línia de negoci</label>
+        <label className={styles.fieldLabel} htmlFor={lineSelectId}>
+          Línia de negoci
+        </label>
         <select
+          id={lineSelectId}
           className={styles.select}
-          value={lnId ?? ""}
-          onChange={(e) => go(e.target.value, any, mes, vista)}
+          value={localLn}
+          disabled={isPending}
+          onChange={(e) => go(e.target.value, localAny, localRang, localVista)}
         >
           <option value="" disabled>
             Selecciona una línia…
@@ -55,12 +89,16 @@ export function LiniaSelectors({
       </div>
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Any</label>
+        <label className={styles.fieldLabel} htmlFor={yearSelectId}>
+          Any
+        </label>
         <select
+          id={yearSelectId}
           className={styles.select}
           style={{ minWidth: 100 }}
-          value={any}
-          onChange={(e) => go(lnId ?? "", Number(e.target.value), mes, vista)}
+          value={localAny}
+          disabled={isPending}
+          onChange={(e) => go(localLn, Number(e.target.value), localRang, localVista)}
         >
           {anys.map((y) => (
             <option key={y} value={y}>
@@ -70,36 +108,29 @@ export function LiniaSelectors({
         </select>
       </div>
 
-      <div className={styles.field}>
-        <label className={styles.fieldLabel}>Període</label>
-        <select
-          className={styles.select}
-          style={{ minWidth: 140 }}
-          value={mes ?? ""}
-          onChange={(e) =>
-            go(lnId ?? "", any, e.target.value ? Number(e.target.value) : null, vista)
-          }
-        >
-          <option value="">Acumulat anual</option>
-          {MESOS_LLARGS.map((m, i) => (
-            <option key={i} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </div>
+      <PeriodRangSelectors
+        rang={localRang}
+        anyActual={localAny}
+        disabled={isPending}
+        onChange={(next) => go(localLn, localAny, next, localVista)}
+      />
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Vista</label>
+        <label className={styles.fieldLabel} htmlFor={viewSelectId}>
+          Vista
+        </label>
         <select
+          id={viewSelectId}
           className={styles.select}
           style={{ minWidth: 160 }}
-          value={vista}
-          onChange={(e) => go(lnId ?? "", any, mes, e.target.value as VistaCompte)}
+          value={localVista}
+          disabled={isPending}
+          onChange={(e) => go(localLn, localAny, localRang, e.target.value as VistaCompte)}
         >
           <option value="directe">Directe (SAP)</option>
           <option value="gestio">Gestió (tractat)</option>
         </select>
+        {isPending && <span className={styles.filterPending}>Actualitzant…</span>}
       </div>
     </div>
   );

@@ -36,6 +36,12 @@ export function ComparativaSelectors({
   const router = useRouter();
   const [mesosOpen, setMesosOpen] = useState(false);
   const mesosRef = useRef<HTMLDivElement>(null);
+  const scopeSelectId = "comparativa-scope";
+  const lineSelectId = "comparativa-line";
+  const centreSelectId = "comparativa-centre";
+  const granularitySelectId = "comparativa-granularity";
+  const monthSelectId = "comparativa-month";
+  const monthsButtonId = "comparativa-months";
 
   const buildUrl = (
     overrides: Partial<{
@@ -100,13 +106,16 @@ export function ComparativaSelectors({
   return (
     <div className={styles.selectors}>
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Àmbit</label>
+        <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
+          Àmbit
+        </label>
         <select
+          id={scopeSelectId}
           className={styles.select}
           value={scope}
           onChange={(e) => goScope(e.target.value, "")}
         >
-          <option value="empresa">Empresa</option>
+          <option value="empresa">Empresa (Cal Blay)</option>
           <option value="linia">Línia de negoci</option>
           <option value="centre">Centre</option>
         </select>
@@ -114,8 +123,11 @@ export function ComparativaSelectors({
 
       {scope === "linia" && (
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Línia de negoci</label>
+          <label className={styles.fieldLabel} htmlFor={lineSelectId}>
+            Línia de negoci
+          </label>
           <select
+            id={lineSelectId}
             className={styles.select}
             value={id ?? ""}
             onChange={(e) => goScope("linia", e.target.value)}
@@ -132,8 +144,11 @@ export function ComparativaSelectors({
 
       {scope === "centre" && (
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Centre</label>
+          <label className={styles.fieldLabel} htmlFor={centreSelectId}>
+            Centre
+          </label>
           <select
+            id={centreSelectId}
             className={styles.select}
             value={id ?? ""}
             onChange={(e) => goScope("centre", e.target.value)}
@@ -153,8 +168,11 @@ export function ComparativaSelectors({
       )}
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Granularitat</label>
+        <label className={styles.fieldLabel} htmlFor={granularitySelectId}>
+          Granularitat
+        </label>
         <select
+          id={granularitySelectId}
           className={styles.select}
           value={granularitat}
           onChange={(e) => router.push(buildUrl({ g: e.target.value }))}
@@ -167,9 +185,12 @@ export function ComparativaSelectors({
 
       {granularitat === "mensual" && (
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Mesos a comparar</label>
+          <label className={styles.fieldLabel} htmlFor={monthsButtonId}>
+            Mesos a comparar
+          </label>
           <div className={styles.multiSelect} ref={mesosRef}>
             <button
+              id={monthsButtonId}
               type="button"
               className={styles.multiTrigger}
               onClick={() => setMesosOpen((v) => !v)}
@@ -232,15 +253,18 @@ export function ComparativaSelectors({
 
       {granularitat === "mes" && (
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Mes</label>
+          <label className={styles.fieldLabel} htmlFor={monthSelectId}>
+            Mes
+          </label>
           <select
+            id={monthSelectId}
             className={styles.select}
             style={{ minWidth: 140 }}
             value={mes}
             onChange={(e) => router.push(buildUrl({ mes: Number(e.target.value) }))}
           >
             {MESOS_LLARGS.map((m, i) => (
-              <option key={i} value={i + 1}>
+              <option key={`${i + 1}-${m}`} value={i + 1}>
                 {m}
               </option>
             ))}

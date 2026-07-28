@@ -1,5 +1,6 @@
 import { type ConcepteOrdre, recalcularCompositesOnly } from "@/lib/compte-subtotals";
 import type { ConceptePivot } from "@/lib/consultes";
+import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 
 export const COL_REPARTIMENT_ID = "__repartiment__";
 
@@ -10,8 +11,11 @@ export function agregarDeltasPerLn(
   const deltaByLnNode = new Map<string, Map<number, number>>();
   for (const perLn of deltasPerPeriode.values()) {
     for (const [lnId, nodes] of perLn) {
-      if (!deltaByLnNode.has(lnId)) deltaByLnNode.set(lnId, new Map());
-      const acc = deltaByLnNode.get(lnId)!;
+      let acc = deltaByLnNode.get(lnId);
+      if (!acc) {
+        acc = new Map();
+        deltaByLnNode.set(lnId, acc);
+      }
       for (const [node, v] of nodes) {
         acc.set(node, (acc.get(node) ?? 0) + v);
       }
@@ -73,8 +77,11 @@ export function aplicarDeltaDesti(
   concepteNode: number,
   imp: number
 ): void {
-  if (!perLn.has(liniaNegociDestiId)) perLn.set(liniaNegociDestiId, new Map());
-  const perNode = perLn.get(liniaNegociDestiId)!;
+  let perNode = perLn.get(liniaNegociDestiId);
+  if (!perNode) {
+    perNode = new Map();
+    perLn.set(liniaNegociDestiId, perNode);
+  }
   perNode.set(concepteNode, (perNode.get(concepteNode) ?? 0) + imp);
 }
 
@@ -93,8 +100,12 @@ export function balanceZeroSumCentral(
       if (lnId === centralId) continue;
       sumOthers += nodeMap.get(node) ?? 0;
     }
-    if (!perLn.has(centralId)) perLn.set(centralId, new Map());
-    perLn.get(centralId)!.set(node, -sumOthers);
+    let perNode = perLn.get(centralId);
+    if (!perNode) {
+      perNode = new Map();
+      perLn.set(centralId, perNode);
+    }
+    perNode.set(node, -sumOthers);
   }
 }
 
@@ -128,12 +139,12 @@ export function validarZeroSumDeltas(
 
 export async function carregarDeltasGestioAgregats(
   any: number,
-  mes: number | null
+  rang: RangMesos
 ): Promise<Map<string, Map<number, number>>> {
   const { db } = await import("@/lib/db");
   const { getDeltasGestioPerLn } = await import("@/lib/repartiment/service");
   const periods = await db.period.findMany({
-    where: mes ? { any, mes } : { any },
+    where: prismaPeriodFilter(any, rang),
     select: { id: true },
   });
   const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));

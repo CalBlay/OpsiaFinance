@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import { calcularPesosGrups, getDirectePerLnNode } from "@/lib/repartiment/bases-vendes";
 import {
   aplicarDeltaDesti,
@@ -88,8 +89,12 @@ async function calcularDeltasRepartimentPeriode(
 
   for (const o of execucio?.moviments ?? []) {
     if (o.liniaNegociDestiId === centralId || o.importOverride == null) continue;
-    if (!perLn.has(o.liniaNegociDestiId)) perLn.set(o.liniaNegociDestiId, new Map());
-    perLn.get(o.liniaNegociDestiId)!.set(o.concepteNode, Number(o.importOverride));
+    let perNode = perLn.get(o.liniaNegociDestiId);
+    if (!perNode) {
+      perNode = new Map();
+      perLn.set(o.liniaNegociDestiId, perNode);
+    }
+    perNode.set(o.concepteNode, Number(o.importOverride));
   }
 
   balanceZeroSumCentral(perLn, centralId);
@@ -260,12 +265,11 @@ export interface InfoGestioConsulta {
 /** Estat del repartiment confirmat per al avís de consulta gestió. */
 export async function getInfoGestioConsulta(
   any: number,
-  mes: number | null
+  rang: RangMesos
 ): Promise<InfoGestioConsulta> {
   const periods = await db.period.findMany({
     where: {
-      any,
-      ...(mes ? { mes } : {}),
+      ...prismaPeriodFilter(any, rang),
       dadesResultat: { some: {} },
     },
     orderBy: { mes: "asc" },

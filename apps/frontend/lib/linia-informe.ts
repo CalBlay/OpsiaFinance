@@ -19,6 +19,20 @@ export function lnInformePerAgregacio(d: DadaAmbInforme): string | null {
   return d.liniaNegociId ?? d.importacio.liniaNegociId;
 }
 
+/**
+ * Columna «total LN» del mateix fitxer de la LN (p.ex. columna RESTAURANTS
+ * dins l'Excel de Restaurants). És la suma dels centres: si la suméssim
+ * amb el detall, les consultes sortiria el doble.
+ *
+ * No afecta columnes LN d'un altre informe (p.ex. Central amb columna RESTAURANTS).
+ */
+export function esColumnaTotalLnRedundant(d: DadaAmbInforme): boolean {
+  if (d.centreId || d.senseCentre) return false;
+  const lnCol = d.liniaNegociId;
+  const lnInforme = d.importacio.liniaNegociId;
+  return !!lnCol && !!lnInforme && lnCol === lnInforme;
+}
+
 export function resolveLiniaNegociImport(
   col: {
     centreId: string | null;

@@ -1,47 +1,81 @@
 "use client";
 
+import { PeriodRangSelectors } from "@/components/consultes/PeriodRangSelectors";
 import styles from "@/components/consultes/report.module.css";
 import type { VistaCompte } from "@/lib/consultes";
 import { GRUP_EMPRESA_LABELS, type GrupEmpresa } from "@/lib/grups-empresa";
-import { MESOS_LLARGS } from "@/lib/periodes";
+import { type RangMesos, rangToQuery } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
 
 export function EmpresaSelectors({
   anys,
   any,
-  mes,
+  rang,
   vista,
   grup,
 }: {
   anys: number[];
   any: number;
-  mes: number | null;
+  rang: RangMesos;
   vista: VistaCompte;
   grup: GrupEmpresa;
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const groupSelectId = "empresa-group";
+  const yearSelectId = "empresa-year";
+  const viewSelectId = "empresa-view";
+
+  // Estat local: el select no torna enrere mentre la pàgina recarrega
+  const [localGrup, setLocalGrup] = useState(grup);
+  const [localAny, setLocalAny] = useState(any);
+  const [localRang, setLocalRang] = useState(rang);
+  const [localVista, setLocalVista] = useState(vista);
+
+  useEffect(() => {
+    setLocalGrup(grup);
+    setLocalAny(any);
+    setLocalRang(rang);
+    setLocalVista(vista);
+  }, [grup, any, rang, vista]);
+
   const go = (
     nextAny: number,
-    nextMes: number | null,
+    nextRang: RangMesos,
     nextVista: VistaCompte,
     nextGrup: GrupEmpresa
   ) => {
-    const mesPart = nextMes ? `&mes=${nextMes}` : "";
     const vistaEfectiva = nextGrup === "fdlc" ? "directe" : nextVista;
-    router.push(
-      `/consultes/empresa?grup=${nextGrup}&any=${nextAny}${mesPart}&vista=${vistaEfectiva}`
-    );
+    setLocalAny(nextAny);
+    setLocalRang(nextRang);
+    setLocalVista(vistaEfectiva);
+    setLocalGrup(nextGrup);
+    startTransition(() => {
+      router.replace(
+        `/consultes/empresa?grup=${nextGrup}&any=${nextAny}${rangToQuery(nextRang)}&vista=${vistaEfectiva}`,
+        { scroll: false }
+      );
+    });
   };
 
   return (
-    <div className={styles.selectors}>
+    <div
+      className={styles.selectors}
+      data-pending={isPending ? "true" : undefined}
+      aria-busy={isPending}
+    >
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Empresa</label>
+        <label className={styles.fieldLabel} htmlFor={groupSelectId}>
+          Empresa
+        </label>
         <select
+          id={groupSelectId}
           className={styles.select}
           style={{ minWidth: 120 }}
-          value={grup}
-          onChange={(e) => go(any, mes, vista, e.target.value as GrupEmpresa)}
+          value={localGrup}
+          disabled={isPending}
+          onChange={(e) => go(localAny, localRang, localVista, e.target.value as GrupEmpresa)}
         >
           {(Object.entries(GRUP_EMPRESA_LABELS) as [GrupEmpresa, string][]).map(([val, label]) => (
             <option key={val} value={val}>
@@ -51,12 +85,16 @@ export function EmpresaSelectors({
         </select>
       </div>
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Any</label>
+        <label className={styles.fieldLabel} htmlFor={yearSelectId}>
+          Any
+        </label>
         <select
+          id={yearSelectId}
           className={styles.select}
           style={{ minWidth: 100 }}
-          value={any}
-          onChange={(e) => go(Number(e.target.value), mes, vista, grup)}
+          value={localAny}
+          disabled={isPending}
+          onChange={(e) => go(Number(e.target.value), localRang, localVista, localGrup)}
         >
           {anys.map((y) => (
             <option key={y} value={y}>
@@ -65,34 +103,29 @@ export function EmpresaSelectors({
           ))}
         </select>
       </div>
-      <div className={styles.field}>
-        <label className={styles.fieldLabel}>{grup === "fdlc" ? "Vista" : "Període"}</label>
-        <select
-          className={styles.select}
-          style={{ minWidth: 140 }}
-          value={mes ?? ""}
-          onChange={(e) => go(any, e.target.value ? Number(e.target.value) : null, vista, grup)}
-        >
-          <option value="">{grup === "fdlc" ? "General (acumulat)" : "Acumulat anual"}</option>
-          {MESOS_LLARGS.map((m, i) => (
-            <option key={i} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </div>
-      {grup === "calblay" && (
+      <PeriodRangSelectors
+        rang={localRang}
+        anyActual={localAny}
+        disabled={isPending}
+        onChange={(next) => go(localAny, next, localVista, localGrup)}
+      />
+      {localGrup === "calblay" && (
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Vista</label>
+          <label className={styles.fieldLabel} htmlFor={viewSelectId}>
+            Vista
+          </label>
           <select
+            id={viewSelectId}
             className={styles.select}
             style={{ minWidth: 160 }}
-            value={vista}
-            onChange={(e) => go(any, mes, e.target.value as VistaCompte, grup)}
+            value={localVista}
+            disabled={isPending}
+            onChange={(e) => go(localAny, localRang, e.target.value as VistaCompte, localGrup)}
           >
             <option value="directe">Directe</option>
             <option value="gestio">Gestió</option>
           </select>
+          {isPending && <span className={styles.filterPending}>Actualitzant…</span>}
         </div>
       )}
     </div>

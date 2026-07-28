@@ -26,13 +26,9 @@ function aplicarExcloureNodeColumnesLn(
   nodeExcloure: number,
   nodesAjust: number[]
 ): void {
-  const excl = byNode(rows, nodeExcloure);
-  const delta = excl ? sumValors(excl.valors) : 0;
-  if (excl) excl.total = 0;
-  for (const node of nodesAjust) {
-    const r = byNode(rows, node);
-    if (r) r.total -= delta;
-  }
+  // Mateixa lògica per columna que el mode temporal (columnes = LN o mesos).
+  // Així sum(valors) === total i Empresa / Evolució coincideixen.
+  aplicarExcloureNodeTemporal(rows, nodeExcloure, nodesAjust);
 }
 
 function aplicarExcloureNodeTemporal(
@@ -118,12 +114,17 @@ function aplicarEliminarParellInter(
   if (!targetA || !targetB) return;
 
   if (mode === "columnes-ln") {
-    const elim = Math.min(Math.abs(targetA.total), Math.abs(targetB.total));
-    if (elim === 0) return;
-    const signA = targetA.total >= 0 ? 1 : -1;
-    const signB = targetB.total >= 0 ? 1 : -1;
-    targetA.total -= signA * elim;
-    targetB.total -= signB * elim;
+    const nCols = rows[0]?.valors.length ?? 0;
+    for (let i = 0; i < nCols; i++) {
+      const va = targetA.valors[i] ?? 0;
+      const vb = targetB.valors[i] ?? 0;
+      const elim = Math.min(Math.abs(va), Math.abs(vb));
+      if (elim === 0) continue;
+      targetA.valors[i] -= va >= 0 ? elim : -elim;
+      targetB.valors[i] -= vb >= 0 ? elim : -elim;
+    }
+    targetA.total = sumValors(targetA.valors);
+    targetB.total = sumValors(targetB.valors);
   } else {
     const nCols = rows[0]?.valors.length ?? 0;
     for (let i = 0; i < nCols; i++) {

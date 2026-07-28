@@ -11,7 +11,12 @@ import {
   getEvolucioMensual,
 } from "@/lib/consultes";
 import { exclouFdlcDeConsultaLinia } from "@/lib/grups-empresa";
-import { NODE_EBITDA, NODE_INGRESSOS, buildKpisInforme } from "@/lib/kpi-definitions";
+import {
+  NODE_EBITDA,
+  NODE_INGRESSOS,
+  buildKpisEmpresa,
+  buildKpisInforme,
+} from "@/lib/kpi-definitions";
 import { EvolucioSelectors } from "./EvolucioSelectors";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +43,11 @@ export default async function EvolucioPage({
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
   const findRow = (node: number) => ev?.concepts.find((c) => c.node === node);
 
-  const kpis = ev ? buildKpisInforme((node) => findRow(node)?.total ?? 0) : [];
+  const kpis = ev
+    ? scope === "empresa"
+      ? buildKpisEmpresa((node) => findRow(node)?.total ?? 0)
+      : buildKpisInforme((node) => findRow(node)?.total ?? 0)
+    : [];
   const periodeLabel = `Acumulat ${anyActual}`;
 
   const chartSeries = ev
@@ -98,7 +107,7 @@ export default async function EvolucioPage({
           <DetallCompteCollapsible caption="Imports en euros. Les files ressaltades són subtotals i totals.">
             <PivotTable
               columns={columns}
-              rows={ev!.concepts}
+              rows={ev?.concepts ?? []}
               totalLabel="Any"
               firstColLabel="Concepte"
             />

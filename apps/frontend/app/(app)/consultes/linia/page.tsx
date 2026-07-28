@@ -2,26 +2,24 @@ import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteColl
 import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
-import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
+import { type PivotColumn, type PivotRow, PivotTable } from "@/components/consultes/PivotTable";
 import { VendesPieChart } from "@/components/consultes/VendesPieChart";
 import styles from "@/components/consultes/report.module.css";
 import {
   MESOS_CURTS,
-  MESOS_LLARGS,
   type VistaCompte,
+  etiquetaRangMesos,
   getAnysAmbDades,
   getArbreSeleccio,
   getComparativaLn,
   getEvolucioMensual,
+  parseRangMesosFromSearchParams,
+  rangToQuery,
 } from "@/lib/consultes";
-import {
-  etiquetaGrafic,
-  filtraValors,
-  indicesCentresOperatius,
-  segmentsVendes,
-} from "@/lib/consultes-grafics";
+import { etiquetaGrafic, indicesCentresOperatius, segmentsVendes } from "@/lib/consultes-grafics";
 import { esLiniaFdlc, exclouFdlcDeConsultaLinia } from "@/lib/grups-empresa";
 import { NODE_EBITDA, NODE_INGRESSOS, NODE_VENDES, buildKpisInforme } from "@/lib/kpi-definitions";
+import type { RangMesos } from "@/lib/periodes";
 import { COL_REPARTIMENT_ID, aplicarGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { redirect } from "next/navigation";
@@ -30,20 +28,34 @@ import { LiniaSelectors } from "./LiniaSelectors";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Consulta per línia de negoci — OpsiaFinance" };
 
-const NODE_VENDES_KPI = NODE_VENDES;
-const NODE_EBITDA_KPI = NODE_EBITDA;
-const NODE_INGRESSOS_KPI = NODE_INGRESSOS;
+function retallaRang(rows: PivotRow[], rang: RangMesos): PivotRow[] {
+  return rows.map((r) => {
+    const valors = r.valors.slice(rang.des - 1, rang.fins);
+    return {
+      ...r,
+      valors,
+      total: valors.reduce((a, b) => a + b, 0),
+    };
+  });
+}
 
 export default async function ConsultaLiniaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ln?: string; any?: string; mes?: string; vista?: string }>;
+  searchParams: Promise<{
+    ln?: string;
+    any?: string;
+    mes?: string;
+    des?: string;
+    fins?: string;
+    vista?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const [arbre, anys] = await Promise.all([getArbreSeleccio(), getAnysAmbDades()]);
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
-  const mesActual = sp.mes ? Number(sp.mes) : null;
+  const rang = parseRangMesosFromSearchParams(sp);
   const lnId = sp.ln ?? null;
   const vista: VistaCompte = sp.vista === "gestio" ? "gestio" : "directe";
 
@@ -54,16 +66,15 @@ export default async function ConsultaLiniaPage({
   if (lnId) {
     const lnSeleccionada = arbre.find((l) => l.id === lnId);
     if (lnSeleccionada && esLiniaFdlc(lnSeleccionada.codi)) {
-      const mesPart = mesActual ? `&mes=${mesActual}` : "";
-      redirect(`/consultes/empresa?grup=fdlc&any=${anyActual}${mesPart}`);
+      redirect(`/consultes/empresa?grup=fdlc&any=${anyActual}${rangToQuery(rang)}`);
     }
   }
-  const acumulatAnual = mesActual === null;
+
   const [comp, evRaw, infoGestio] = lnId
     ? await Promise.all([
-        getComparativaLn(lnId, anyActual, mesActual, vista),
-        acumulatAnual ? getEvolucioMensual("linia", lnId, anyActual) : Promise.resolve(null),
-        vista === "gestio" ? getInfoGestioConsulta(anyActual, mesActual) : Promise.resolve(null),
+        getComparativaLn(lnId, anyActual, rang, vista),
+        getEvolucioMensual("linia", lnId, anyActual),
+        vista === "gestio" ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
       ])
     : [null, null, null];
 
@@ -75,75 +86,60 @@ export default async function ConsultaLiniaPage({
     };
   }
 
-  const columns: PivotColumn[] = (comp?.centres ?? []).map((c) => ({
-    key: c.id,
-    label: c.codi,
-    sublabel: c.nom,
-  }));
-
-  const findRow = (node: number) => comp?.concepts.find((c) => c.node === node);
+  const periodeLabel = etiquetaRangMesos(rang, anyActual);
   const findEvRow = (node: number) => ev?.concepts.find((c) => c.node === node);
 
+  // KPI = total de la LN al període (suma dels mesos seleccionats)
+  const valorKpi = (node: number) => {
+    const row = findEvRow(node);
+    if (!row) return 0;
+    return row.valors.slice(rang.des - 1, rang.fins).reduce((s, v) => s + v, 0);
+  };
+  const kpis = ev && !ev.buit ? buildKpisInforme(valorKpi) : [];
+
+  const mesosCols = MESOS_CURTS.slice(rang.des - 1, rang.fins);
+  const columnsMes: PivotColumn[] = mesosCols.map((m, i) => ({
+    key: String(rang.des - 1 + i),
+    label: m,
+  }));
+  const rowsMes = ev ? retallaRang(ev.concepts, rang) : [];
+
+  const chartSeries = ev
+    ? [
+        {
+          name: "Ingressos",
+          type: "bar" as const,
+          color: "#0ea5e9",
+          data: (findEvRow(NODE_INGRESSOS)?.valors ?? []).slice(rang.des - 1, rang.fins),
+        },
+        {
+          name: "EBITDA",
+          type: "line" as const,
+          color: "#16a34a",
+          data: (findEvRow(NODE_EBITDA)?.valors ?? []).slice(rang.des - 1, rang.fins),
+        },
+      ]
+    : [];
+
+  // Desglossament opcional per centres
   const centres = comp?.centres ?? [];
   const idxOperatius = indicesCentresOperatius(centres).filter(
     (i) => centres[i]?.id !== COL_REPARTIMENT_ID
   );
-  const nomsOperatius = filtraValors(centres, idxOperatius).map(etiquetaGrafic);
-
-  const chartSeries =
-    acumulatAnual && ev
-      ? [
-          {
-            name: "Vendes",
-            type: "bar" as const,
-            color: "#0ea5e9",
-            data: findEvRow(NODE_VENDES_KPI)?.valors ?? [],
-          },
-          {
-            name: "EBITDA",
-            type: "line" as const,
-            color: "#16a34a",
-            data: findEvRow(NODE_EBITDA_KPI)?.valors ?? [],
-          },
-        ]
-      : comp
-        ? [
-            {
-              name: "Ingressos",
-              type: "bar" as const,
-              color: "#0ea5e9",
-              data: filtraValors(findRow(NODE_INGRESSOS_KPI)?.valors ?? [], idxOperatius),
-            },
-            {
-              name: "EBITDA",
-              type: "bar" as const,
-              color: "#16a34a",
-              data: filtraValors(findRow(NODE_EBITDA_KPI)?.valors ?? [], idxOperatius),
-            },
-          ]
-        : [];
-
-  const chartCategories = acumulatAnual ? MESOS_CURTS : nomsOperatius;
+  const findCentreRow = (node: number) => comp?.concepts.find((c) => c.node === node);
+  const columnsCentres: PivotColumn[] = centres.map((c) => ({
+    key: c.id,
+    label: c.codi,
+    sublabel: c.nom,
+  }));
   const vendesPieSegments = comp
-    ? segmentsVendes(centres, findRow(NODE_VENDES_KPI)?.valors ?? [])
+    ? segmentsVendes(
+        centres.filter((_, i) => idxOperatius.includes(i)),
+        idxOperatius.map((i) => findCentreRow(NODE_VENDES)?.valors[i] ?? 0)
+      )
     : [];
 
-  // KPI Gestió = total del C.Explotació de la LN (centres ± traspassos + columna Repart.).
-  // Sense la columna Repart. només veuries el traspass i no el pool Central → LN.
-  const idxCentres = centres.map((_, i) => i).filter((i) => centres[i]?.id !== COL_REPARTIMENT_ID);
-  const valorKpi = (node: number) => {
-    const row = findRow(node);
-    if (!row) return 0;
-    if (vista === "gestio") return row.total;
-    return idxCentres.reduce((s, i) => s + (row.valors[i] ?? 0), 0);
-  };
-  const kpis = comp ? buildKpisInforme(valorKpi) : [];
-  const periodeLabel = mesActual ? MESOS_LLARGS[mesActual - 1] : `Acumulat ${anyActual}`;
-
-  const tableCaption =
-    vista === "gestio"
-      ? "Compte de gestió: centres = SAP ± traspassos; columna Repartiment = pool/imputacions Central → LN. Els KPI usen el total LN (centres + Repart.)."
-      : "Imports en euros. Cada columna és un centre de la línia; l'última és el total de la línia.";
+  const buit = !ev || ev.buit;
 
   return (
     <div className={styles.page}>
@@ -151,9 +147,9 @@ export default async function ConsultaLiniaPage({
         <div>
           <h1 className={styles.title}>Compte d&apos;explotació · per línia de negoci</h1>
           <p className={styles.subtitle}>
-            {comp?.liniaNegoci
-              ? `${comp.liniaNegoci.codi} · ${comp.liniaNegoci.nom} — ${periodeLabel} ${anyActual}${vista === "gestio" ? " · compte de gestió (traspassos + repartiment)" : " · directe SAP"}`
-              : "Selecciona una línia de negoci per comparar els seus centres."}
+            {comp?.liniaNegoci || ev
+              ? `${comp?.liniaNegoci?.codi ?? ev?.titol.split(" · ")[0] ?? ""} · ${comp?.liniaNegoci?.nom ?? ev?.titol ?? ""} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · compte de gestió" : " · directe SAP"}`
+              : "Selecciona una línia de negoci per veure el total del període."}
           </p>
         </div>
         <LiniaSelectors
@@ -161,7 +157,7 @@ export default async function ConsultaLiniaPage({
           anys={anys.length ? anys : [anyActual]}
           lnId={lnId}
           any={anyActual}
-          mes={mesActual}
+          rang={rang}
           vista={vista}
         />
       </div>
@@ -170,47 +166,74 @@ export default async function ConsultaLiniaPage({
         <div className={styles.prompt}>
           <h3>Cap línia seleccionada</h3>
           <p>
-            Tria una línia de negoci per veure el compte d&apos;explotació amb un centre per
-            columna.
+            Tria una línia de negoci per veure el compte d&apos;explotació total (mes a mes). El
+            detall per centre és opcional; per analitzar un centre concret fes servir Consultes →
+            Per centre.
           </p>
         </div>
-      ) : comp?.buit ? (
+      ) : buit ? (
         <div className={styles.prompt}>
           <h3>Sense dades</h3>
-          <p>
-            Aquesta línia no té dades per {periodeLabel.toLowerCase()} de {anyActual}.
-          </p>
+          <p>Aquesta línia no té dades per {periodeLabel.toLowerCase()}.</p>
         </div>
       ) : (
         <>
           <GestioAvis vista={vista} info={infoGestio} />
           <KpiInformeCards kpis={kpis} periodeLabel={periodeLabel} />
 
-          <div className={`${styles.chartGrid} ${styles.chartGridBarPie}`}>
-            <div className={styles.chartCard} style={{ marginBottom: 0 }}>
-              <EvolucioChart
-                categories={chartCategories}
-                series={chartSeries}
-                tickAngle={acumulatAnual ? undefined : -32}
-                height={360}
-              />
-            </div>
-            <div
-              className={`${styles.chartCard} ${styles.chartCardPie}`}
-              style={{ marginBottom: 0 }}
-            >
-              <VendesPieChart segments={vendesPieSegments} height={360} />
-            </div>
+          <div className={styles.chartCard}>
+            <h3 className={styles.chartTitle}>
+              Evolució de la línia · Ingressos i EBITDA · {periodeLabel}
+            </h3>
+            <EvolucioChart categories={mesosCols} series={chartSeries} height={360} />
           </div>
 
-          <DetallCompteCollapsible caption={tableCaption}>
+          <DetallCompteCollapsible
+            defaultOpen
+            title="Compte de la línia (total)"
+            caption="Imports totals de la línia de negoci. Cada columna és un mes del període seleccionat."
+          >
             <PivotTable
-              columns={columns}
-              rows={comp!.concepts}
-              totalLabel="Total LN"
+              columns={columnsMes}
+              rows={rowsMes}
+              totalLabel="Període"
               firstColLabel="Concepte"
             />
           </DetallCompteCollapsible>
+
+          {comp && !comp.buit && (
+            <DetallCompteCollapsible
+              defaultOpen={false}
+              title="Desglossament per centres (opcional)"
+              caption={
+                vista === "gestio"
+                  ? "Detall per centre. Per analitzar un sol centre, ves a Consultes → Per centre."
+                  : "Detall per centre de la línia. Per analitzar un sol centre, ves a Consultes → Per centre."
+              }
+            >
+              {vendesPieSegments.length > 0 && (
+                <div className={styles.chartCard} style={{ marginBottom: "1rem" }}>
+                  <h3 className={styles.chartTitle}>Pes de vendes per centre · {periodeLabel}</h3>
+                  <VendesPieChart
+                    segments={vendesPieSegments.map((s, i) => {
+                      const centre = centres[idxOperatius[i] ?? -1];
+                      return {
+                        ...s,
+                        label: etiquetaGrafic(centre ?? { codi: s.label, nom: "" }),
+                      };
+                    })}
+                    height={300}
+                  />
+                </div>
+              )}
+              <PivotTable
+                columns={columnsCentres}
+                rows={comp.concepts}
+                totalLabel="Total LN"
+                firstColLabel="Concepte"
+              />
+            </DetallCompteCollapsible>
+          )}
         </>
       )}
     </div>
