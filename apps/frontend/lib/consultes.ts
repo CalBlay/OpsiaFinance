@@ -25,9 +25,11 @@ export {
 async function consolidarSiEmpresaAsync(
   scope: "empresa" | "linia" | "centre",
   concepts: ConceptePivot[],
-  mode: "columnes-ln" | "temporal"
+  mode: "columnes-ln" | "temporal",
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<ConceptePivot[]> {
-  if (scope !== "empresa") return concepts;
+  // La consolidació intra-empresa només aplica a Cal Blay, no a FDLC.
+  if (scope !== "empresa" || grup !== "calblay") return concepts;
   return aplicarConsolidacio(concepts, "CALBLAY_INTRA", mode);
 }
 
@@ -86,22 +88,28 @@ export async function getAnysAmbDades(): Promise<number[]> {
   return periods.map((p) => p.any);
 }
 
-/** Línies de negoci amb els seus centres (per als selectors). */
+/** Línies de negoci amb els seus centres (per als selectors), ordre alfabètic. */
 export async function getArbreSeleccio() {
-  return db.liniaNegoci.findMany({
+  const rows = await db.liniaNegoci.findMany({
     where: { isActive: true },
-    orderBy: { ordre: "asc" },
     select: {
       id: true,
       codi: true,
       nom: true,
       centres: {
         where: { isActive: true },
-        orderBy: { codi: "asc" },
         select: { id: true, codi: true, nom: true },
       },
     },
   });
+  const alpha = (a: string, b: string) =>
+    a.localeCompare(b, "ca", { sensitivity: "base", numeric: true });
+  return rows
+    .map((ln) => ({
+      ...ln,
+      centres: [...ln.centres].sort((a, b) => alpha(a.nom, b.nom) || alpha(a.codi, b.codi)),
+    }))
+    .sort((a, b) => alpha(a.nom, b.nom) || alpha(a.codi, b.codi));
 }
 
 /* ─── Consulta: C.Explotació d'un centre, anual per mesos ─────────────────────── */
@@ -154,7 +162,7 @@ export async function getCompteExplotacioCentre(
   }
 
   const rows: ConceptePivot[] = concepts.map((c) => {
-    const valors = perConcepte.get(c.id)!;
+    const valors = perConcepte.get(c.id) ?? new Array(12).fill(0);
     return {
       node: c.node,
       concepteId: c.id,
@@ -321,8 +329,9 @@ async function getConceptsActius() {
 type ConcepteBase = { id: string; node: number; descripcio: string; esSubtotal: boolean };
 
 function buildRows(concepts: ConcepteBase[], perConcepte: Map<string, number[]>): ConceptePivot[] {
+  const columnCount = perConcepte.values().next().value?.length ?? 0;
   const rows = concepts.map((c) => {
-    const valors = perConcepte.get(c.id)!;
+    const valors = perConcepte.get(c.id) ?? new Array(columnCount).fill(0);
     return {
       node: c.node,
       concepteId: c.id,
@@ -465,42 +474,20 @@ export async function getComparativaEmpresa(
   liniesRaw.forEach((l, i) => lnIdx.set(l.id, i));
 
   const perConcepte = new Map<string, number[]>();
-  const senseCentrePerConcept = new Map<string, number>();
   for (const c of concepts) {
     perConcepte.set(c.id, new Array(liniesRaw.length).fill(0));
-    senseCentrePerConcept.set(c.id, 0);
   }
 
+  // Mateix criteri que getEvolucioMensual(scope=linia): cada dada va a la LN
+  // de lnInformePerAgregacio, excloent columnes total-LN redundants.
   for (const d of dades) {
-    const val = Number(d.import_);
-    const lnId = lnInformePerAgregacio(d);
-    if (!lnId || !lnIdsGrup.has(lnId)) continue;
-    if (d.senseCentre) {
-      if (lnId) {
-        const col = lnIdx.get(lnId);
-        if (col !== undefined) perConcepte.get(d.concepteResultatId)![col] += val;
-      } else {
-        senseCentrePerConcept.set(
-          d.concepteResultatId,
-          (senseCentrePerConcept.get(d.concepteResultatId) ?? 0) + val
-        );
-      }
-      continue;
-    }
-    if (!lnId || !d.centreId) continue;
-    const col = lnIdx.get(lnId);
-    if (col === undefined) continue;
-    perConcepte.get(d.concepteResultatId)![col] += val;
-  }
-
-  /** Columnes sense centre de codi desconegut: s'acumulen. Les columnes total LN del propi fitxer ja s'han exclòs. */
-  for (const d of dades) {
-    if (d.senseCentre || d.centreId || esColumnaTotalLnRedundant(d)) continue;
+    if (esColumnaTotalLnRedundant(d)) continue;
     const lnId = lnInformePerAgregacio(d);
     if (!lnId || !lnIdsGrup.has(lnId)) continue;
     const col = lnIdx.get(lnId);
     if (col === undefined) continue;
-    perConcepte.get(d.concepteResultatId)![col] += Number(d.import_);
+    const arr = perConcepte.get(d.concepteResultatId);
+    if (arr) arr[col] += Number(d.import_);
   }
 
   for (const a of ajustos) {
@@ -512,16 +499,7 @@ export async function getComparativaEmpresa(
     if (arr) arr[col] += Number(a.import_);
   }
 
-  const hasSenseCentre = [...senseCentrePerConcept.values()].some((v) => v !== 0);
-  if (hasSenseCentre) {
-    for (const c of concepts) {
-      perConcepte.get(c.id)!.push(senseCentrePerConcept.get(c.id) ?? 0);
-    }
-  }
-
-  const linies = hasSenseCentre
-    ? [...liniesRaw, { id: "__sense_centre__", codi: "—", nom: "Sin centre" }]
-    : liniesRaw;
+  const linies = liniesRaw;
 
   let conceptRows = buildRows(concepts, perConcepte);
 
@@ -553,6 +531,7 @@ export async function getComparativaEmpresa(
   }
 
   const dadesGrup = dades.filter((d) => {
+    if (esColumnaTotalLnRedundant(d)) return false;
     const lnId = lnInformePerAgregacio(d);
     return lnId !== null && lnIdsGrup.has(lnId);
   });
@@ -561,14 +540,22 @@ export async function getComparativaEmpresa(
     return lnId !== null && lnIdsGrup.has(lnId);
   });
 
+  // Columnes LN = mateix criteri que Evolució/Per línia (sense consolidar).
+  // La consolidació només afecta el total d'empresa (evita doble còmput inter-LN).
+  if (grup === "calblay") {
+    const consolidat = await aplicarConsolidacio(conceptRows, "CALBLAY_INTRA", "columnes-ln");
+    const totalPerNode = new Map(consolidat.map((r) => [r.node, r.total]));
+    conceptRows = conceptRows.map((r) => ({
+      ...r,
+      total: totalPerNode.get(r.node) ?? r.valors.reduce((a, b) => a + b, 0),
+    }));
+  }
+
   return {
     any,
     rang,
     linies,
-    concepts:
-      grup === "calblay"
-        ? await aplicarConsolidacio(conceptRows, "CALBLAY_INTRA", "columnes-ln")
-        : conceptRows,
+    concepts: conceptRows,
     buit: liniesRaw.length === 0 || (dadesGrup.length === 0 && ajustosGrup.length === 0),
   };
 }
@@ -638,7 +625,7 @@ export async function getEvolucioMensual(
     scope: "empresa",
     titol,
     any,
-    concepts: await consolidarSiEmpresaAsync("empresa", rows, "temporal"),
+    concepts: await consolidarSiEmpresaAsync("empresa", rows, "temporal", grup),
     buit: dades.length === 0 && ajustos.length === 0,
   };
 }
@@ -818,7 +805,7 @@ export async function getComparativaMensualEntreAnys(
   const perAny: Record<number, ConceptePivot[]> = {};
   const anysAmbDades: number[] = [];
   for (const year of anysOrdenats) {
-    const rows = buildRows(concepts, perAnyConcepte.get(year)!);
+    const rows = buildRows(concepts, perAnyConcepte.get(year) ?? new Map<string, number[]>());
     perAny[year] = await consolidarSiEmpresaAsync(scope, rows, "temporal");
     if (perAny[year].some((r) => r.total !== 0)) anysAmbDades.push(year);
   }
@@ -929,5 +916,166 @@ export async function getComparativaTemporal(
     concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal"),
     buit,
     periodeDesc: "Acumulat anual per exercici",
+  };
+}
+
+/* ─── Drill-down: detall d'una cel·la del compte ─────────────────────────────── */
+
+export interface DetallCellaItem {
+  origen: "dada" | "ajust";
+  import_: number;
+  centreCodi: string | null;
+  centreNom: string | null;
+  liniaCodi: string | null;
+  liniaNom: string | null;
+  mes: number;
+  any: number;
+  motiu: string | null;
+}
+
+export interface DetallCellaResult {
+  concepteNode: number;
+  concepteDescripcio: string;
+  items: DetallCellaItem[];
+  totalDades: number;
+  totalAjustos: number;
+  total: number;
+}
+
+export interface DetallCellaParams {
+  concepteResultatId: string;
+  any: number;
+  mes?: number;
+  rang?: RangMesos;
+  centreId?: string;
+  liniaNegociId?: string;
+  /** IDs de LN permesos al grup (Cal Blay o FDLC). Si s'ometen no es filtra per grup. */
+  lnIdsGrup?: string[];
+}
+
+export async function getDetallCella(params: DetallCellaParams): Promise<DetallCellaResult> {
+  const concepte = await db.concepteResultat.findUnique({
+    where: { id: params.concepteResultatId },
+    select: { node: true, descripcio: true },
+  });
+  if (!concepte) {
+    return {
+      concepteNode: 0,
+      concepteDescripcio: "?",
+      items: [],
+      totalDades: 0,
+      totalAjustos: 0,
+      total: 0,
+    };
+  }
+
+  const periodWhere: Prisma.PeriodWhereInput = params.mes
+    ? { any: params.any, mes: params.mes }
+    : params.rang
+      ? prismaPeriodFilter(params.any, params.rang)
+      : { any: params.any };
+
+  // Quan filtrem per LN, NO filtrem per liniaNegociId a Prisma directament
+  // perquè lnInformePerAgregacio pot apuntar a importacio.liniaNegociId.
+  // Carreguem totes les dades del període i filtrem en memòria igual que la taula.
+  const prismaWhere = params.centreId ? { centreId: params.centreId } : {};
+
+  const ajustWhere = params.centreId
+    ? { centreId: params.centreId }
+    : params.liniaNegociId
+      ? {
+          OR: [
+            { liniaNegociId: params.liniaNegociId },
+            { centre: { liniaNegociId: params.liniaNegociId } },
+          ],
+        }
+      : {};
+
+  const [dadesRaw, ajustos] = await Promise.all([
+    db.dadaResultat.findMany({
+      where: {
+        concepteResultatId: params.concepteResultatId,
+        period: periodWhere,
+        ...prismaWhere,
+      },
+      select: {
+        import_: true,
+        period: { select: { any: true, mes: true } },
+        centreId: true,
+        centre: { select: { codi: true, nom: true } },
+        liniaNegociId: true,
+        liniaNegoci: { select: { codi: true, nom: true } },
+        senseCentre: true,
+        importacio: { select: { liniaNegociId: true } },
+      },
+      orderBy: { period: { mes: "asc" } },
+    }),
+    db.ajust.findMany({
+      where: {
+        concepteResultatId: params.concepteResultatId,
+        period: periodWhere,
+        ...ajustWhere,
+      },
+      select: {
+        import_: true,
+        motiu: true,
+        period: { select: { any: true, mes: true } },
+        centreId: true,
+        centre: { select: { codi: true, nom: true } },
+        liniaNegociId: true,
+        liniaNegoci: { select: { codi: true, nom: true } },
+      },
+      orderBy: { period: { mes: "asc" } },
+    }),
+  ]);
+
+  // Aplicar exactament els mateixos filtres que les consultes principals:
+  // 1. Eliminar columnes de total-LN redundants (eviten doble còmput).
+  // 2. Si hi ha liniaNegociId, filtrar per lnInformePerAgregacio (igual que la taula).
+  // 3. Si hi ha lnIdsGrup, excloure LN fora del grup (p.ex. FDLC quan estem a Cal Blay).
+  const lnIdsGrupSet = params.lnIdsGrup ? new Set(params.lnIdsGrup) : null;
+  const dades = dadesRaw.filter((d) => {
+    if (esColumnaTotalLnRedundant(d)) return false;
+    const lnId = lnInformePerAgregacio(d);
+    if (lnIdsGrupSet && (!lnId || !lnIdsGrupSet.has(lnId))) return false;
+    if (params.liniaNegociId) return lnId === params.liniaNegociId;
+    return true;
+  });
+
+  const items: DetallCellaItem[] = [
+    ...dades.map((d) => ({
+      origen: "dada" as const,
+      import_: Number(d.import_),
+      centreCodi: d.centre?.codi ?? null,
+      centreNom: d.centre?.nom ?? null,
+      liniaCodi: d.liniaNegoci?.codi ?? null,
+      liniaNom: d.liniaNegoci?.nom ?? null,
+      mes: d.period.mes,
+      any: d.period.any,
+      motiu: null,
+    })),
+    ...ajustos.map((a) => ({
+      origen: "ajust" as const,
+      import_: Number(a.import_),
+      centreCodi: a.centre?.codi ?? null,
+      centreNom: a.centre?.nom ?? null,
+      liniaCodi: a.liniaNegoci?.codi ?? null,
+      liniaNom: a.liniaNegoci?.nom ?? null,
+      mes: a.period.mes,
+      any: a.period.any,
+      motiu: a.motiu,
+    })),
+  ];
+
+  const totalDades = dades.reduce((s, d) => s + Number(d.import_), 0);
+  const totalAjustos = ajustos.reduce((s, a) => s + Number(a.import_), 0);
+
+  return {
+    concepteNode: concepte.node,
+    concepteDescripcio: concepte.descripcio,
+    items,
+    totalDades: Math.round(totalDades * 100) / 100,
+    totalAjustos: Math.round(totalAjustos * 100) / 100,
+    total: Math.round((totalDades + totalAjustos) * 100) / 100,
   };
 }

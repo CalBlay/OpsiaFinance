@@ -29,6 +29,11 @@
       "semicolons": "always"
     }
   },
+  "css": {
+    "parser": {
+      "cssModules": true
+    }
+  },
   "files": {
     "ignore": [".next", "node_modules", "dist", ".prisma", "prisma/migrations", "*.config.*"]
   }

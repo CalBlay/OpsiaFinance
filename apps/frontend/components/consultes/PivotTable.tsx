@@ -261,6 +261,16 @@ function EditableCell({
   );
 }
 
+export type PivotCellClickHandler = (info: {
+  concepteId: string;
+  concepteNom: string;
+  node: number;
+  colIndex: number;
+  colKey: string;
+  colLabel: string;
+  value: number;
+}) => void;
+
 export function PivotTable({
   columns,
   rows,
@@ -269,6 +279,7 @@ export function PivotTable({
   firstColLabel = "Concepte",
   canEdit = false,
   editConfig,
+  onCellClick,
 }: {
   columns: PivotColumn[];
   rows: PivotRow[];
@@ -277,8 +288,10 @@ export function PivotTable({
   firstColLabel?: string;
   canEdit?: boolean;
   editConfig?: PivotEditConfig;
+  onCellClick?: PivotCellClickHandler;
 }) {
   const editable = canEdit && !!editConfig;
+  const clickable = !!onCellClick;
 
   return (
     <div className={styles.wrapper}>
@@ -306,11 +319,57 @@ export function PivotTable({
               {r.valors.map((v, i) => {
                 const cellEditable = editable && !r.esSubtotal && !!r.concepteId;
                 const edit = cellEditable ? editConfig : undefined;
-                const columnKey = columns[i]?.key ?? `${r.node}-${i}`;
+                const col = columns[i];
+                const columnKey = col?.key ?? `${r.node}-${i}`;
+                const canClick =
+                  clickable && !cellEditable && !r.esSubtotal && !!r.concepteId && v !== 0;
                 return (
                   <td
                     key={columnKey}
-                    className={cn(styles.td, styles.right, cellEditable && styles.editableTd)}
+                    className={cn(
+                      styles.td,
+                      styles.right,
+                      cellEditable && styles.editableTd,
+                      canClick && styles.clickableTd
+                    )}
+                    role={canClick ? "button" : undefined}
+                    tabIndex={canClick ? 0 : undefined}
+                    onClick={
+                      canClick && col
+                        ? () => {
+                            const concepteId = r.concepteId;
+                            if (!concepteId) return;
+                            onCellClick({
+                              concepteId,
+                              concepteNom: r.descripcio,
+                              node: r.node,
+                              colIndex: i,
+                              colKey: col.key,
+                              colLabel: col.sublabel ? `${col.label} · ${col.sublabel}` : col.label,
+                              value: v,
+                            });
+                          }
+                        : undefined
+                    }
+                    onKeyDown={
+                      canClick && col
+                        ? (e) => {
+                            if (e.key !== "Enter" && e.key !== " ") return;
+                            e.preventDefault();
+                            const concepteId = r.concepteId;
+                            if (!concepteId) return;
+                            onCellClick({
+                              concepteId,
+                              concepteNom: r.descripcio,
+                              node: r.node,
+                              colIndex: i,
+                              colKey: col.key,
+                              colLabel: col.sublabel ? `${col.label} · ${col.sublabel}` : col.label,
+                              value: v,
+                            });
+                          }
+                        : undefined
+                    }
                   >
                     {cellEditable && r.concepteId && edit ? (
                       <EditableCell value={v} concepteId={r.concepteId} mes={i + 1} edit={edit} />

@@ -13,6 +13,7 @@ const ALIASES_RESTAURANT: Record<string, string> = {
   nautic: "nautic",
   "masia esplugues": "masia esplugues",
   "camp nou": "camp nou",
+  "camp nou cal blay": "camp nou",
   "tarraco arena": "tarraco arena",
   mirador: "mirador",
   "juno house": "juno house",

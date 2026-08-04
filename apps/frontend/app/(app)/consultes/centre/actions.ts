@@ -24,6 +24,8 @@ function refresh() {
   revalidatePath("/consultes/centre");
   revalidatePath("/consultes/linia");
   revalidatePath("/consultes/empresa");
+  revalidatePath("/consultes/evolucio");
+  revalidatePath("/consultes/comparativa");
   revalidatePath("/dades/ajustos");
 }
 

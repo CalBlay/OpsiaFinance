@@ -78,6 +78,8 @@ model Centre {
   movimentsTraspassOrigen MovimentTraspassPersonal[] @relation("TraspassOrigen")
   movimentsTraspassDesti  MovimentTraspassPersonal[] @relation("TraspassDesti")
   costsSalarials    CostSalarialRestaurant[]
+  vendesDiaries     VendaDiariaRestaurant[]
+  vendesArticles    VendaArticleRestaurant[]
 
   @@unique([liniaNegociId, codi])
   @@index([liniaNegociId])
@@ -121,6 +123,8 @@ model Period {
   execucioRepartiment ExecucioRepartiment?
   execucioTraspassPersonal ExecucioTraspassPersonal?
   costsSalarials CostSalarialRestaurant[]
+  vendesDiaries  VendaDiariaRestaurant[]
+  vendesArticles VendaArticleRestaurant[]
 
   @@unique([any, mes])
 }
@@ -577,6 +581,79 @@ model CostSalarialRestaurant {
   @@unique([periodId, centreId, departament])
   @@index([periodId])
   @@index([centreId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODUL: Vendes restaurants (TPV · fitxers V / Detall / Pack)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Origen del fitxer d'articles: Detall = productes; Pack = conceptes pack/menú.
+enum OrigenVendaArticle {
+  DETALL
+  PACK
+}
+
+/// Vendes diàries agregades (fitxer V_MM_YYYY[_CC].xls). Imports en Base (sense IVA).
+model VendaDiariaRestaurant {
+  id       String   @id @default(cuid())
+
+  periodId String
+  period   Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  centreId String
+  centre   Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  dia      Int      // 1–31
+  data     DateTime @db.Date
+
+  unitats  Decimal  @db.Decimal(18, 2) @default(0)
+  base     Decimal  @db.Decimal(18, 2) @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodId, centreId, dia])
+  @@index([periodId])
+  @@index([centreId])
+}
+
+/// Vendes per article del mes (Detall = productes; Pack = packs/menús). Base sense IVA.
+model VendaArticleRestaurant {
+  id       String @id @default(cuid())
+
+  periodId String
+  period   Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  centreId String
+  centre   Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  origen   OrigenVendaArticle
+  article  String
+  tipusArticle String?
+
+  /// Taxonomia TPV (Article [Grupo] / [Familia] / [Subfamilia])
+  grup        String?
+  familia     String?
+  subfamilia  String?
+  /// Derivada: si grup/família/subfamília conté «begud» → BEGUDA; altrament MENJAR (si hi ha taxonomia).
+  categoria   CategoriaVenda?
+
+  unitats  Decimal @db.Decimal(18, 2) @default(0)
+  base     Decimal @db.Decimal(18, 2) @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([periodId, centreId, origen, article])
+  @@index([periodId])
+  @@index([centreId])
+  @@index([origen])
+  @@index([categoria])
+}
+
+enum CategoriaVenda {
+  MENJAR
+  BEGUDA
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

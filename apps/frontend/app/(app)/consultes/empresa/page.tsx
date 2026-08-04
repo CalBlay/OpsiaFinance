@@ -1,7 +1,8 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
 import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { GestioAvis } from "@/components/consultes/GestioAvis";
-import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
+import type { PivotColumn } from "@/components/consultes/PivotTable";
+import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import { type KpiComite, PresentacioComite } from "@/components/consultes/PresentacioComite";
 import styles from "@/components/consultes/report.module.css";
 import {
@@ -68,8 +69,8 @@ export default async function ConsultaEmpresaPage({
   const fdlcLnId = grup === "fdlc" ? (comp.linies[0]?.id ?? null) : null;
 
   const [evFdlc, evEmpresaRaw, infoGestio] = await Promise.all([
-    grup === "fdlc" && fdlcLnId && acumulatAnual
-      ? getEvolucioMensual("linia", fdlcLnId, anyActual)
+    grup === "fdlc" && acumulatAnual
+      ? getEvolucioMensual("empresa", null, anyActual, "fdlc")
       : Promise.resolve(null),
     esPresentacioCalblay ? getEvolucioMensual("empresa", null, anyActual) : Promise.resolve(null),
     vista === "gestio" && grup === "calblay"
@@ -89,7 +90,12 @@ export default async function ConsultaEmpresaPage({
   const findEvRow = (node: number) => evFdlc?.concepts.find((c) => c.node === node);
   const findEvEmpresa = (node: number) => evEmpresa?.concepts.find((c) => c.node === node);
 
-  const kpis = buildKpisEmpresa((node) => findRow(node)?.total ?? 0);
+  // KPIs i taula han de sortir de la mateixa font quan mostrem evolució mensual FDLC.
+  const kpis = buildKpisEmpresa((node) =>
+    grup === "fdlc" && acumulatAnual && evFdlc
+      ? (findEvRow(node)?.total ?? 0)
+      : (findRow(node)?.total ?? 0)
+  );
 
   let columns: PivotColumn[];
   let pivotRows = comp.concepts;
@@ -135,6 +141,26 @@ export default async function ConsultaEmpresaPage({
       { name: "EBITDA", type: "bar", color: "#16a34a", data: findRow(NODE_EBITDA)?.valors ?? [] },
     ];
     chartTickAngle = -28;
+  }
+
+  // Drill-down config: depèn del tipus de columnes
+  type DrilldownColumnMap = {
+    [colKey: string]: {
+      mes?: number;
+      rang?: { des: number; fins: number };
+      liniaNegociId?: string;
+    };
+  };
+  const drilldownColMap: DrilldownColumnMap = {};
+  const lnIdsGrup = comp.linies.map((l) => l.id);
+  if (grup === "fdlc" && acumulatAnual) {
+    // Columnes = mesos; mateix filtre de grup que la taula (sense LN individual).
+    for (let i = 0; i < 12; i++) drilldownColMap[String(i)] = { mes: i + 1 };
+  } else if (grup === "fdlc" && !acumulatAnual) {
+    drilldownColMap.fdlc = { rang, liniaNegociId: fdlcLnId ?? undefined };
+  } else {
+    // Columnes = línies de negoci (key = lnId)
+    for (const l of comp.linies) drilldownColMap[l.id] = { rang, liniaNegociId: l.id };
   }
 
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
@@ -186,8 +212,8 @@ export default async function ConsultaEmpresaPage({
       : grup === "fdlc"
         ? `Compte d'explotació FDLC — ${periodeLabel}.`
         : vista === "gestio"
-          ? "Detall numèric opcional. Cada columna és una línia de negoci; l'última és el total empresa."
-          : "Detall numèric opcional. Imports directes; cada columna és una línia de negoci.";
+          ? "Cada columna és una LN (mateix criteri que Evolució/Per línia). El total Empresa elimina dobles còmputs interns (consolidació)."
+          : "Cada columna és una LN (mateix criteri que Evolució/Per línia). El total Empresa elimina dobles còmputs interns (consolidació).";
 
   const chartTitle =
     grup === "fdlc" && acumulatAnual
@@ -278,11 +304,17 @@ export default async function ConsultaEmpresaPage({
           )}
 
           <DetallCompteCollapsible caption={tableCaption} defaultOpen={false}>
-            <PivotTable
+            <PivotTableDrilldown
               columns={columns}
               rows={pivotRows}
               totalLabel={totalLabel}
               firstColLabel="Concepte"
+              drilldown={{
+                any: anyActual,
+                colMap: drilldownColMap,
+                // Sempre passar el grup de LN de la vista (Cal Blay o FDLC) per excloure l'altra empresa.
+                lnIdsGrup,
+              }}
             />
           </DetallCompteCollapsible>
         </>

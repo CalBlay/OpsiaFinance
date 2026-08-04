@@ -1,7 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { ArrowLeftRight, FileSpreadsheet, Scale, SlidersHorizontal, Users } from "lucide-react";
+import {
+  ArrowLeftRight,
+  FileSpreadsheet,
+  Scale,
+  ShoppingBag,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./layout.module.css";
@@ -12,7 +19,9 @@ export default function DadesLayout({ children }: { children: React.ReactNode })
   const repartimentActiu = pathname.startsWith("/dades/repartiment");
   const traspassActiu = pathname.startsWith("/dades/traspass-personal");
   const costSalarialActiu = pathname.startsWith("/dades/cost-salarial");
-  const importsActiu = !ajustosActiu && !repartimentActiu && !traspassActiu && !costSalarialActiu;
+  const vendesActiu = pathname.startsWith("/dades/vendes-restaurants");
+  const importsActiu =
+    !ajustosActiu && !repartimentActiu && !traspassActiu && !costSalarialActiu && !vendesActiu;
 
   return (
     <div className={styles.container}>
@@ -50,6 +59,14 @@ export default function DadesLayout({ children }: { children: React.ReactNode })
           >
             <Users size={15} strokeWidth={1.8} />
             Cost salarial
+          </Link>
+          <Link
+            href="/dades/vendes-restaurants"
+            className={cn(styles.tab, vendesActiu && styles.tabActive)}
+            aria-current={vendesActiu ? "page" : undefined}
+          >
+            <ShoppingBag size={15} strokeWidth={1.8} />
+            Vendes rest.
           </Link>
           <Link
             href="/dades/ajustos"

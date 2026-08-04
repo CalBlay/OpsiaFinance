@@ -77,11 +77,13 @@ export function EmpresaSelectors({
           disabled={isPending}
           onChange={(e) => go(localAny, localRang, localVista, e.target.value as GrupEmpresa)}
         >
-          {(Object.entries(GRUP_EMPRESA_LABELS) as [GrupEmpresa, string][]).map(([val, label]) => (
-            <option key={val} value={val}>
-              {label}
-            </option>
-          ))}
+          {(Object.entries(GRUP_EMPRESA_LABELS) as [GrupEmpresa, string][])
+            .sort((a, b) => a[1].localeCompare(b[1], "ca", { sensitivity: "base" }))
+            .map(([val, label]) => (
+              <option key={val} value={val}>
+                {label}
+              </option>
+            ))}
         </select>
       </div>
       <div className={styles.field}>

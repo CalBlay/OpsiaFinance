@@ -12,7 +12,7 @@ const ERR = (m: string): Result => ({ ok: false, missatge: m });
 async function getEditor() {
   const session = await auth();
   const role = session?.user?.role;
-  if (role === "ADMIN" || role === "EDICIO") return session!.user.id;
+  if (role === "ADMIN" || role === "EDICIO") return session?.user?.id ?? null;
   return null;
 }
 
@@ -20,6 +20,9 @@ function refresh() {
   revalidatePath("/dades/ajustos");
   revalidatePath("/consultes/centre");
   revalidatePath("/consultes/linia");
+  revalidatePath("/consultes/empresa");
+  revalidatePath("/consultes/evolucio");
+  revalidatePath("/consultes/comparativa");
 }
 
 export interface AjustInput {
@@ -101,4 +104,78 @@ export async function deleteAjustAction(id: string): Promise<Result> {
   await db.ajust.delete({ where: { id } });
   refresh();
   return OK("Ajust eliminat.");
+}
+
+export interface CreateAjustMultiInput {
+  any: number;
+  mesos: number[]; // 1..12
+  concepteResultatId: string;
+  centreId: string | null; // si és mode centre
+  liniaNegociId: string | null; // si és mode línia
+  import_: number;
+  motiu: string;
+}
+
+export async function createAjustMultiAction(
+  input: CreateAjustMultiInput
+): Promise<Result & { creats?: number; omesos?: number }> {
+  const userId = await getEditor();
+  if (!userId) return ERR("Sense permisos.");
+
+  const motiu = input.motiu.trim();
+  if (!motiu) return ERR("El motiu és obligatori.");
+  if (!input.concepteResultatId) return ERR("Cal seleccionar un concepte.");
+  if ((!input.centreId && !input.liniaNegociId) || (input.centreId && input.liniaNegociId)) {
+    return ERR("Cal seleccionar un centre o una línia de negoci (no ambdós).");
+  }
+  if (!Number.isFinite(input.import_)) return ERR("L'import no és vàlid.");
+  if (!Array.isArray(input.mesos) || input.mesos.length === 0)
+    return ERR("Selecciona com a mínim un mes.");
+
+  const mesos = [...new Set(input.mesos)]
+    .map((m) => Number(m))
+    .filter((m) => Number.isFinite(m) && m >= 1 && m <= 12);
+
+  if (mesos.length === 0) return ERR("Selecciona mesos vàlids.");
+
+  let creats = 0;
+  let omesos = 0;
+
+  // Crear (CREATE) només quan NO existeix ja el registre.
+  // "Duplicat" aquí vol dir: any+mes+centre/LN+concepte+motiu (tal com demanes).
+  for (const mes of mesos) {
+    const periodId = await resolPeriodId(input.any, mes);
+    const existeix = await db.ajust.findFirst({
+      where: {
+        periodId,
+        concepteResultatId: input.concepteResultatId,
+        centreId: input.centreId,
+        liniaNegociId: input.liniaNegociId,
+        motiu,
+      },
+      select: { id: true },
+    });
+
+    if (existeix) {
+      omesos++;
+      continue;
+    }
+
+    await db.ajust.create({
+      data: {
+        periodId,
+        concepteResultatId: input.concepteResultatId,
+        centreId: input.centreId,
+        liniaNegociId: input.liniaNegociId,
+        import_: input.import_,
+        motiu,
+        creatPer: userId,
+      },
+    });
+    creats++;
+  }
+
+  refresh();
+  const missatge = `Creats: ${creats} · Omèsos (ja existents): ${omesos}`;
+  return { ok: true, missatge, creats, omesos };
 }

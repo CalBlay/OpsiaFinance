@@ -115,9 +115,9 @@ export function ComparativaSelectors({
           value={scope}
           onChange={(e) => goScope(e.target.value, "")}
         >
+          <option value="centre">Centre</option>
           <option value="empresa">Empresa (Cal Blay)</option>
           <option value="linia">Línia de negoci</option>
-          <option value="centre">Centre</option>
         </select>
       </div>
 

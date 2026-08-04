@@ -104,6 +104,15 @@
   opacity: 0.5;
 }
 
+/* Cel·les clicables (drill-down) */
+.clickableTd {
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.clickableTd:hover {
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+}
+
 /* Edició inline (ADMIN) */
 .editableTd {
   min-width: 7rem;

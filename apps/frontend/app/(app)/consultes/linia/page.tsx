@@ -2,7 +2,8 @@ import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteColl
 import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
-import { type PivotColumn, type PivotRow, PivotTable } from "@/components/consultes/PivotTable";
+import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
+import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import { VendesPieChart } from "@/components/consultes/VendesPieChart";
 import styles from "@/components/consultes/report.module.css";
 import {
@@ -193,11 +194,20 @@ export default async function ConsultaLiniaPage({
             title="Compte de la línia (total)"
             caption="Imports totals de la línia de negoci. Cada columna és un mes del període seleccionat."
           >
-            <PivotTable
+            <PivotTableDrilldown
               columns={columnsMes}
               rows={rowsMes}
               totalLabel="Període"
               firstColLabel="Concepte"
+              drilldown={{
+                any: anyActual,
+                colMap: Object.fromEntries(
+                  columnsMes.map((c, i) => [
+                    c.key,
+                    { mes: rang.des + i, liniaNegociId: lnId ?? undefined },
+                  ])
+                ),
+              }}
             />
           </DetallCompteCollapsible>
 
@@ -226,11 +236,15 @@ export default async function ConsultaLiniaPage({
                   />
                 </div>
               )}
-              <PivotTable
+              <PivotTableDrilldown
                 columns={columnsCentres}
                 rows={comp.concepts}
                 totalLabel="Total LN"
                 firstColLabel="Concepte"
+                drilldown={{
+                  any: anyActual,
+                  colMap: Object.fromEntries(centres.map((c) => [c.id, { rang, centreId: c.id }])),
+                }}
               />
             </DetallCompteCollapsible>
           )}

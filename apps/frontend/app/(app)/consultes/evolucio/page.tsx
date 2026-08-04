@@ -1,7 +1,8 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
 import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
-import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
+import type { PivotColumn } from "@/components/consultes/PivotTable";
+import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import styles from "@/components/consultes/report.module.css";
 import {
   type AmbitEvolucio,
@@ -36,6 +37,7 @@ export default async function EvolucioPage({
   const linies = exclouFdlcDeConsultaLinia(
     arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom }))
   );
+  const lnIdsEmpresa = linies.map((l) => l.id);
 
   const necessitaLn = scope === "linia" && !lnId;
   const ev = necessitaLn ? null : await getEvolucioMensual(scope, lnId, anyActual);
@@ -104,12 +106,22 @@ export default async function EvolucioPage({
             <EvolucioChart categories={MESOS_CURTS} series={chartSeries} />
           </div>
 
-          <DetallCompteCollapsible caption="Imports en euros. Les files ressaltades són subtotals i totals.">
-            <PivotTable
+          <DetallCompteCollapsible caption="Imports en euros. Fes clic a un import per veure el detall. Les files ressaltades són subtotals i totals.">
+            <PivotTableDrilldown
               columns={columns}
               rows={ev?.concepts ?? []}
               totalLabel="Any"
               firstColLabel="Concepte"
+              drilldown={{
+                any: anyActual,
+                lnIdsGrup: scope === "empresa" ? lnIdsEmpresa : undefined,
+                colMap: Object.fromEntries(
+                  Array.from({ length: 12 }, (_, i) => [
+                    String(i),
+                    { mes: i + 1, ...(scope === "linia" && lnId ? { liniaNegociId: lnId } : {}) },
+                  ])
+                ),
+              }}
             />
           </DetallCompteCollapsible>
         </>

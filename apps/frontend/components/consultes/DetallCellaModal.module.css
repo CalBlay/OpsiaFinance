@@ -1,0 +1,170 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: color-mix(in srgb, var(--color-foreground) 40%, transparent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.modal {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--color-foreground) 15%, transparent);
+  width: 100%;
+  max-width: 56rem;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-foreground);
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+  margin: 0.15rem 0 0;
+}
+
+.closeBtn {
+  background: none;
+  border: none;
+  padding: 0.3rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+  flex-shrink: 0;
+}
+.closeBtn:hover {
+  background: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+.body {
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.loading {
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.empty {
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.summary {
+  display: flex;
+  gap: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--color-foreground);
+  margin-bottom: 1rem;
+  padding: 0.6rem 0.8rem;
+  background: color-mix(in srgb, var(--color-muted) 50%, transparent);
+  border-radius: 0.5rem;
+}
+
+.ajust {
+  color: var(--color-primary);
+}
+
+.tableWrap {
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.table th {
+  text-align: left;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted-foreground);
+  font-weight: 600;
+  background: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table td {
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+  color: var(--color-foreground);
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+
+.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.neg {
+  color: var(--color-destructive);
+}
+
+.motiu {
+  color: var(--color-muted-foreground);
+  max-width: 200px;
+  font-size: 0.76rem;
+}
+
+.ajustRow {
+  background: color-mix(in srgb, var(--color-primary) 5%, transparent);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badgeDada {
+  background: color-mix(in srgb, var(--color-muted-foreground) 12%, transparent);
+  color: var(--color-muted-foreground);
+}
+
+.badgeAjust {
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary);
+}

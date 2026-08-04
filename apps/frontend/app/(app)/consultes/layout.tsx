@@ -1,7 +1,15 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Building2, GitCompareArrows, Landmark, Layers, TrendingUp, Users } from "lucide-react";
+import {
+  Building2,
+  GitCompareArrows,
+  Landmark,
+  Layers,
+  ShoppingBag,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./layout.module.css";
@@ -13,6 +21,7 @@ const TABS = [
   { href: "/consultes/centre", label: "Per centre", icon: Building2 },
   { href: "/consultes/comparativa", label: "Comparativa temporal", icon: GitCompareArrows },
   { href: "/consultes/cost-salarial", label: "Cost salarial rest.", icon: Users },
+  { href: "/consultes/vendes-restaurants", label: "Vendes rest.", icon: ShoppingBag },
 ] as const;
 
 export default function ConsultesLayout({ children }: { children: React.ReactNode }) {

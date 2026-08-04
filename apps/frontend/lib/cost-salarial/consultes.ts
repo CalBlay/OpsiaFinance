@@ -218,15 +218,20 @@ export async function getCentresRestaurants() {
     select: {
       centres: {
         where: { isActive: true },
-        orderBy: { ordre: "asc" },
         select: { id: true, codi: true, nom: true },
       },
     },
   });
-  return (ln?.centres ?? []).map((c) => ({
-    ...c,
-    etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
-  }));
+  return (ln?.centres ?? [])
+    .map((c) => ({
+      ...c,
+      etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
+    }))
+    .sort(
+      (a, b) =>
+        a.etiqueta.localeCompare(b.etiqueta, "ca", { sensitivity: "base", numeric: true }) ||
+        a.codi.localeCompare(b.codi, "ca")
+    );
 }
 
 export async function getInformeRestaurant(

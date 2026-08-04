@@ -2,11 +2,12 @@
 
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
-import { Check, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import { useMemo, useState, useTransition } from "react";
+import { Check, Copy, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   type AjustInput,
   createAjustAction,
+  createAjustMultiAction,
   deleteAjustAction,
   updateAjustAction,
 } from "./actions";
@@ -77,6 +78,7 @@ export function AjustosManager({
   // Camps del formulari
   const [any, setAny] = useState(ARA.getFullYear());
   const [mes, setMes] = useState(ARA.getMonth() + 1);
+  const [mesosSeleccionats, setMesosSeleccionats] = useState<number[]>([ARA.getMonth() + 1]);
   const [ambit, setAmbit] = useState<"centre" | "linia">("centre");
   const [centreId, setCentreId] = useState("");
   const [lnId, setLnId] = useState("");
@@ -84,6 +86,19 @@ export function AjustosManager({
   const [importTxt, setImportTxt] = useState("");
   const [motiu, setMotiu] = useState("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [mesosObert, setMesosObert] = useState(false);
+  const mesosRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!mesosObert) return;
+    function handleClick(e: MouseEvent) {
+      if (mesosRef.current && !mesosRef.current.contains(e.target as Node)) {
+        setMesosObert(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [mesosObert]);
 
   const anysDisponibles = useMemo(() => {
     const set = new Set(ajustos.map((a) => a.periodAny));
@@ -140,7 +155,9 @@ export function AjustosManager({
 
   const reset = () => {
     setAny(ARA.getFullYear());
-    setMes(ARA.getMonth() + 1);
+    const mesAra = ARA.getMonth() + 1;
+    setMes(mesAra);
+    setMesosSeleccionats([mesAra]);
     setAmbit("centre");
     setCentreId("");
     setLnId("");
@@ -156,9 +173,10 @@ export function AjustosManager({
   };
 
   const desar = () => {
+    const mesActual = mesosSeleccionats.length === 1 ? mesosSeleccionats[0] : mes;
     const input: AjustInput = {
       any,
-      mes,
+      mes: mesActual,
       concepteResultatId: concepteId,
       centreId: ambit === "centre" ? centreId || null : null,
       liniaNegociId: ambit === "linia" ? lnId || null : null,
@@ -167,6 +185,27 @@ export function AjustosManager({
     };
     startTransition(async () => {
       const r = editId ? await updateAjustAction(editId, input) : await createAjustAction(input);
+      notify(r);
+      if (r.ok) tancar();
+    });
+  };
+
+  const toggleMesos = (m: number) => {
+    setMesosSeleccionats((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+  };
+
+  const crearPerMesos = () => {
+    const import_ = Number.parseFloat(importTxt.replace(",", "."));
+    startTransition(async () => {
+      const r = await createAjustMultiAction({
+        any,
+        mesos: mesosSeleccionats,
+        concepteResultatId: concepteId,
+        centreId: ambit === "centre" ? centreId || null : null,
+        liniaNegociId: ambit === "linia" ? lnId || null : null,
+        import_,
+        motiu,
+      });
       notify(r);
       if (r.ok) tancar();
     });
@@ -181,6 +220,22 @@ export function AjustosManager({
     setEditId(a.id);
     setAny(a.periodAny);
     setMes(a.periodMes);
+    setMesosSeleccionats([a.periodMes]);
+    setAmbit(a.centreId ? "centre" : "linia");
+    setCentreId(a.centreId ?? "");
+    setLnId(a.liniaNegociId ?? "");
+    setConcepteId(a.concepteResultatId);
+    setImportTxt(String(a.import_).replace(".", ","));
+    setMotiu(a.motiu);
+    setObert(true);
+  };
+
+  const duplicar = (a: AjustDTO) => {
+    // Deixa-ho en mode "nou": crearem un registre nou (no actualitzem el que ja existeix).
+    setEditId(null);
+    setAny(a.periodAny);
+    setMes(a.periodMes);
+    setMesosSeleccionats([a.periodMes]);
     setAmbit(a.centreId ? "centre" : "linia");
     setCentreId(a.centreId ?? "");
     setLnId(a.liniaNegociId ?? "");
@@ -215,6 +270,7 @@ export function AjustosManager({
         <div className={styles.form}>
           <div className={styles.formTitle}>{editId ? "Editar ajust" : "Nou ajust"}</div>
           <div className={styles.formGrid}>
+            {/* Fila 1: Any · Àmbit · Centre/LN · Concepte · Import */}
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Any</span>
               <input
@@ -224,20 +280,7 @@ export function AjustosManager({
                 onChange={(e) => setAny(Number(e.target.value))}
               />
             </label>
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Mes</span>
-              <select
-                className={styles.input}
-                value={mes}
-                onChange={(e) => setMes(Number(e.target.value))}
-              >
-                {MESOS_LLARGS.map((m, i) => (
-                  <option key={`${i + 1}-${m}`} value={i + 1}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
+
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Àmbit</span>
               <select
@@ -314,7 +357,63 @@ export function AjustosManager({
               />
             </label>
 
-            <label className={cn(styles.field, styles.full)}>
+            <div className={cn(styles.field, styles.wide)} ref={mesosRef}>
+              <span className={styles.fieldLabel}>Mesos</span>
+              <button
+                type="button"
+                className={cn(styles.input, styles.mesosTrigger)}
+                onClick={() => setMesosObert((o) => !o)}
+                disabled={isPending}
+              >
+                <span className={styles.mesosTriggerText}>
+                  {mesosSeleccionats.length === 0
+                    ? "Selecciona mesos…"
+                    : mesosSeleccionats.length === 12
+                      ? "Tots els mesos"
+                      : mesosSeleccionats
+                          .sort((a, b) => a - b)
+                          .map((m) => MESOS_LLARGS[m - 1].slice(0, 3))
+                          .join(", ")}
+                </span>
+                <span className={styles.mesosTriggerArrow}>▾</span>
+              </button>
+              {mesosObert && (
+                <div className={styles.mesosDropdown}>
+                  <div className={styles.mesosDropdownActions}>
+                    <button
+                      type="button"
+                      onClick={() => setMesosSeleccionats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+                    >
+                      Tots
+                    </button>
+                    <button type="button" onClick={() => setMesosSeleccionats([])}>
+                      Cap
+                    </button>
+                  </div>
+                  <div className={styles.mesosGrid}>
+                    {MESOS_LLARGS.map((m, i) => {
+                      const val = i + 1;
+                      const checked = mesosSeleccionats.includes(val);
+                      return (
+                        <label
+                          key={val}
+                          className={cn(styles.mesChip, checked && styles.mesChipChecked)}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => toggleMesos(val)}
+                          />
+                          {m.slice(0, 3)}
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <label className={cn(styles.field, styles.motiuFila)}>
               <span className={styles.fieldLabel}>Motiu</span>
               <input
                 className={styles.input}
@@ -328,6 +427,15 @@ export function AjustosManager({
           <div className={styles.formActions}>
             <button type="button" className={styles.saveBtn} onClick={desar} disabled={isPending}>
               <Check size={15} /> {editId ? "Desa canvis" : "Crea ajust"}
+            </button>
+            <button
+              type="button"
+              className={styles.bulkCreateBtn}
+              onClick={crearPerMesos}
+              disabled={isPending}
+              title="Crea ajustos nous per als mesos marcats (salta els que ja existeixen)"
+            >
+              <Plus size={15} /> Crea per mesos
             </button>
             <button
               type="button"
@@ -469,6 +577,15 @@ export function AjustosManager({
                             disabled={isPending}
                           >
                             <Pencil size={13} />
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.iconBtn}
+                            title="Duplica (crea nou)"
+                            onClick={() => duplicar(a)}
+                            disabled={isPending}
+                          >
+                            <Copy size={13} />
                           </button>
                           <button
                             type="button"

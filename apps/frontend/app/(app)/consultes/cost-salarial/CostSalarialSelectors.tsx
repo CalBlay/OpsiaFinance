@@ -45,8 +45,11 @@ export function CostSalarialSelectors({
   return (
     <div className={styles.selectors}>
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Vista</label>
+        <label className={styles.fieldLabel} htmlFor="cost-vista">
+          Vista
+        </label>
         <select
+          id="cost-vista"
           className={styles.select}
           value={vista}
           onChange={(e) => {
@@ -62,8 +65,11 @@ export function CostSalarialSelectors({
 
       {(vista === "restaurant" || vista === "sala-cuina") && (
         <div className={styles.field}>
-          <label className={styles.fieldLabel}>Restaurant</label>
+          <label className={styles.fieldLabel} htmlFor="cost-restaurant">
+            Restaurant
+          </label>
           <select
+            id="cost-restaurant"
             className={styles.select}
             value={centreId ?? ""}
             onChange={(e) => go(any, mes, e.target.value || null, vista)}
@@ -79,8 +85,11 @@ export function CostSalarialSelectors({
       )}
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Any</label>
+        <label className={styles.fieldLabel} htmlFor="cost-any">
+          Any
+        </label>
         <select
+          id="cost-any"
           className={styles.select}
           style={{ minWidth: 100 }}
           value={any}
@@ -95,8 +104,11 @@ export function CostSalarialSelectors({
       </div>
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Mes</label>
+        <label className={styles.fieldLabel} htmlFor="cost-mes">
+          Mes
+        </label>
         <select
+          id="cost-mes"
           className={styles.select}
           style={{ minWidth: 130 }}
           value={mes ?? ""}

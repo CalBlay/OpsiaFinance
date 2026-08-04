@@ -1,7 +1,8 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
 import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
-import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
+import type { PivotColumn } from "@/components/consultes/PivotTable";
+import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import styles from "@/components/consultes/report.module.css";
 import { auth } from "@/lib/auth";
 import {
@@ -149,7 +150,7 @@ export default async function ConsultaCentrePage({
                 Dades → Ajustos.
               </p>
             )}
-            <PivotTable
+            <PivotTableDrilldown
               columns={columns}
               rows={compte?.concepts ?? []}
               totalLabel="Any"
@@ -160,6 +161,15 @@ export default async function ConsultaCentrePage({
                   ? { centreId, any: anyActual, onSave: ajustarImportCentreAction }
                   : undefined
               }
+              drilldown={{
+                any: anyActual,
+                colMap: Object.fromEntries(
+                  Array.from({ length: 12 }, (_, i) => [
+                    String(i),
+                    { mes: i + 1, centreId: centreId ?? undefined },
+                  ])
+                ),
+              }}
             />
           </DetallCompteCollapsible>
         </>

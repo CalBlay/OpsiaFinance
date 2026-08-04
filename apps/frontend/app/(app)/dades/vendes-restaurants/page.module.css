@@ -1,0 +1,336 @@
+.page {
+  padding: 1.5rem 2.5rem 3rem;
+  width: 100%;
+}
+
+.header {
+  margin-bottom: 1rem;
+}
+.subtitle {
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  margin: 0;
+}
+
+.feedback {
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.5rem;
+  font-size: 0.83rem;
+  margin-bottom: 1rem;
+}
+.feedbackOk {
+  background: color-mix(in srgb, #16a34a 12%, transparent);
+  color: #15803d;
+}
+.feedbackErr {
+  background: color-mix(in srgb, var(--color-destructive) 12%, transparent);
+  color: var(--color-destructive);
+}
+.errorList {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+}
+
+.uploadCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  background: var(--color-card);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.uploadTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.25rem;
+  color: var(--color-foreground);
+}
+.uploadHint {
+  font-size: 0.8rem;
+  color: var(--color-muted-foreground);
+  margin: 0;
+  max-width: 48rem;
+  line-height: 1.45;
+}
+.uploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.uploadBtn:hover {
+  opacity: 0.92;
+}
+
+.filters {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 8rem;
+}
+.fieldLabel {
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+  font-weight: 600;
+}
+.input {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-size: 0.875rem;
+  outline: none;
+  width: 100%;
+}
+
+.tableWrap {
+  border: 1px solid var(--color-border);
+  border-radius: 0.6rem;
+  overflow-x: auto;
+  background: var(--color-card);
+}
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+}
+.table th {
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted-foreground);
+  font-weight: 600;
+  background: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+.table td {
+  padding: 0.5rem 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 55%, transparent);
+  color: var(--color-foreground);
+}
+.table tr:last-child td {
+  border-bottom: none;
+}
+.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.nowrap {
+  white-space: nowrap;
+}
+
+.empty {
+  text-align: center;
+  padding: 3.5rem 2rem;
+  border: 1px dashed var(--color-border);
+  border-radius: 0.75rem;
+}
+.emptyTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-foreground);
+  margin: 0 0 0.3rem;
+}
+.emptyText {
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+  margin: 0;
+}
+
+.iconBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem;
+  border-radius: 5px;
+  color: var(--color-muted-foreground);
+  transition: background 0.12s, color 0.12s;
+}
+.iconBtn:hover:not(:disabled) {
+  background: var(--color-border);
+  color: var(--color-foreground);
+}
+.iconDanger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-destructive) 15%, transparent);
+  color: var(--color-destructive);
+}
+
+.detallCard {
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.7rem;
+  background: var(--color-card);
+  padding: 1rem 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detallHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.detallTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.detallSub {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+}
+
+.blocFitxer {
+  border: 1px solid var(--color-border);
+  border-radius: 0.55rem;
+  padding: 0.75rem 0.85rem;
+  background: var(--color-background);
+}
+
+.blocHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.blocTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 750;
+}
+
+.blocMeta {
+  margin: 0.15rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-muted-foreground);
+}
+
+.dangerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  color: var(--color-destructive);
+  border: 1px solid color-mix(in srgb, var(--color-destructive) 35%, var(--color-border));
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dangerBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-destructive) 8%, transparent);
+}
+.dangerBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cancelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: none;
+  color: var(--color-muted-foreground);
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.cancelBtn:hover {
+  color: var(--color-foreground);
+}
+
+.saveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+  border: none;
+  border-radius: 0.45rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.editBar {
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 0.9rem;
+  background: var(--color-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.editFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: flex-end;
+}
+
+.editFields label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+  min-width: 7rem;
+}
+
+.miniTableWrap {
+  max-height: 22rem;
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+}
+
+.emptyMini {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+}
+
+.muted {
+  color: var(--color-muted-foreground);
+  font-size: 0.8rem;
+}
