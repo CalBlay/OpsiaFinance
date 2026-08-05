@@ -18,10 +18,9 @@ export default async function CostSalarialDadesPage({
   searchParams: Promise<{ any?: string; mes?: string }>;
 }) {
   const sp = await searchParams;
-  const anyFiltre = sp.any ? Number(sp.any) : null;
   const mesFiltre = sp.mes ? Number(sp.mes) : null;
 
-  const [session, centres, anysRaw, registres, carregues] = await Promise.all([
+  const [session, centres, anysRaw, carregues] = await Promise.all([
     auth(),
     getCentresRestaurants(),
     db.period.findMany({
@@ -30,48 +29,47 @@ export default async function CostSalarialDadesPage({
       distinct: ["any"],
       orderBy: { any: "desc" },
     }),
-    db.costSalarialRestaurant.findMany({
-      where: {
-        ...(anyFiltre || mesFiltre
-          ? {
-              period: {
-                ...(anyFiltre ? { any: anyFiltre } : {}),
-                ...(mesFiltre ? { mes: mesFiltre } : {}),
-              },
-            }
-          : {}),
-      },
-      orderBy: [
-        { period: { any: "desc" } },
-        { period: { mes: "desc" } },
-        { centre: { codi: "asc" } },
-        { departament: "asc" },
-      ],
-      select: {
-        id: true,
-        departament: true,
-        totalSalari: true,
-        incentiusMensual: true,
-        incentiuTrimestral: true,
-        horesExtres: true,
-        altres: true,
-        baixes: true,
-        indemnitzacions: true,
-        foraCentre: true,
-        notes: true,
-        updatedAt: true,
-        period: { select: { any: true, mes: true, nom: true } },
-        centre: { select: { id: true, codi: true, nom: true } },
-      },
-      take: 500,
-    }),
     llistaCarreguesFitxer("COST_SALARIAL"),
   ]);
 
-  const role = session?.user?.role;
-  const canEdit = role === "ADMIN" || role === "EDICIO";
   const anys = anysRaw.map((a) => a.any);
   if (!anys.length) anys.push(new Date().getFullYear());
+  const anyFiltre = sp.any ? Number(sp.any) : anys[0];
+
+  const registres = await db.costSalarialRestaurant.findMany({
+    where: {
+      period: {
+        any: anyFiltre,
+        ...(mesFiltre ? { mes: mesFiltre } : {}),
+      },
+    },
+    orderBy: [
+      { period: { any: "desc" } },
+      { period: { mes: "desc" } },
+      { centre: { codi: "asc" } },
+      { departament: "asc" },
+    ],
+    select: {
+      id: true,
+      departament: true,
+      totalSalari: true,
+      incentiusMensual: true,
+      incentiuTrimestral: true,
+      horesExtres: true,
+      altres: true,
+      baixes: true,
+      indemnitzacions: true,
+      foraCentre: true,
+      notes: true,
+      updatedAt: true,
+      period: { select: { any: true, mes: true, nom: true } },
+      centre: { select: { id: true, codi: true, nom: true } },
+    },
+    take: 500,
+  });
+
+  const role = session?.user?.role;
+  const canEdit = role === "ADMIN" || role === "EDICIO";
 
   const registresPlain = registres.map((r) => ({
     id: r.id,
@@ -93,8 +91,8 @@ export default async function CostSalarialDadesPage({
     centreLabel: `${r.centre.codi} · ${r.centre.nom}`,
   }));
 
-  const meta = `${registresPlain.length} registre${registresPlain.length !== 1 ? "s" : ""}${
-    anyFiltre || mesFiltre ? " (filtre actiu)" : ""
+  const meta = `${registresPlain.length} registre${registresPlain.length !== 1 ? "s" : ""} · ${anyFiltre}${
+    mesFiltre ? `/${mesFiltre}` : ""
   }`;
 
   return (

@@ -33,7 +33,7 @@ export default async function SettingsPage() {
     }),
   ]);
 
-  if (session?.user.role !== "ADMIN") {
+  if (session?.user?.role !== "ADMIN") {
     redirect("/settings/dimensions");
   }
 

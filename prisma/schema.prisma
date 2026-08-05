@@ -303,6 +303,9 @@ model DadaResultat {
   @@index([concepteResultatId])
   @@index([centreId])
   @@index([liniaNegociId])
+  @@index([periodId, centreId])
+  @@index([periodId, liniaNegociId])
+  @@index([periodId, concepteResultatId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -620,6 +623,7 @@ model CostSalarialRestaurant {
   @@index([periodId])
   @@index([centreId])
   @@index([carregaId])
+  @@index([centreId, periodId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -662,6 +666,7 @@ model VendaDiariaRestaurant {
   @@index([periodId])
   @@index([centreId])
   @@index([carregaId])
+  @@index([centreId, periodId])
 }
 
 /// Vendes per article del mes (Detall = productes; Pack = packs/menús). Base sense IVA.
@@ -700,6 +705,8 @@ model VendaArticleRestaurant {
   @@index([origen])
   @@index([categoria])
   @@index([carregaId])
+  @@index([centreId, periodId, origen])
+  @@index([centreId, periodId, categoria])
 }
 
 enum CategoriaVenda {

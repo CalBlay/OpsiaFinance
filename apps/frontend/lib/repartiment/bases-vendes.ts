@@ -12,64 +12,118 @@ const DADA_SELECT = {
   concepteResultat: { select: { node: true } },
 } as const;
 
-/** Valors directes SAP per LN i node (un sol mes). */
-export async function getDirectePerLnNode(
-  periodId: string
-): Promise<Map<string, Map<number, number>>> {
-  const dades = await db.dadaResultat.findMany({
-    where: { periodId },
-    select: DADA_SELECT,
-  });
+type DirectePerLn = Map<string, Map<number, number>>;
 
-  const perLn = new Map<string, Map<number, number>>();
-  for (const d of dades) {
-    const lnId = lnInformePerAgregacio(d);
-    if (!lnId) continue;
-    const node = d.concepteResultat.node;
-    if (!perLn.has(lnId)) perLn.set(lnId, new Map());
-    const m = perLn.get(lnId)!;
-    m.set(node, (m.get(node) ?? 0) + Number(d.import_));
+function emptyDirecte(): DirectePerLn {
+  return new Map();
+}
+
+function acumularDada(
+  perLn: DirectePerLn,
+  d: {
+    import_: unknown;
+    liniaNegociId: string | null;
+    centreId: string | null;
+    senseCentre: boolean;
+    importacio: { liniaNegociId: string | null };
+    concepteResultat: { node: number };
   }
+) {
+  const lnId = lnInformePerAgregacio(d);
+  if (!lnId) return;
+  const node = d.concepteResultat.node;
+  let m = perLn.get(lnId);
+  if (!m) {
+    m = new Map();
+    perLn.set(lnId, m);
+  }
+  m.set(node, (m.get(node) ?? 0) + Number(d.import_));
+}
 
-  // Ajusta el node de personal (node 17) amb els traspassos confirmats d'hores.
-  // Això és necessari perquè el repartiment Central → LN no faci doble comptatge.
-  const execucionsTraspass = await db.execucioTraspassPersonal.findMany({
-    where: { estat: "CONFIRMAT", periodId },
-    select: {
-      moviments: {
-        select: {
-          import_: true,
-          centreOrigen: { select: { liniaNegociId: true } },
-          centreDesti: { select: { liniaNegociId: true } },
+function aplicarTraspass(
+  perLn: DirectePerLn,
+  moviments: {
+    import_: unknown;
+    centreOrigen: { liniaNegociId: string } | null;
+    centreDesti: { liniaNegociId: string } | null;
+  }[]
+) {
+  for (const m of moviments) {
+    const imp = Number(m.import_);
+    const origenLnId = m.centreOrigen?.liniaNegociId;
+    const destiLnId = m.centreDesti?.liniaNegociId;
+    if (!origenLnId || !destiLnId) continue;
+
+    let origen = perLn.get(origenLnId);
+    if (!origen) {
+      origen = new Map();
+      perLn.set(origenLnId, origen);
+    }
+    let desti = perLn.get(destiLnId);
+    if (!desti) {
+      desti = new Map();
+      perLn.set(destiLnId, desti);
+    }
+
+    origen.set(NODE_COST_SALARIAL, (origen.get(NODE_COST_SALARIAL) ?? 0) + imp);
+    desti.set(NODE_COST_SALARIAL, (desti.get(NODE_COST_SALARIAL) ?? 0) - imp);
+  }
+}
+
+/** Valors directes SAP per LN i node (un sol mes). */
+export async function getDirectePerLnNode(periodId: string): Promise<DirectePerLn> {
+  const map = await getDirectePerLnNodeMany([periodId]);
+  return map.get(periodId) ?? emptyDirecte();
+}
+
+/**
+ * Mateix resultat que N crides a getDirectePerLnNode, amb 2 queries
+ * (dades + traspassos) en lloc de 2N.
+ */
+export async function getDirectePerLnNodeMany(
+  periodIds: string[]
+): Promise<Map<string, DirectePerLn>> {
+  const result = new Map<string, DirectePerLn>();
+  for (const id of periodIds) result.set(id, emptyDirecte());
+  if (!periodIds.length) return result;
+
+  const [dades, execucionsTraspass] = await Promise.all([
+    db.dadaResultat.findMany({
+      where: { periodId: { in: periodIds } },
+      select: { ...DADA_SELECT, periodId: true },
+    }),
+    db.execucioTraspassPersonal.findMany({
+      where: { estat: "CONFIRMAT", periodId: { in: periodIds } },
+      select: {
+        periodId: true,
+        moviments: {
+          select: {
+            import_: true,
+            centreOrigen: { select: { liniaNegociId: true } },
+            centreDesti: { select: { liniaNegociId: true } },
+          },
         },
       },
-    },
-  });
+    }),
+  ]);
 
-  for (const ex of execucionsTraspass) {
-    for (const m of ex.moviments) {
-      const imp = Number(m.import_);
-      const origenLnId = m.centreOrigen?.liniaNegociId;
-      const destiLnId = m.centreDesti?.liniaNegociId;
-      if (!origenLnId || !destiLnId) continue;
-
-      if (!perLn.has(origenLnId)) perLn.set(origenLnId, new Map());
-      if (!perLn.has(destiLnId)) perLn.set(destiLnId, new Map());
-
-      perLn
-        .get(origenLnId)!
-        .set(NODE_COST_SALARIAL, (perLn.get(origenLnId)!.get(NODE_COST_SALARIAL) ?? 0) + imp);
-      perLn
-        .get(destiLnId)!
-        .set(NODE_COST_SALARIAL, (perLn.get(destiLnId)!.get(NODE_COST_SALARIAL) ?? 0) - imp);
-    }
+  for (const d of dades) {
+    const perLn = result.get(d.periodId);
+    if (!perLn) continue;
+    acumularDada(perLn, d);
   }
 
-  return perLn;
+  for (const ex of execucionsTraspass) {
+    const perLn = result.get(ex.periodId);
+    if (!perLn) continue;
+    aplicarTraspass(perLn, ex.moviments);
+  }
+
+  return result;
 }
 
 /** Vendes base per LN (TOTAL INGRESSOS EXPLOTACIO). */
-export function vendesLn(directe: Map<string, Map<number, number>>, lnId: string): number {
+export function vendesLn(directe: DirectePerLn, lnId: string): number {
   return directe.get(lnId)?.get(NODE_INGRESSOS) ?? 0;
 }
 
@@ -80,16 +134,16 @@ export interface PesGrupCalculat {
   pesCalculat: number;
 }
 
-/** Calcula pesos de vendes per grup (suma vendes membres → fracció). */
-export async function calcularPesosGrups(periodId: string): Promise<PesGrupCalculat[]> {
-  const directe = await getDirectePerLnNode(periodId);
-  const grups = await db.repartimentGrup.findMany({
-    where: { isActive: true },
-    include: {
-      membres: { orderBy: { ordre: "asc" } },
-    },
-  });
+export type GrupAmbMembres = {
+  id: string;
+  membres: { liniaNegociId: string }[];
+};
 
+/** Pesos a partir de directe ja carregat (sense DB). */
+export function calcularPesosGrupsFromDirecte(
+  directe: DirectePerLn,
+  grups: GrupAmbMembres[]
+): PesGrupCalculat[] {
   const result: PesGrupCalculat[] = [];
   for (const g of grups) {
     const vendesMembres = g.membres.map((m) => ({
@@ -107,4 +161,22 @@ export async function calcularPesosGrups(periodId: string): Promise<PesGrupCalcu
     }
   }
   return result;
+}
+
+/** Calcula pesos de vendes per grup (suma vendes membres → fracció). */
+export async function calcularPesosGrups(
+  periodId: string,
+  directePreload?: DirectePerLn
+): Promise<PesGrupCalculat[]> {
+  const [directe, grups] = await Promise.all([
+    directePreload ? Promise.resolve(directePreload) : getDirectePerLnNode(periodId),
+    db.repartimentGrup.findMany({
+      where: { isActive: true },
+      include: {
+        membres: { orderBy: { ordre: "asc" } },
+      },
+    }),
+  ]);
+
+  return calcularPesosGrupsFromDirecte(directe, grups);
 }

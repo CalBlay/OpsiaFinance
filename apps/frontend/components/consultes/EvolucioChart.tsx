@@ -68,8 +68,10 @@ export function EvolucioChart({
           width={48}
         />
         <Tooltip
-          formatter={(value: number) =>
-            new Intl.NumberFormat("ca-ES", { maximumFractionDigits: 0 }).format(value) + " €"
+          formatter={(value) =>
+            `${new Intl.NumberFormat("ca-ES", { maximumFractionDigits: 0 }).format(
+              Number(value ?? 0)
+            )} €`
           }
           contentStyle={{
             background: "var(--color-card)",

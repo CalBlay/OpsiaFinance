@@ -4,6 +4,9 @@ import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
+// Assegura que l'augmentació de tipus es carrega amb aquest mòdul.
+import "@/types/next-auth";
+
 /*
  * Configuració completa d'autenticació — NODE.JS RUNTIME ONLY.
  * Estén authConfig amb el provider de credencials i accés a la BBDD.

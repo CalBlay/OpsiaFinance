@@ -37,6 +37,8 @@ export async function processarImportExcel(
   if (!imp.rutaStorage)
     return { ok: false, missatge: "Fitxer no disponible al servidor. Puja'l de nou." };
 
+  const liniaNegociIdImport = imp.liniaNegociId;
+
   if (imp.formatInforme?.tipusInforme === "PYG_FDLC") {
     return processarImportFdlc(imp);
   }
@@ -64,14 +66,21 @@ export async function processarImportExcel(
   }
 
   const concepteIdByNode = new Map<number, string>();
-  for (const c of concepts) {
-    const cr = await db.concepteResultat.upsert({
-      where: { node: c.node },
-      update: { descripcio: c.descripcio, esSubtotal: c.esSubtotal, ordre: c.ordre },
-      create: { node: c.node, descripcio: c.descripcio, esSubtotal: c.esSubtotal, ordre: c.ordre },
-    });
-    concepteIdByNode.set(c.node, cr.id);
-  }
+  await Promise.all(
+    concepts.map(async (c) => {
+      const cr = await db.concepteResultat.upsert({
+        where: { node: c.node },
+        update: { descripcio: c.descripcio, esSubtotal: c.esSubtotal, ordre: c.ordre },
+        create: {
+          node: c.node,
+          descripcio: c.descripcio,
+          esSubtotal: c.esSubtotal,
+          ordre: c.ordre,
+        },
+      });
+      concepteIdByNode.set(c.node, cr.id);
+    })
+  );
 
   interface ColMap {
     centreId: string | null;
@@ -83,19 +92,36 @@ export async function processarImportExcel(
   const colMap = new Map<number, ColMap>();
   const codisNoTrobats: string[] = [];
 
-  async function findCentrePerImport(codi: string) {
-    if (imp.liniaNegociId) {
-      const preferit = await db.centre.findFirst({
-        where: { codi, liniaNegociId: imp.liniaNegociId },
-        select: { id: true, liniaNegociId: true },
-      });
-      if (preferit) return preferit;
+  const codisCol = [
+    ...new Set(columnes.filter((c) => !c.senseCentre && c.codi).map((c) => c.codi as string)),
+  ];
+
+  const [centres, lns] = await Promise.all([
+    codisCol.length
+      ? db.centre.findMany({
+          where: { codi: { in: codisCol } },
+          select: { id: true, codi: true, liniaNegociId: true },
+        })
+      : Promise.resolve([] as { id: string; codi: string; liniaNegociId: string }[]),
+    codisCol.length
+      ? db.liniaNegoci.findMany({
+          where: { codi: { in: codisCol } },
+          select: { id: true, codi: true },
+        })
+      : Promise.resolve([] as { id: string; codi: string }[]),
+  ]);
+
+  // Preferència: centre de la LN de l'informe si n'hi ha diversos amb el mateix codi.
+  const centreByCodi = new Map<string, { id: string; liniaNegociId: string }>();
+  for (const c of centres) {
+    const prev = centreByCodi.get(c.codi);
+    if (!prev) {
+      centreByCodi.set(c.codi, c);
+    } else if (liniaNegociIdImport && c.liniaNegociId === liniaNegociIdImport) {
+      centreByCodi.set(c.codi, c);
     }
-    return db.centre.findFirst({
-      where: { codi },
-      select: { id: true, liniaNegociId: true },
-    });
   }
+  const lnByCodi = new Map(lns.map((l) => [l.codi, l.id]));
 
   for (const col of columnes) {
     if (col.senseCentre || !col.codi) {
@@ -108,7 +134,7 @@ export async function processarImportExcel(
       });
       continue;
     }
-    const centre = await findCentrePerImport(col.codi);
+    const centre = centreByCodi.get(col.codi);
     if (centre) {
       colMap.set(col.colIdx, {
         centreId: centre.id,
@@ -119,11 +145,11 @@ export async function processarImportExcel(
       });
       continue;
     }
-    const ln = await db.liniaNegoci.findUnique({ where: { codi: col.codi }, select: { id: true } });
-    if (ln) {
+    const lnId = lnByCodi.get(col.codi);
+    if (lnId) {
       colMap.set(col.colIdx, {
         centreId: null,
-        liniaNegociId: ln.id,
+        liniaNegociId: lnId,
         senseCentre: false,
         isLnColumna: true,
         codi: col.codi,
@@ -146,10 +172,10 @@ export async function processarImportExcel(
     .map((f) => {
       const concepteResultatId = concepteIdByNode.get(f.node);
       const col = colMap.get(f.colIdx);
-      if (!concepteResultatId || !col) return null;
+      if (!concepteResultatId || !col || !periodId) return null;
       return {
         importacioId: importId,
-        periodId: periodId!,
+        periodId,
         concepteResultatId,
         centreId: col.centreId,
         liniaNegociId: resolveLiniaNegociImport(col, imp.liniaNegociId),

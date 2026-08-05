@@ -13,7 +13,7 @@ const ERR = (m: string, errors?: string[]): Result => ({ ok: false, missatge: m,
 async function getEditor() {
   const session = await auth();
   const role = session?.user?.role;
-  if (role === "ADMIN" || role === "EDICIO") return session?.user.id ?? null;
+  if ((role === "ADMIN" || role === "EDICIO") && session?.user) return session.user.id;
   return null;
 }
 

@@ -23,6 +23,7 @@ const tab = getDadesTabById("importacions");
 export default async function DadesPage() {
   const imports = await db.importacio.findMany({
     orderBy: { createdAt: "desc" },
+    take: 50,
     include: {
       formatInforme: { select: { nom: true, tipusInforme: true } },
       period: { select: { any: true, mes: true, nom: true } },

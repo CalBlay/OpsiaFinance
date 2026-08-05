@@ -17,20 +17,9 @@ export default async function VendesRestaurantsDadesPage({
   searchParams: Promise<{ any?: string; mes?: string }>;
 }) {
   const sp = await searchParams;
-  const anyFiltre = sp.any ? Number(sp.any) : null;
   const mesFiltre = sp.mes ? Number(sp.mes) : null;
 
-  const periodFilter =
-    anyFiltre || mesFiltre
-      ? {
-          period: {
-            ...(anyFiltre ? { any: anyFiltre } : {}),
-            ...(mesFiltre ? { mes: mesFiltre } : {}),
-          },
-        }
-      : {};
-
-  const [session, anysRaw, diaries, articles, carregues] = await Promise.all([
+  const [session, anysRaw, carregues] = await Promise.all([
     auth(),
     db.period.findMany({
       where: {
@@ -40,6 +29,22 @@ export default async function VendesRestaurantsDadesPage({
       distinct: ["any"],
       orderBy: { any: "desc" },
     }),
+    llistaCarreguesFitxer(["VENDES_V", "VENDES_DETALL", "VENDES_PACK"]),
+  ]);
+
+  const anys = anysRaw.map((a) => a.any);
+  if (!anys.length) anys.push(new Date().getFullYear());
+  // Per defecte: darrer any amb dades (evita carregar tota l'historial).
+  const anyFiltre = sp.any ? Number(sp.any) : anys[0];
+
+  const periodFilter = {
+    period: {
+      any: anyFiltre,
+      ...(mesFiltre ? { mes: mesFiltre } : {}),
+    },
+  };
+
+  const [diaries, articles] = await Promise.all([
     db.vendaDiariaRestaurant.findMany({
       where: periodFilter,
       select: {
@@ -61,7 +66,6 @@ export default async function VendesRestaurantsDadesPage({
         centre: { select: { codi: true, nom: true } },
       },
     }),
-    llistaCarreguesFitxer(["VENDES_V", "VENDES_DETALL", "VENDES_PACK"]),
   ]);
 
   type Acc = {
@@ -142,11 +146,9 @@ export default async function VendesRestaurantsDadesPage({
 
   const role = session?.user?.role;
   const canEdit = role === "ADMIN" || role === "EDICIO";
-  const anys = anysRaw.map((a) => a.any);
-  if (!anys.length) anys.push(new Date().getFullYear());
 
-  const meta = `${resums.length} període${resums.length !== 1 ? "s" : ""}/centre${
-    anyFiltre || mesFiltre ? " (filtre actiu)" : ""
+  const meta = `${resums.length} període${resums.length !== 1 ? "s" : ""}/centre · ${anyFiltre}${
+    mesFiltre ? `/${mesFiltre}` : ""
   }`;
 
   return (

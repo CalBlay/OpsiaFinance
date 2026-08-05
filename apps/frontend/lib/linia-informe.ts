@@ -1,3 +1,5 @@
+import type { Prisma } from "@prisma/client";
+
 /** Dada amb LN de l'informe (fitxer importat). */
 export type DadaAmbInforme = {
   liniaNegociId: string | null;
@@ -46,4 +48,108 @@ export function resolveLiniaNegociImport(
   if (col.centreId) return lnInformeId ?? col.liniaNegociId;
   if (col.isLnColumna) return col.liniaNegociId;
   return lnInformeId ?? col.liniaNegociId;
+}
+
+/**
+ * Where Prisma equivalent a:
+ *   !esColumnaTotalLnRedundant(d) && lnInformePerAgregacio(d) === L
+ *
+ * No usa mai `centre.liniaNegociId` (seria incorrecte per a informes SAP).
+ */
+export function prismaWhereDadaPerLnInforme(liniaNegociId: string): Prisma.DadaResultatWhereInput {
+  return {
+    AND: [
+      // ¬ esColumnaTotalLnRedundant quan ambdues LN són L
+      {
+        NOT: {
+          AND: [
+            { centreId: null },
+            { senseCentre: false },
+            { liniaNegociId },
+            { importacio: { liniaNegociId } },
+          ],
+        },
+      },
+      {
+        OR: [
+          // Centre / Sin Centro → importacio ?? dada
+          {
+            AND: [
+              { OR: [{ centreId: { not: null } }, { senseCentre: true }] },
+              {
+                OR: [
+                  { importacio: { liniaNegociId } },
+                  {
+                    AND: [{ importacio: { liniaNegociId: null } }, { liniaNegociId }],
+                  },
+                ],
+              },
+            ],
+          },
+          // Columna LN pura → dada ?? importacio
+          {
+            AND: [
+              { centreId: null },
+              { senseCentre: false },
+              {
+                OR: [
+                  { liniaNegociId },
+                  {
+                    AND: [{ liniaNegociId: null }, { importacio: { liniaNegociId } }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+}
+
+/**
+ * Candidats SQL per a un conjunt de LN (grup Cal Blay / FDLC / consolidat).
+ *
+ * Prisma no pot expressar `dada.liniaNegociId = importacio.liniaNegociId`
+ * per excloure totals redundants quan hi ha diverses LN: el caller ha de
+ * continuar filtrant amb `esColumnaTotalLnRedundant` + pertenència al set.
+ *
+ * Amb 1 LN delega al filtre exacte.
+ */
+export function prismaWhereDadaPerLnInformeIds(lnIds: string[]): Prisma.DadaResultatWhereInput {
+  if (lnIds.length === 0) return { id: { in: [] } };
+  const primerLnId = lnIds[0];
+  if (lnIds.length === 1 && primerLnId) return prismaWhereDadaPerLnInforme(primerLnId);
+
+  return {
+    OR: [
+      {
+        AND: [
+          { OR: [{ centreId: { not: null } }, { senseCentre: true }] },
+          {
+            OR: [
+              { importacio: { liniaNegociId: { in: lnIds } } },
+              {
+                AND: [{ importacio: { liniaNegociId: null } }, { liniaNegociId: { in: lnIds } }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        AND: [
+          { centreId: null },
+          { senseCentre: false },
+          {
+            OR: [
+              { liniaNegociId: { in: lnIds } },
+              {
+                AND: [{ liniaNegociId: null }, { importacio: { liniaNegociId: { in: lnIds } } }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
 }

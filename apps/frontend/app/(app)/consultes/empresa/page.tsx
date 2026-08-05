@@ -1,9 +1,9 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
-import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import type { PivotColumn } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
-import { type KpiComite, PresentacioComite } from "@/components/consultes/PresentacioComite";
+import type { KpiComite } from "@/components/consultes/PresentacioComite";
+import { EvolucioChart, PresentacioComite } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { auth } from "@/lib/auth";
 import {

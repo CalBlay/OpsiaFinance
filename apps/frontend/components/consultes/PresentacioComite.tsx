@@ -181,7 +181,7 @@ export function PresentacioComite({
                 tickLine={false}
                 width={44}
               />
-              <Tooltip formatter={(v: number) => euroTip(v)} contentStyle={tooltipStyle} />
+              <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
               <Bar dataKey="Ingressos" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={36} />
               <Line
@@ -215,7 +215,7 @@ export function PresentacioComite({
                 tickLine={false}
                 width={44}
               />
-              <Tooltip formatter={(v: number) => euroTip(v)} contentStyle={tooltipStyle} />
+              <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
               <Bar dataKey="Personal" fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={22} />
               <Bar dataKey="Compres" fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={22} />
@@ -253,7 +253,7 @@ export function PresentacioComite({
               tickLine={false}
               width={48}
             />
-            <Tooltip formatter={(v: number) => euroTip(v)} contentStyle={tooltipStyle} />
+            <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
             <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
             <Bar dataKey="Personal" fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={28} />
             <Bar dataKey="Compres" fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={28} />
@@ -290,7 +290,7 @@ export function PresentacioComite({
               tickLine={false}
               width={48}
             />
-            <Tooltip formatter={(v: number) => euroTip(v)} contentStyle={tooltipStyle} />
+            <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
             <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
             <Bar dataKey="Ingressos" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={40} />
             <Line

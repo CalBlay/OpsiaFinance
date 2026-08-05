@@ -1,6 +1,11 @@
 import { db } from "@/lib/db";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
-import { calcularPesosGrups, getDirectePerLnNode } from "@/lib/repartiment/bases-vendes";
+import {
+  calcularPesosGrups,
+  calcularPesosGrupsFromDirecte,
+  getDirectePerLnNode,
+  getDirectePerLnNodeMany,
+} from "@/lib/repartiment/bases-vendes";
 import {
   aplicarDeltaDesti,
   balanceZeroSumCentral,
@@ -24,42 +29,33 @@ export function validarZeroSumMoviments(
   return validarZeroSumDeltas(perLn);
 }
 
-/** Calcula deltas de repartiment d'un període (sense persistir). */
-async function calcularDeltasRepartimentPeriode(
-  periodId: string,
-  centralId: string
-): Promise<Map<string, Map<number, number>>> {
-  const normes = await getNormesVigents();
-  const directe = await getDirectePerLnNode(periodId);
-  const pesosCalc = await calcularPesosGrups(periodId);
+type DirectePerLn = Map<string, Map<number, number>>;
 
-  const [lns, grupCompres, grupPersonal, execucio] = await Promise.all([
-    db.liniaNegoci.findMany({ select: { id: true, codi: true } }),
-    db.repartimentGrup.findUnique({
-      where: { codi: "GRUP_COMPRES_CENTRAL" },
-      select: { id: true },
-    }),
-    db.repartimentGrup.findUnique({
-      where: { codi: "GRUP_PERSONAL_CENTRAL" },
-      select: { id: true },
-    }),
-    db.execucioRepartiment.findUnique({
-      where: { periodId },
-      select: {
-        pesos: { select: { grupId: true, liniaNegociId: true, pesOverride: true } },
-        moviments: {
-          where: { importOverride: { not: null } },
-          select: {
-            liniaNegociDestiId: true,
-            concepteNode: true,
-            importOverride: true,
-          },
-        },
-      },
-    }),
-  ]);
+type ExecucioDeltaSelect = {
+  pesos: { grupId: string; liniaNegociId: string; pesOverride: unknown }[];
+  moviments: {
+    liniaNegociDestiId: string;
+    concepteNode: number;
+    importOverride: unknown;
+  }[];
+};
 
-  const lnIdByCodi = new Map(lns.map((l) => [l.codi, l.id]));
+type DepsComunsDelta = {
+  normes: Awaited<ReturnType<typeof getNormesVigents>>;
+  lnIdByCodi: Map<string, string>;
+  grupCompresId: string;
+  grupPersonalId: string;
+  grups: { id: string; membres: { liniaNegociId: string }[] }[];
+};
+
+function deltasDesDeDirecte(
+  centralId: string,
+  directe: DirectePerLn,
+  deps: DepsComunsDelta,
+  execucio: ExecucioDeltaSelect | null | undefined
+): Map<string, Map<number, number>> {
+  const pesosCalc = calcularPesosGrupsFromDirecte(directe, deps.grups);
+
   const pesOverrides = new Map<string, number>();
   for (const p of execucio?.pesos ?? []) {
     if (p.pesOverride != null) {
@@ -69,14 +65,14 @@ async function calcularDeltasRepartimentPeriode(
 
   const moviments = movimentsADeltas(
     calcularMoviments(
-      normes,
+      deps.normes,
       directe,
       centralId,
       pesosCalc,
       pesOverrides,
-      lnIdByCodi,
-      grupCompres?.id ?? "",
-      grupPersonal?.id ?? ""
+      deps.lnIdByCodi,
+      deps.grupCompresId,
+      deps.grupPersonalId
     ),
     directe
   );
@@ -101,13 +97,41 @@ async function calcularDeltasRepartimentPeriode(
   return perLn;
 }
 
+async function carregarDepsComunsDelta(): Promise<DepsComunsDelta> {
+  const [normes, lns, grupCompres, grupPersonal, grups] = await Promise.all([
+    getNormesVigents(),
+    db.liniaNegoci.findMany({ select: { id: true, codi: true } }),
+    db.repartimentGrup.findUnique({
+      where: { codi: "GRUP_COMPRES_CENTRAL" },
+      select: { id: true },
+    }),
+    db.repartimentGrup.findUnique({
+      where: { codi: "GRUP_PERSONAL_CENTRAL" },
+      select: { id: true },
+    }),
+    db.repartimentGrup.findMany({
+      where: { isActive: true },
+      include: { membres: { orderBy: { ordre: "asc" } } },
+    }),
+  ]);
+
+  return {
+    normes,
+    lnIdByCodi: new Map(lns.map((l) => [l.codi, l.id])),
+    grupCompresId: grupCompres?.id ?? "",
+    grupPersonalId: grupPersonal?.id ?? "",
+    grups,
+  };
+}
+
 export async function calcularExecucioRepartiment(periodId: string) {
   const central = await db.liniaNegoci.findUnique({ where: { codi: CODI_LN_CENTRAL } });
   if (!central) throw new Error("LN00000 no trobada.");
 
   const normes = await getNormesVigents();
   const directe = await getDirectePerLnNode(periodId);
-  const pesosCalc = await calcularPesosGrups(periodId);
+  // Reutilitza directe ja carregat (abans calcularPesosGrups tornava a demanar-lo).
+  const pesosCalc = await calcularPesosGrups(periodId, directe);
 
   const [lns, grupCompres, grupPersonal] = await Promise.all([
     db.liniaNegoci.findMany({ select: { id: true, codi: true } }),
@@ -217,6 +241,8 @@ export async function confirmarExecucioRepartiment(execucioId: string, userId: s
  * Mapa node → delta gestió per LN (només execucions confirmades).
  * Es recalcula en viu (imputació, no substitució) amb Central residual zero-sum
  * → Directe i Gestió tenen el mateix total empresa; només canvia el pes per LN.
+ *
+ * Carrega normes/grups/dades/execucions en batch (no N recàlculs amb 2× P&L cadascun).
  */
 export async function getDeltasGestioPerLn(
   periodIds: string[]
@@ -233,10 +259,35 @@ export async function getDeltasGestioPerLn(
     where: { periodId: { in: periodIds }, estat: "CONFIRMAT" },
     select: { periodId: true },
   });
+  const confirmatsIds = confirmats.map((c) => c.periodId);
+  if (!confirmatsIds.length) return new Map();
 
+  const [deps, directeByPeriod, execucions] = await Promise.all([
+    carregarDepsComunsDelta(),
+    getDirectePerLnNodeMany(confirmatsIds),
+    db.execucioRepartiment.findMany({
+      where: { periodId: { in: confirmatsIds } },
+      select: {
+        periodId: true,
+        pesos: { select: { grupId: true, liniaNegociId: true, pesOverride: true } },
+        moviments: {
+          where: { importOverride: { not: null } },
+          select: {
+            liniaNegociDestiId: true,
+            concepteNode: true,
+            importOverride: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const execByPeriod = new Map(execucions.map((e) => [e.periodId, e]));
   const result = new Map<string, Map<string, Map<number, number>>>();
-  for (const { periodId } of confirmats) {
-    result.set(periodId, await calcularDeltasRepartimentPeriode(periodId, central.id));
+
+  for (const periodId of confirmatsIds) {
+    const directe = directeByPeriod.get(periodId) ?? new Map();
+    result.set(periodId, deltasDesDeDirecte(central.id, directe, deps, execByPeriod.get(periodId)));
   }
   return result;
 }

@@ -1,7 +1,7 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
-import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { KpiComparatiuCards } from "@/components/consultes/KpiCards";
 import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
+import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import {
   filtraConceptesPerMesos,
@@ -220,7 +220,17 @@ export default async function ComparativaPage({
   const kpisRaw =
     comp || compMensual
       ? KPI_COMPARATIU.map((k) => ({ label: k.label, tipus: k.tipus, ...kpiComparatiu(k.node) }))
-      : [];
+      : ([] as Array<{
+          label: string;
+          tipus: KpiComparatiuItem["tipus"];
+          totalitat: number;
+          totalitatAnterior: number | null;
+          pctAnterior: number | null;
+          pctActual: number | null;
+          diferencia: number | null;
+          refLabel: string | null;
+          actualLabel: string | null;
+        }>);
 
   const kpis: KpiComparatiuItem[] = kpisRaw.map((k) => ({
     label: k.label,

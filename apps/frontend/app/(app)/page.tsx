@@ -1,10 +1,10 @@
-import { IniciResumCharts } from "@/components/consultes/IniciResumCharts";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
+import { IniciResumCharts } from "@/components/consultes/charts-dynamic";
 import { auth } from "@/lib/auth";
 import { getComparativaEmpresa, getDarrerPeriodAmbDades } from "@/lib/consultes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import { etiquetaGrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
+import { etiquetaGrupEmpresa } from "@/lib/grups-empresa";
 import {
   NODE_COMPRES,
   NODE_COST_GESTIO,
@@ -50,11 +50,9 @@ export default async function HomePage() {
     periodeLabel = `${MESOS_LLARGS[darrer.mes - 1]} ${darrer.any}`;
     empresaHref = `/consultes/empresa?any=${darrer.any}&des=${darrer.mes}&fins=${darrer.mes}`;
 
-    const potGestio = grupPermetVistaGestio(grup);
-    const [comp, compGestio] = await Promise.all([
-      getComparativaEmpresa(darrer.any, rang, "directe", grup),
-      potGestio ? getComparativaEmpresa(darrer.any, rang, "gestio", grup) : Promise.resolve(null),
-    ]);
+    // Una sola comparativa: Directe i Gestió comparteixen totals d'empresa
+    // (repartiment zero-sum). Els gràfics d'inici només usen totals, no columnes LN.
+    const comp = await getComparativaEmpresa(darrer.any, rang, "directe", grup);
 
     buit = comp.buit;
     if (!comp.buit) {
@@ -84,16 +82,11 @@ export default async function HomePage() {
           .sort((a, b) => b.value - a.value);
       }
 
-      const fontCostos = compGestio ?? comp;
       const personal = Math.abs(
-        fontCostos.concepts.find((c) => c.node === NODE_COST_SALARIAL)?.total ?? 0
+        comp.concepts.find((c) => c.node === NODE_COST_SALARIAL)?.total ?? 0
       );
-      const compres = Math.abs(
-        fontCostos.concepts.find((c) => c.node === NODE_COMPRES)?.total ?? 0
-      );
-      const gestio = Math.abs(
-        fontCostos.concepts.find((c) => c.node === NODE_COST_GESTIO)?.total ?? 0
-      );
+      const compres = Math.abs(comp.concepts.find((c) => c.node === NODE_COMPRES)?.total ?? 0);
+      const gestio = Math.abs(comp.concepts.find((c) => c.node === NODE_COST_GESTIO)?.total ?? 0);
       costos = [
         { name: "Personal", value: Math.round(personal * 100) / 100 },
         { name: "Compres", value: Math.round(compres * 100) / 100 },

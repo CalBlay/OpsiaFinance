@@ -13,7 +13,7 @@ export async function createUserAction(
   formData: FormData
 ): Promise<string | null> {
   const session = await auth();
-  if (session?.user.role !== "ADMIN") return "No tens permisos per crear usuaris.";
+  if (session?.user?.role !== "ADMIN") return "No tens permisos per crear usuaris.";
 
   const name = formData.get("name") as string;
   const email = formData.get("email") as string;
@@ -43,7 +43,7 @@ export async function updateUserAction(
   formData: FormData
 ): Promise<string | null> {
   const session = await auth();
-  if (session?.user.role !== "ADMIN") return "No tens permisos.";
+  if (session?.user?.role !== "ADMIN") return "No tens permisos.";
 
   const id = formData.get("id") as string;
   const name = formData.get("name") as string;
@@ -63,7 +63,7 @@ export async function updateUserAction(
 /* ─── Activar / desactivar usuari ───────────────────────────────────────────── */
 export async function toggleUserActiveAction(id: string, isActive: boolean) {
   const session = await auth();
-  if (session?.user.role !== "ADMIN") return;
+  if (!session?.user || session.user.role !== "ADMIN") return;
 
   // No es pot desactivar el propi compte
   if (session.user.id === id) return;

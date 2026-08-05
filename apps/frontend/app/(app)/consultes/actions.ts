@@ -43,7 +43,10 @@ export async function ajustarImportConsultaAction(
   input: AjustarImportConsultaInput
 ): Promise<Result> {
   const session = await auth();
-  if (session?.user?.role !== "ADMIN") return ERR("Sense permisos. Cal rol ADMIN.");
+  const userId = session?.user?.id;
+  if (!userId || session?.user?.role !== "ADMIN") {
+    return ERR("Sense permisos. Cal rol ADMIN.");
+  }
 
   const motiu = input.motiu.trim();
   if (!motiu) return ERR("El motiu és obligatori.");
@@ -104,7 +107,7 @@ export async function ajustarImportConsultaAction(
       liniaNegociId,
       import_: delta,
       motiu,
-      creatPer: session.user.id,
+      creatPer: userId,
     },
   });
 

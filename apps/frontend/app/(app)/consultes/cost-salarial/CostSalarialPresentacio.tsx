@@ -181,7 +181,7 @@ function RestaurantsStacked({ rows }: { rows: RestaurantBarRow[] }) {
           tickLine={false}
         />
         <Tooltip
-          formatter={(value: number, name) => [formatEuro(value as number), name]}
+          formatter={(value, name) => [formatEuro(Number(value ?? 0)), name]}
           contentStyle={tooltipStyle}
         />
         <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
@@ -236,15 +236,18 @@ function PartidesComposicio({ partides, total }: { partides: PartidaSlice[]; tot
           tickLine={false}
         />
         <Tooltip
-          formatter={(value: number, _n, item) => [
-            euroPctLabel(value as number, item.payload.pct),
-            "Import",
-          ]}
+          formatter={(value, _n, item) => {
+            const pct =
+              item && typeof item === "object" && "payload" in item
+                ? Number((item.payload as { pct?: number })?.pct ?? 0)
+                : 0;
+            return [euroPctLabel(Number(value ?? 0), pct), "Import"];
+          }}
           contentStyle={tooltipStyle}
         />
         <Bar dataKey="import_" radius={[0, 4, 4, 0]} maxBarSize={24}>
-          {rows.map((_, i) => (
-            <Cell key={i} fill={COLORS_PARTIDES[i % COLORS_PARTIDES.length]} />
+          {rows.map((row, i) => (
+            <Cell key={row.name} fill={COLORS_PARTIDES[i % COLORS_PARTIDES.length]} />
           ))}
           <LabelList
             dataKey="caption"
@@ -297,7 +300,7 @@ function PartidesSalaCuinaUnificat({
           tickLine={false}
         />
         <Tooltip
-          formatter={(value: number, name) => [formatEuro(value as number), name]}
+          formatter={(value, name) => [formatEuro(Number(value ?? 0)), name]}
           contentStyle={tooltipStyle}
         />
         <Legend wrapperStyle={{ fontSize: "0.82rem" }} />

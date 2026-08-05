@@ -15,6 +15,8 @@ export {
 } from "@/lib/cost-salarial/restaurant-noms";
 
 const CODI_LN_RESTAURANTS = "LN00001";
+const CREATE_BATCH = 500;
+const UPDATE_CHUNK = 50;
 
 export function costTotalLinia(l: {
   totalSalari: number;
@@ -72,6 +74,19 @@ async function resolPeriodId(any: number, mes: number): Promise<string> {
   return period.id;
 }
 
+/** Upsert de períodes distints en paral·lel. */
+async function resolPeriodIds(claus: { any: number; mes: number }[]): Promise<Map<string, string>> {
+  const uniq = new Map<string, { any: number; mes: number }>();
+  for (const c of claus) uniq.set(`${c.any}-${c.mes}`, c);
+  const out = new Map<string, string>();
+  await Promise.all(
+    [...uniq.entries()].map(async ([k, { any, mes }]) => {
+      out.set(k, await resolPeriodId(any, mes));
+    })
+  );
+  return out;
+}
+
 export interface ImportCostSalarialResult {
   ok: boolean;
   missatge: string;
@@ -83,6 +98,18 @@ export interface ImportCostSalarialResult {
 }
 
 export type ModeImportCostSalarial = "nomes_nous" | "actualitzar";
+
+type CostData = {
+  totalSalari: number;
+  incentiusMensual: number;
+  incentiuTrimestral: number;
+  horesExtres: number;
+  altres: number;
+  baixes: number;
+  indemnitzacions: number;
+  foraCentre: number;
+  carregaId?: string;
+};
 
 export async function upsertLiniesCostSalarial(
   linies: CostSalarialLiniaParsed[],
@@ -103,24 +130,35 @@ export async function upsertLiniesCostSalarial(
     };
   }
 
-  // Claus ja a BD: any-mes-centreId-departament (una sola query).
-  const existents = await db.costSalarialRestaurant.findMany({
-    select: {
-      id: true,
-      centreId: true,
-      departament: true,
-      period: { select: { any: true, mes: true } },
-    },
-  });
-  const perClau = new Map(
-    existents.map(
-      (e) => [`${e.period.any}-${e.period.mes}-${e.centreId}-${e.departament}`, e.id] as const
-    )
-  );
-  const clausEnAquestFitxer = new Set<string>();
+  // 1) Períodes del fitxer en batch
+  const periodIdByAnyMes = await resolPeriodIds(linies.map((l) => ({ any: l.any, mes: l.mes })));
+  const periodIds = [...new Set(periodIdByAnyMes.values())];
 
-  let creades = 0;
-  let actualitzades = 0;
+  // 2) Existents només dels períodes implicats (no tota la taula)
+  const existents = periodIds.length
+    ? await db.costSalarialRestaurant.findMany({
+        where: { periodId: { in: periodIds } },
+        select: {
+          id: true,
+          centreId: true,
+          departament: true,
+          period: { select: { any: true, mes: true } },
+        },
+      })
+    : [];
+  const perClau = new Map<string, string>(
+    existents.map((e) => [`${e.period.any}-${e.period.mes}-${e.centreId}-${e.departament}`, e.id])
+  );
+
+  const clausEnAquestFitxer = new Set<string>();
+  type CreateRow = {
+    periodId: string;
+    centreId: string;
+    departament: "SALA" | "CUINA";
+  } & CostData;
+  const creates: CreateRow[] = [];
+  const updates: { id: string; data: CostData }[] = [];
+
   let ignorades = 0;
 
   for (const l of linies) {
@@ -136,7 +174,9 @@ export async function upsertLiniesCostSalarial(
       continue;
     }
 
-    const periodId = await resolPeriodId(l.any, l.mes);
+    const periodId = periodIdByAnyMes.get(`${l.any}-${l.mes}`);
+    if (!periodId) continue;
+
     const clau = `${l.any}-${l.mes}-${centre.id}-${l.departament}`;
     if (clausEnAquestFitxer.has(clau)) {
       errors.push(
@@ -147,13 +187,12 @@ export async function upsertLiniesCostSalarial(
     clausEnAquestFitxer.add(clau);
 
     const existentId = perClau.get(clau);
-
     if (existentId && mode === "nomes_nous") {
       ignorades++;
       continue;
     }
 
-    const data = {
+    const data: CostData = {
       totalSalari: l.totalSalari,
       incentiusMensual: l.incentiusMensual,
       incentiuTrimestral: l.incentiuTrimestral,
@@ -166,25 +205,35 @@ export async function upsertLiniesCostSalarial(
     };
 
     if (existentId) {
-      await db.costSalarialRestaurant.update({
-        where: { id: existentId },
-        data,
-      });
-      actualitzades++;
+      updates.push({ id: existentId, data });
     } else {
-      await db.costSalarialRestaurant.create({
-        data: {
-          periodId,
-          centreId: centre.id,
-          departament: l.departament,
-          ...data,
-        },
+      creates.push({
+        periodId,
+        centreId: centre.id,
+        departament: l.departament,
+        ...data,
       });
-      creades++;
     }
   }
 
+  // 3) Writes en batch
+  for (let i = 0; i < creates.length; i += CREATE_BATCH) {
+    await db.costSalarialRestaurant.createMany({
+      data: creates.slice(i, i + CREATE_BATCH),
+    });
+  }
+  for (let i = 0; i < updates.length; i += UPDATE_CHUNK) {
+    await Promise.all(
+      updates
+        .slice(i, i + UPDATE_CHUNK)
+        .map((u) => db.costSalarialRestaurant.update({ where: { id: u.id }, data: u.data }))
+    );
+  }
+
+  const creades = creates.length;
+  const actualitzades = updates.length;
   const processades = creades + actualitzades;
+
   if (processades === 0) {
     if (ignorades > 0) {
       return {
@@ -250,11 +299,10 @@ export async function importarCostSalarialDesDeBuffer(
   const periodes = [...new Set(parsed.linies.map((l) => `${MESOS_LLARGS[l.mes - 1]} ${l.any}`))];
   const restaurants = new Set(parsed.linies.map((l) => l.nomRestaurant));
   const periodId =
-    parsed.linies.length === 1
+    parsed.linies.length >= 1 &&
+    parsed.linies.every((l) => l.any === parsed.linies[0].any && l.mes === parsed.linies[0].mes)
       ? await resolPeriodId(parsed.linies[0].any, parsed.linies[0].mes)
-      : parsed.linies.every((l) => l.any === parsed.linies[0].any && l.mes === parsed.linies[0].mes)
-        ? await resolPeriodId(parsed.linies[0].any, parsed.linies[0].mes)
-        : null;
+      : null;
 
   const modeLabel = mode === "nomes_nous" ? "només noves" : "amb actualització";
   const carregaId = await crearCarregaFitxer({

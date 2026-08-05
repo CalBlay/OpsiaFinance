@@ -89,9 +89,11 @@ export async function processarImportFdlc(
   }
 
   const periodIdByMes = new Map<number, string>();
-  for (const mes of mesosDetectats) {
-    periodIdByMes.set(mes, await upsertPeriode(any, mes));
-  }
+  await Promise.all(
+    mesosDetectats.map(async (mes) => {
+      periodIdByMes.set(mes, await upsertPeriode(any, mes));
+    })
+  );
 
   const periodIds = [...periodIdByMes.values()];
 

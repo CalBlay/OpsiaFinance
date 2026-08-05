@@ -251,9 +251,11 @@ export async function getCentresRestaurantsVendes(
 export async function getComparativaVendes(
   any: number,
   mes: number,
-  nomesMirallFdlc = false
+  nomesMirallFdlc = false,
+  opts?: { totalsOnly?: boolean }
 ): Promise<ComparativaVendes> {
   const anual = mes <= 0;
+  const totalsOnly = opts?.totalsOnly === true;
   const centres = await getCentresRestaurantsVendes(nomesMirallFdlc);
   const centreIds = centres.map((c) => c.id);
   const prev = mesAnterior(any, mes);
@@ -279,36 +281,93 @@ export async function getComparativaVendes(
     ? [...new Set(diaries.map((d) => d.period.mes))].sort((a, b) => a - b)
     : [];
 
-  const [diariesAnt, plMap, prod, prodAnt, packs, packsAnt] = await Promise.all([
-    db.vendaDiariaRestaurant.findMany({
-      where: {
-        centreId: { in: centreIds },
-        period: anual
-          ? mesosYtd.length
-            ? { any: anyAnt, mes: { in: mesosYtd } }
-            : { any: anyAnt }
-          : { any: prev.any, mes: prev.mes },
-      },
-      select: { centreId: true, base: true },
-    }),
-    getVendesPlPerCentres(centreIds, any, anual ? null : mes, anual ? mesosYtd : undefined),
-    carregaArticles(centreIds, any, anual ? null : mes, "DETALL", anual ? mesosYtd : undefined),
-    carregaArticles(
-      centreIds,
-      anual ? anyAnt : prev.any,
-      anual ? null : prev.mes,
-      "DETALL",
-      anual ? mesosYtd : undefined
-    ),
-    carregaArticles(centreIds, any, anual ? null : mes, "PACK", anual ? mesosYtd : undefined),
-    carregaArticles(
-      centreIds,
-      anual ? anyAnt : prev.any,
-      anual ? null : prev.mes,
-      "PACK",
-      anual ? mesosYtd : undefined
-    ),
-  ]);
+  const diariesAntPromise = db.vendaDiariaRestaurant.findMany({
+    where: {
+      centreId: { in: centreIds },
+      period: anual
+        ? mesosYtd.length
+          ? { any: anyAnt, mes: { in: mesosYtd } }
+          : { any: anyAnt }
+        : { any: prev.any, mes: prev.mes },
+    },
+    select: { centreId: true, base: true },
+  });
+  const plPromise = getVendesPlPerCentres(
+    centreIds,
+    any,
+    anual ? null : mes,
+    anual ? mesosYtd : undefined
+  );
+
+  const [diariesAnt, plMap, prod, prodAnt, packs, packsAnt] = totalsOnly
+    ? await Promise.all([
+        diariesAntPromise,
+        plPromise,
+        Promise.resolve(
+          [] as {
+            article: string;
+            tipusArticle: string | null;
+            categoria: CategoriaVenda | null;
+            familia: string | null;
+            subfamilia: string | null;
+            unitats: number;
+            base: number;
+          }[]
+        ),
+        Promise.resolve(
+          [] as {
+            article: string;
+            tipusArticle: string | null;
+            categoria: CategoriaVenda | null;
+            familia: string | null;
+            subfamilia: string | null;
+            unitats: number;
+            base: number;
+          }[]
+        ),
+        Promise.resolve(
+          [] as {
+            article: string;
+            tipusArticle: string | null;
+            categoria: CategoriaVenda | null;
+            familia: string | null;
+            subfamilia: string | null;
+            unitats: number;
+            base: number;
+          }[]
+        ),
+        Promise.resolve(
+          [] as {
+            article: string;
+            tipusArticle: string | null;
+            categoria: CategoriaVenda | null;
+            familia: string | null;
+            subfamilia: string | null;
+            unitats: number;
+            base: number;
+          }[]
+        ),
+      ])
+    : await Promise.all([
+        diariesAntPromise,
+        plPromise,
+        carregaArticles(centreIds, any, anual ? null : mes, "DETALL", anual ? mesosYtd : undefined),
+        carregaArticles(
+          centreIds,
+          anual ? anyAnt : prev.any,
+          anual ? null : prev.mes,
+          "DETALL",
+          anual ? mesosYtd : undefined
+        ),
+        carregaArticles(centreIds, any, anual ? null : mes, "PACK", anual ? mesosYtd : undefined),
+        carregaArticles(
+          centreIds,
+          anual ? anyAnt : prev.any,
+          anual ? null : prev.mes,
+          "PACK",
+          anual ? mesosYtd : undefined
+        ),
+      ]);
 
   const agg = new Map<string, { base: number; unitats: number }>();
   const evolucio = mesosBuits();
@@ -379,15 +438,16 @@ export async function getComparativaVendes(
           base: v.base,
         }));
 
-  const packsMenus = packs.filter((r) => esSubfamiliaMenus(r.subfamilia));
-  const packsMenusAnt = packsAnt.filter((r) => esSubfamiliaMenus(r.subfamilia));
+  const emptyRank = emptyRankingsCategoria();
+  const packsMenus = totalsOnly ? [] : packs.filter((r) => esSubfamiliaMenus(r.subfamilia));
+  const packsMenusAnt = totalsOnly ? [] : packsAnt.filter((r) => esSubfamiliaMenus(r.subfamilia));
   const menusComMenjar = packsMenus.map((r) => ({ ...r, categoria: "MENJAR" as const }));
   const menusComMenjarAnt = packsMenusAnt.map((r) => ({
     ...r,
     categoria: "MENJAR" as const,
   }));
-  const productesRows = [...prod, ...menusComMenjar];
-  const productesRowsAnt = [...prodAnt, ...menusComMenjarAnt];
+  const productesRows = totalsOnly ? [] : [...prod, ...menusComMenjar];
+  const productesRowsAnt = totalsOnly ? [] : [...prodAnt, ...menusComMenjarAnt];
   const familiesRows = agregaPerClau(productesRows, (r) => r.familia);
   const familiesRowsAnt = agregaPerClau(productesRowsAnt, (r) => r.familia);
   const subfamiliesRows = agregaPerClau(productesRows, (r) => r.subfamilia);
@@ -413,11 +473,11 @@ export async function getComparativaVendes(
     centresTotals: centres.length,
     dies,
     evolucioMesos: anual ? evolucio : [],
-    productes: rankingsCategoria(productesRows, productesRowsAnt),
-    families: rankingsCategoria(familiesRows, familiesRowsAnt),
-    subfamilies: rankingsCategoria(subfamiliesRows, subfamiliesRowsAnt),
-    teFamilies: familiesRows.length > 0,
-    teSubfamilies: subfamiliesRows.length > 0,
+    productes: totalsOnly ? emptyRank : rankingsCategoria(productesRows, productesRowsAnt),
+    families: totalsOnly ? emptyRank : rankingsCategoria(familiesRows, familiesRowsAnt),
+    subfamilies: totalsOnly ? emptyRank : rankingsCategoria(subfamiliesRows, subfamiliesRowsAnt),
+    teFamilies: !totalsOnly && familiesRows.length > 0,
+    teSubfamilies: !totalsOnly && subfamiliesRows.length > 0,
     buit: !files.some((f) => f.teDades),
   };
 }
@@ -622,6 +682,19 @@ function blocRanking(rows: ArtRow[], rowsAnt: ArtRow[], criteri: CriteriRanking)
 
 function emptyBloc(criteri: CriteriRanking): BlocRanking {
   return { criteri, top10: [], bottom5: [], pujades: [], baixades: [] };
+}
+
+function emptyRankingsCategoria(): RankingsCategoria {
+  return {
+    mix: {
+      menjar: { base: 0, unitats: 0, pctBase: null },
+      beguda: { base: 0, unitats: 0, pctBase: null },
+      senseCategoria: { base: 0, unitats: 0 },
+    },
+    tots: { base: emptyBloc("base"), unitats: emptyBloc("unitats") },
+    menjar: { base: emptyBloc("base"), unitats: emptyBloc("unitats") },
+    beguda: { base: emptyBloc("base"), unitats: emptyBloc("unitats") },
+  };
 }
 
 function mixDe(rows: ArtRow[]): MixCategoria {

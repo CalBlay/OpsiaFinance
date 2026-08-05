@@ -21,9 +21,15 @@ import {
   grupPermetVistaGestio,
 } from "@/lib/grups-empresa";
 import { NODE_VENDES } from "@/lib/kpi-definitions";
-import { esColumnaTotalLnRedundant, lnInformePerAgregacio } from "@/lib/linia-informe";
+import {
+  esColumnaTotalLnRedundant,
+  lnInformePerAgregacio,
+  prismaWhereDadaPerLnInforme,
+  prismaWhereDadaPerLnInformeIds,
+} from "@/lib/linia-informe";
 import { MESOS_CURTS, MESOS_LLARGS, type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import type { Prisma } from "@prisma/client";
+import { cache } from "react";
 
 export { MESOS_CURTS, MESOS_LLARGS } from "@/lib/periodes";
 export type { RangMesos } from "@/lib/periodes";
@@ -93,7 +99,7 @@ export interface ComparativaLn {
 /* ─── Helpers de selecció ────────────────────────────────────────────────────── */
 
 /** Anys que tenen dades carregades. */
-export async function getAnysAmbDades(): Promise<number[]> {
+export const getAnysAmbDades = cache(async (): Promise<number[]> => {
   const periods = await db.period.findMany({
     where: { dadesResultat: { some: {} } },
     select: { any: true },
@@ -101,47 +107,51 @@ export async function getAnysAmbDades(): Promise<number[]> {
     orderBy: { any: "desc" },
   });
   return periods.map((p) => p.any);
-}
+});
 
 /** Darrer mes (any+mes) amb dades de resultat del grup seleccionat.
  *  Cal Blay / FDLC: últim mes d'aquell àmbit; Consolidat: el més recent de tots. */
-export async function getDarrerPeriodAmbDades(grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT): Promise<{
-  any: number;
-  mes: number;
-} | null> {
-  const filtreDades: Prisma.DadaResultatWhereInput =
-    grup === "fdlc"
-      ? {
-          OR: [
-            { liniaNegoci: { codi: FDLC_LN_CODI } },
-            { importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } } },
-          ],
-        }
-      : grup === "calblay"
+export const getDarrerPeriodAmbDades = cache(
+  async (
+    grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
+  ): Promise<{
+    any: number;
+    mes: number;
+  } | null> => {
+    const filtreDades: Prisma.DadaResultatWhereInput =
+      grup === "fdlc"
         ? {
-            AND: [
-              {
-                OR: [{ liniaNegociId: null }, { liniaNegoci: { codi: { not: FDLC_LN_CODI } } }],
-              },
-              {
-                NOT: {
-                  importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } },
-                },
-              },
+            OR: [
+              { liniaNegoci: { codi: FDLC_LN_CODI } },
+              { importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } } },
             ],
           }
-        : {};
+        : grup === "calblay"
+          ? {
+              AND: [
+                {
+                  OR: [{ liniaNegociId: null }, { liniaNegoci: { codi: { not: FDLC_LN_CODI } } }],
+                },
+                {
+                  NOT: {
+                    importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } },
+                  },
+                },
+              ],
+            }
+          : {};
 
-  const dada = await db.dadaResultat.findFirst({
-    where: filtreDades,
-    select: { period: { select: { any: true, mes: true } } },
-    orderBy: [{ period: { any: "desc" } }, { period: { mes: "desc" } }],
-  });
-  return dada?.period ?? null;
-}
+    const dada = await db.dadaResultat.findFirst({
+      where: filtreDades,
+      select: { period: { select: { any: true, mes: true } } },
+      orderBy: [{ period: { any: "desc" } }, { period: { mes: "desc" } }],
+    });
+    return dada?.period ?? null;
+  }
+);
 
 /** Línies de negoci amb els seus centres (per als selectors), ordre per codi. */
-export async function getArbreSeleccio() {
+export const getArbreSeleccio = cache(async () => {
   const rows = await db.liniaNegoci.findMany({
     where: { isActive: true },
     select: {
@@ -160,7 +170,7 @@ export async function getArbreSeleccio() {
       centres: ordenaPerCodi(ln.centres),
     }))
   );
-}
+});
 
 /* ─── Consulta: C.Explotació d'un centre, anual per mesos ─────────────────────── */
 
@@ -179,11 +189,7 @@ export async function getCompteExplotacioCentre(
         liniaNegoci: { select: { codi: true, nom: true } },
       },
     }),
-    db.concepteResultat.findMany({
-      where: { isActive: true },
-      orderBy: { ordre: "asc" },
-      select: { id: true, node: true, descripcio: true, esSubtotal: true },
-    }),
+    getConceptsActius(),
     db.dadaResultat.findMany({
       where: { centreId, period: { any } },
       select: {
@@ -270,7 +276,7 @@ export async function getComparativaLn(
   vista: VistaCompte = "directe"
 ): Promise<ComparativaLn> {
   const periodFilter = prismaPeriodFilter(any, rang);
-  const [ln, concepts, dadesAll] = await Promise.all([
+  const [ln, concepts, dades] = await Promise.all([
     db.liniaNegoci.findUnique({
       where: { id: liniaNegociId },
       select: {
@@ -290,14 +296,13 @@ export async function getComparativaLn(
       select: { id: true, node: true, descripcio: true, esSubtotal: true },
     }),
     db.dadaResultat.findMany({
-      where: { period: periodFilter },
+      where: {
+        period: periodFilter,
+        ...prismaWhereDadaPerLnInforme(liniaNegociId),
+      },
       select: DADA_INFORME_SELECT,
     }),
   ]);
-
-  const dades = dadesAll.filter(
-    (d) => !esColumnaTotalLnRedundant(d) && lnInformePerAgregacio(d) === liniaNegociId
-  );
 
   const ajustos = await db.ajust.findMany({
     where: {
@@ -384,13 +389,13 @@ export async function getComparativaLn(
 
 /* ─── Helpers interns ─────────────────────────────────────────────────────────── */
 
-async function getConceptsActius() {
+const getConceptsActius = cache(async () => {
   return db.concepteResultat.findMany({
     where: { isActive: true },
     orderBy: { ordre: "asc" },
     select: { id: true, node: true, descripcio: true, esSubtotal: true },
   });
-}
+});
 
 type ConcepteBase = { id: string; node: number; descripcio: string; esSubtotal: boolean };
 
@@ -435,11 +440,16 @@ async function carregarDadesEmpresa(
   periodFilter: Prisma.PeriodWhereInput,
   grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ) {
-  const [{ linies, lnIdsGrup }, concepts, dadesAll, ajustosAll] = await Promise.all([
-    resolveLiniesGrup(grup),
+  const { linies, lnIdsGrup } = await resolveLiniesGrup(grup);
+  const lnIds = [...lnIdsGrup];
+
+  const [concepts, dadesAll, ajustosAll] = await Promise.all([
     getConceptsActius(),
     db.dadaResultat.findMany({
-      where: { period: periodFilter },
+      where: {
+        period: periodFilter,
+        ...prismaWhereDadaPerLnInformeIds(lnIds),
+      },
       select: {
         ...DADA_INFORME_SELECT,
         period: { select: { any: true, mes: true } },
@@ -457,6 +467,7 @@ async function carregarDadesEmpresa(
     }),
   ]);
 
+  // Amb N>1 LN el where SQL és candidat: encara cal excloure totals redundants.
   const dades = dadesAll.filter((d) => {
     if (esColumnaTotalLnRedundant(d)) return false;
     const lnId = lnInformePerAgregacio(d);
@@ -511,15 +522,22 @@ export async function getComparativaEmpresa(
   grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<ComparativaEmpresa> {
   const periodFilter = prismaPeriodFilter(any, rang);
-  const [liniesRawAll, concepts, dades, ajustos] = await Promise.all([
-    db.liniaNegoci.findMany({
-      where: { isActive: true },
-      orderBy: { ordre: "asc" },
-      select: { id: true, codi: true, nom: true },
-    }),
+  const liniesRawAll = await db.liniaNegoci.findMany({
+    where: { isActive: true },
+    orderBy: { ordre: "asc" },
+    select: { id: true, codi: true, nom: true },
+  });
+  const liniesRaw = filtraLiniesPerGrup(liniesRawAll, grup);
+  const lnIdsGrup = new Set(liniesRaw.map((l) => l.id));
+  const lnIds = [...lnIdsGrup];
+
+  const [concepts, dadesRaw, ajustos] = await Promise.all([
     getConceptsActius(),
     db.dadaResultat.findMany({
-      where: { period: periodFilter },
+      where: {
+        period: periodFilter,
+        ...prismaWhereDadaPerLnInformeIds(lnIds),
+      },
       select: DADA_INFORME_SELECT,
     }),
     db.ajust.findMany({
@@ -533,9 +551,6 @@ export async function getComparativaEmpresa(
     }),
   ]);
 
-  const liniesRaw = filtraLiniesPerGrup(liniesRawAll, grup);
-  const lnIdsGrup = new Set(liniesRaw.map((l) => l.id));
-
   const lnIdx = new Map<string, number>();
   liniesRaw.forEach((l, i) => lnIdx.set(l.id, i));
 
@@ -546,10 +561,12 @@ export async function getComparativaEmpresa(
 
   // Mateix criteri que getEvolucioMensual(scope=linia): cada dada va a la LN
   // de lnInformePerAgregacio, excloent columnes total-LN redundants.
-  for (const d of dades) {
+  const dades: typeof dadesRaw = [];
+  for (const d of dadesRaw) {
     if (esColumnaTotalLnRedundant(d)) continue;
     const lnId = lnInformePerAgregacio(d);
     if (!lnId || !lnIdsGrup.has(lnId)) continue;
+    dades.push(d);
     const col = lnIdx.get(lnId);
     if (col === undefined) continue;
     const arr = perConcepte.get(d.concepteResultatId);
@@ -603,11 +620,7 @@ export async function getComparativaEmpresa(
     conceptRows = aplicarReclassificacioMirallConsolidat(conceptRows, linies, mirall);
   }
 
-  const dadesGrup = dades.filter((d) => {
-    if (esColumnaTotalLnRedundant(d)) return false;
-    const lnId = lnInformePerAgregacio(d);
-    return lnId !== null && lnIdsGrup.has(lnId);
-  });
+  const dadesGrup = dades;
   const ajustosGrup = ajustos.filter((a) => {
     const lnId = a.liniaNegociId ?? a.centre?.liniaNegociId ?? null;
     return lnId !== null && lnIdsGrup.has(lnId);
@@ -652,14 +665,17 @@ export async function getEvolucioMensual(
   grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<EvolucioMensual> {
   if (scope === "linia" && liniaNegociId) {
-    const [ln, concepts, dadesAll, ajustosAll] = await Promise.all([
+    const [ln, concepts, dades, ajustosAll] = await Promise.all([
       db.liniaNegoci.findUnique({
         where: { id: liniaNegociId },
         select: { codi: true, nom: true },
       }),
       getConceptsActius(),
       db.dadaResultat.findMany({
-        where: { period: { any } },
+        where: {
+          period: { any },
+          ...prismaWhereDadaPerLnInforme(liniaNegociId),
+        },
         select: {
           ...DADA_INFORME_SELECT,
           period: { select: { mes: true } },
@@ -678,9 +694,6 @@ export async function getEvolucioMensual(
       }),
     ]);
 
-    const dades = dadesAll.filter(
-      (d) => !esColumnaTotalLnRedundant(d) && lnInformePerAgregacio(d) === liniaNegociId
-    );
     const rows = pivotMensualDesDeMoviments(concepts, [...dades, ...ajustosAll]);
     return {
       scope,
@@ -778,10 +791,13 @@ async function carregarMovimentsAmbit(
 
   if (ambit.mode === "linia") {
     const { liniaNegociId, titol } = ambit;
-    const [concepts, dadesAll, ajustos] = await Promise.all([
+    const [concepts, dades, ajustos] = await Promise.all([
       getConceptsActius(),
       db.dadaResultat.findMany({
-        where: { period: periodFilter },
+        where: {
+          period: periodFilter,
+          ...prismaWhereDadaPerLnInforme(liniaNegociId),
+        },
         select: {
           ...DADA_INFORME_SELECT,
           period: { select: { any: true, mes: true } },
@@ -799,9 +815,6 @@ async function carregarMovimentsAmbit(
         },
       }),
     ]);
-    const dades = dadesAll.filter(
-      (d) => !esColumnaTotalLnRedundant(d) && lnInformePerAgregacio(d) === liniaNegociId
-    );
     return {
       concepts,
       moviments: [...dades, ...ajustos],
@@ -1058,10 +1071,15 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
       ? prismaPeriodFilter(params.any, params.rang)
       : { any: params.any };
 
-  // Quan filtrem per LN, NO filtrem per liniaNegociId a Prisma directament
-  // perquè lnInformePerAgregacio pot apuntar a importacio.liniaNegociId.
-  // Carreguem totes les dades del període i filtrem en memòria igual que la taula.
-  const prismaWhere = params.centreId ? { centreId: params.centreId } : {};
+  // Filtre LN via prismaWhereDadaPerLnInforme (mateixa semàntica que lnInformePerAgregacio).
+  // No usar mai centre.liniaNegociId ni només dada.liniaNegociId.
+  const prismaWhere: Prisma.DadaResultatWhereInput = params.centreId
+    ? { centreId: params.centreId }
+    : params.liniaNegociId
+      ? prismaWhereDadaPerLnInforme(params.liniaNegociId)
+      : params.lnIdsGrup?.length
+        ? prismaWhereDadaPerLnInformeIds(params.lnIdsGrup)
+        : {};
 
   const ajustWhere = params.centreId
     ? { centreId: params.centreId }
@@ -1112,18 +1130,17 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     }),
   ]);
 
-  // Aplicar exactament els mateixos filtres que les consultes principals:
-  // 1. Eliminar columnes de total-LN redundants (eviten doble còmput).
-  // 2. Si hi ha liniaNegociId, filtrar per lnInformePerAgregacio (igual que la taula).
-  // 3. Si hi ha lnIdsGrup, excloure LN fora del grup (p.ex. FDLC quan estem a Cal Blay).
+  // Amb filtre exacte d'1 LN el SQL ja és definitiu; amb set de LN cal
+  // excloure totals redundants i revalidar pertenència (igual que la taula).
   const lnIdsGrupSet = params.lnIdsGrup ? new Set(params.lnIdsGrup) : null;
-  const dades = dadesRaw.filter((d) => {
-    if (esColumnaTotalLnRedundant(d)) return false;
-    const lnId = lnInformePerAgregacio(d);
-    if (lnIdsGrupSet && (!lnId || !lnIdsGrupSet.has(lnId))) return false;
-    if (params.liniaNegociId) return lnId === params.liniaNegociId;
-    return true;
-  });
+  const dades = params.liniaNegociId
+    ? dadesRaw
+    : dadesRaw.filter((d) => {
+        if (esColumnaTotalLnRedundant(d)) return false;
+        const lnId = lnInformePerAgregacio(d);
+        if (lnIdsGrupSet && (!lnId || !lnIdsGrupSet.has(lnId))) return false;
+        return true;
+      });
 
   const items: DetallCellaItem[] = [
     ...dades.map((d) => ({

@@ -1,10 +1,9 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
-import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
-import { VendesPieChart } from "@/components/consultes/VendesPieChart";
+import { EvolucioChart, VendesPieChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { auth } from "@/lib/auth";
 import {
@@ -256,7 +255,7 @@ export default async function ConsultaLiniaPage({
                       const centre = centres[idxOperatius[i] ?? -1];
                       return {
                         ...s,
-                        label: etiquetaGrafic(centre ?? { codi: s.label, nom: "" }),
+                        name: etiquetaGrafic(centre ?? { codi: s.name, nom: s.name }),
                       };
                     })}
                     height={300}

@@ -12,12 +12,22 @@ export { aplicarNormesConsolidacio } from "@/lib/consolidacio/motor";
 export { aplicarConsolidacio, getNormesConsolidacio } from "@/lib/consolidacio/service";
 
 import { aplicarNormesConsolidacio } from "@/lib/consolidacio/motor";
+import type { NormaConsolidacioMin } from "@/lib/consolidacio/motor";
 import { NORMES_CONSOLIDACIO_SEED } from "@/lib/consolidacio/normes-seed";
 import type { ConceptePivot } from "@/lib/consultes";
 
-const NORMES_CALBLAY_INTRA_FALLBACK = NORMES_CONSOLIDACIO_SEED.filter(
+const NORMES_CALBLAY_INTRA_FALLBACK: NormaConsolidacioMin[] = NORMES_CONSOLIDACIO_SEED.filter(
   (n) => n.grup === "CALBLAY_INTRA" && n.actiu
-);
+).map((n) => ({
+  tipus: n.tipus,
+  actiu: n.actiu,
+  nodeExcloure: n.nodeExcloure ?? null,
+  nodesAjust: n.nodesAjust ?? [],
+  grupEmpresaOrigen: n.grupEmpresaOrigen ?? null,
+  nodeOrigen: n.nodeOrigen ?? null,
+  grupEmpresaDesti: n.grupEmpresaDesti ?? null,
+  nodeDesti: n.nodeDesti ?? null,
+}));
 
 /** Fallback síncron si encara no hi ha normes a BD (tests / primera arrencada). */
 export function consolidarConceptesEmpresa(concepts: ConceptePivot[]): ConceptePivot[] {

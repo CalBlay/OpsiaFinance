@@ -41,6 +41,7 @@ export async function llistaCarreguesFitxer(
   const rows = await carrega.findMany({
     where: { tipus: { in: tipusList } },
     orderBy: { createdAt: "desc" },
+    take: 50,
     select: {
       id: true,
       tipus: true,

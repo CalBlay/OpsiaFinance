@@ -6,7 +6,8 @@ export type NormaSeed = {
     | "PERCENT_VENDES_PROPIES"
     | "PERCENT_POOL_CENTRAL"
     | "IMPORT_FIX"
-    | "REPARTIMENT_PROPORCIONAL";
+    | "REPARTIMENT_PROPORCIONAL"
+    | "RESTEM";
   destCodi: string;
   concepteNode: number;
   valorPercent?: number;

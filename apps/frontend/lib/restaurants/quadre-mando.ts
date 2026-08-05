@@ -208,7 +208,7 @@ export async function getQuadreMandoRestaurants(
   const centreIds = centres.map((c) => c.id);
 
   const [vendes, cost, plMap] = await Promise.all([
-    getComparativaVendes(any, anual ? 0 : mes, nomesMirallFdlc),
+    getComparativaVendes(any, anual ? 0 : mes, nomesMirallFdlc, { totalsOnly: true }),
     getComparativaRestaurants(any, mesCost),
     getPlNodesPerCentres(centreIds, any, mesCost, [NODE_COMPRES, NODE_EBITDA, NODE_VENDES]),
   ]);

@@ -198,7 +198,9 @@ export async function confirmarExecucioTraspassPersonal(
     "@/lib/repartiment/service"
   );
   const execRepart = await calcularExecucioRepartiment(execucio.periodId);
-  await confirmarExecucioRepartiment(execRepart.id, userId);
+  if (execRepart) {
+    await confirmarExecucioRepartiment(execRepart.id, userId);
+  }
 }
 
 export async function getExecucioTraspassPerPeriode(periodId: string) {

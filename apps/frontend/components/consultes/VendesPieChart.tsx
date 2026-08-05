@@ -127,14 +127,19 @@ export function VendesPieChart({
           label={SliceLabels}
           labelLine={false}
         >
-          {segments.map((_, i) => (
-            <Cell key={i} fill={COLORS[i % COLORS.length]} />
+          {segments.map((segment, i) => (
+            <Cell key={segment.name} fill={COLORS[i % COLORS.length]} />
           ))}
         </Pie>
         <Tooltip
-          formatter={(value: number, _name, item) => {
-            const pct = total !== 0 ? ((value as number) / total) * 100 : 0;
-            return [`${formatNum(value as number)} € (${formatNum(pct, 1)}%)`, item.payload?.name];
+          formatter={(value, _name, item) => {
+            const n = Number(value ?? 0);
+            const pct = total !== 0 ? (n / total) * 100 : 0;
+            const payloadName =
+              item && typeof item === "object" && "payload" in item
+                ? (item.payload as { name?: string } | null)?.name
+                : undefined;
+            return [`${formatNum(n)} € (${formatNum(pct, 1)}%)`, payloadName];
           }}
           contentStyle={{
             background: "var(--color-card)",

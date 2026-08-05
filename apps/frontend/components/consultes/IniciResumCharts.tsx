@@ -102,12 +102,14 @@ function QuesitoCard({
                 ))}
               </Pie>
               <Tooltip
-                formatter={(value: number, _name, item) => {
-                  const pct = total ? ((value as number) / total) * 100 : 0;
-                  return [
-                    `${formatNum(value as number)} € · ${formatNum(pct, 1)}%`,
-                    item.payload?.name,
-                  ];
+                formatter={(value, _name, item) => {
+                  const n = Number(value ?? 0);
+                  const pct = total ? (n / total) * 100 : 0;
+                  const payloadName =
+                    item && typeof item === "object" && "payload" in item
+                      ? (item.payload as { name?: string } | null)?.name
+                      : undefined;
+                  return [`${formatNum(n)} € · ${formatNum(pct, 1)}%`, payloadName];
                 }}
                 contentStyle={{
                   background: "var(--opsia-bg-card, #fff)",

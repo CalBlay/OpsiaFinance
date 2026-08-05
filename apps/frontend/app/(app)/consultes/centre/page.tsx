@@ -1,8 +1,8 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
-import { EvolucioChart } from "@/components/consultes/EvolucioChart";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
+import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { auth } from "@/lib/auth";
 import {
