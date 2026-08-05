@@ -1,6 +1,5 @@
 import { getResumTraspassPersonal } from "@/lib/traspass-personal/resum";
 import { ResumTraspassPanel } from "./ResumTraspassPanel";
-import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Resum traspassos personal — OpsiaFinance" };
@@ -20,9 +19,5 @@ export default async function ResumTraspassPersonalPage({
 
   const resum = any === resumProbe.any ? resumProbe : await getResumTraspassPersonal(any);
 
-  return (
-    <div className={styles.page}>
-      <ResumTraspassPanel resum={resum} />
-    </div>
-  );
+  return <ResumTraspassPanel resum={resum} />;
 }

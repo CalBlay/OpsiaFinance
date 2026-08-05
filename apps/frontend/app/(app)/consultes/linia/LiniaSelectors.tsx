@@ -3,6 +3,7 @@
 import { PeriodRangSelectors } from "@/components/consultes/PeriodRangSelectors";
 import styles from "@/components/consultes/report.module.css";
 import type { VistaCompte } from "@/lib/consultes";
+import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { type RangMesos, rangToQuery } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -82,7 +83,7 @@ export function LiniaSelectors({
           </option>
           {linies.map((ln) => (
             <option key={ln.id} value={ln.id}>
-              {ln.codi} · {ln.nom}
+              {etiquetaLiniaNegoci(ln)}
             </option>
           ))}
         </select>

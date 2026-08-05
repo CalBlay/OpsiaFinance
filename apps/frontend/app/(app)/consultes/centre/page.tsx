@@ -11,10 +11,13 @@ import {
   getArbreSeleccio,
   getCompteExplotacioCentre,
 } from "@/lib/consultes";
-import { exclouFdlcDeConsultaLinia } from "@/lib/grups-empresa";
+import { etiquetaCentre } from "@/lib/consultes-etiquetes";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
 import { NODE_EBITDA, NODE_INGRESSOS, buildKpisInforme } from "@/lib/kpi-definitions";
+import { redirect } from "next/navigation";
+import { ajustarImportConsultaAction } from "../actions";
 import { CentreSelectors } from "./CentreSelectors";
-import { ajustarImportCentreAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Consulta per centre — OpsiaFinance" };
@@ -25,9 +28,17 @@ export default async function ConsultaCentrePage({
   searchParams: Promise<{ centre?: string; any?: string; ln?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
-  const [session, arbre, anys] = await Promise.all([auth(), getArbreSeleccio(), getAnysAmbDades()]);
+  const [session, arbre, anys, grup] = await Promise.all([
+    auth(),
+    getArbreSeleccio(),
+    getAnysAmbDades(),
+    getGrupEmpresaActual(),
+  ]);
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
+  if (!grupMostraConsultesLiniaCentre(grup)) {
+    redirect(`/consultes/empresa?any=${anyActual}`);
+  }
   const vista = sp.vista === "gestio" ? "gestio" : "directe";
   let lnId = sp.ln ?? null;
   let centreId = sp.centre ?? null;
@@ -89,7 +100,7 @@ export default async function ConsultaCentrePage({
           <h1 className={styles.title}>Compte d&apos;explotació · per centre</h1>
           <p className={styles.subtitle}>
             {compte?.centre
-              ? `${compte.centre.codi} · ${compte.centre.nom} — ${compte.centre.liniaNegoci.nom}${vista === "gestio" ? " · compte de gestió (traspassos personal)" : " · directe SAP"}`
+              ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom}${vista === "gestio" ? " · compte de gestió (traspassos personal)" : " · directe SAP"}`
               : "Selecciona un centre per veure el seu compte d'explotació anual, mes a mes."}
           </p>
         </div>
@@ -139,30 +150,20 @@ export default async function ConsultaCentrePage({
           <DetallCompteCollapsible
             caption={
               canEdit
-                ? "Imports en euros. ADMIN: clic a l'import d'una fila de detall per ajustar-lo (es crea un ajust amb motiu). Els subtotals no són editables."
+                ? "Clic a una casella de detall per veure el desglossament i, si cal, crear un ajust."
                 : "Imports en euros. Les files ressaltades són subtotals i totals del compte."
             }
           >
-            {canEdit && (
-              <p className={styles.editHint}>
-                Fes clic a l&apos;import ✏ d&apos;una fila de detall per corregir el valor. Pots
-                escriure una operació (p.ex. <code>122052,81 + 1000</code>). Es desarà com a ajust a
-                Dades → Ajustos.
-              </p>
-            )}
             <PivotTableDrilldown
               columns={columns}
               rows={compte?.concepts ?? []}
               totalLabel="Any"
               firstColLabel="Concepte"
               canEdit={canEdit}
-              editConfig={
-                canEdit && centreId
-                  ? { centreId, any: anyActual, onSave: ajustarImportCentreAction }
-                  : undefined
-              }
+              editConfig={canEdit ? { onSave: ajustarImportConsultaAction } : undefined}
               drilldown={{
                 any: anyActual,
+                vista,
                 colMap: Object.fromEntries(
                   Array.from({ length: 12 }, (_, i) => [
                     String(i),

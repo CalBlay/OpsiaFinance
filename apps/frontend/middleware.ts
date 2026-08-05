@@ -1,12 +1,48 @@
 import { authConfig } from "@/lib/auth.config";
+import { GRUP_COOKIE_NAME } from "@/lib/grup-cookie-name";
+import { parseGrupEmpresa } from "@/lib/grups-empresa";
+import { potAdministrar } from "@/lib/roles";
 import NextAuth from "next-auth";
+import { NextResponse } from "next/server";
 
 /*
  * Middleware — EDGE RUNTIME.
  * Usa authConfig (edge-safe): sense imports de Node.js.
- * Llegeix el JWT de la cookie i verifica si l'usuari és autenticat.
+ * - Autenticació via JWT
+ * - Sincronitza ?grup= → cookie global d'empresa
+ * - Bloqueja Administració per a rol CONSULTA
  */
-export default NextAuth(authConfig).auth;
+const { auth } = NextAuth(authConfig);
+
+export default auth((req) => {
+  const url = req.nextUrl;
+  const pathname = url.pathname;
+  const role = req.auth?.user?.role;
+
+  if (
+    (pathname.startsWith("/dades") || pathname.startsWith("/settings")) &&
+    role &&
+    !potAdministrar(role)
+  ) {
+    return NextResponse.redirect(new URL("/", url));
+  }
+
+  const res = NextResponse.next();
+  const grupParam = url.searchParams.get("grup");
+  if (grupParam === "calblay" || grupParam === "fdlc" || grupParam === "consolidat") {
+    const current = req.cookies.get(GRUP_COOKIE_NAME)?.value;
+    const nextGrup = parseGrupEmpresa(grupParam);
+    if (current !== nextGrup) {
+      res.cookies.set(GRUP_COOKIE_NAME, nextGrup, {
+        path: "/",
+        maxAge: 60 * 60 * 24 * 365,
+        sameSite: "lax",
+      });
+    }
+  }
+
+  return res;
+});
 
 export const config = {
   matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png$).*)"],

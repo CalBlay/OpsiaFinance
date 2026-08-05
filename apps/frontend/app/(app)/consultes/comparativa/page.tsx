@@ -20,7 +20,8 @@ import {
   getComparativaMensualEntreAnys,
   getComparativaTemporal,
 } from "@/lib/consultes";
-import { exclouFdlcDeConsultaLinia } from "@/lib/grups-empresa";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
 import {
   KPI_DEFINICIONS,
   type KpiComparatiuItem,
@@ -45,12 +46,22 @@ export default async function ComparativaPage({
   searchParams: Promise<{ scope?: string; id?: string; g?: string; mes?: string; mesos?: string }>;
 }) {
   const sp = await searchParams;
-  const [arbreRaw, anys] = await Promise.all([getArbreSeleccio(), getAnysAmbDades()]);
+  const [arbreRaw, anys, grup] = await Promise.all([
+    getArbreSeleccio(),
+    getAnysAmbDades(),
+    getGrupEmpresaActual(),
+  ]);
+  const potLiniaCentre = grupMostraConsultesLiniaCentre(grup);
   const arbre = exclouFdlcDeConsultaLinia(arbreRaw);
 
-  const scope: AmbitTemporal =
-    sp.scope === "linia" ? "linia" : sp.scope === "centre" ? "centre" : "empresa";
-  const id = sp.id ?? null;
+  const scope: AmbitTemporal = !potLiniaCentre
+    ? "empresa"
+    : sp.scope === "linia"
+      ? "linia"
+      : sp.scope === "centre"
+        ? "centre"
+        : "empresa";
+  const id = potLiniaCentre ? (sp.id ?? null) : null;
 
   const granularitat: GranularitatTemporal =
     sp.g === "mensual" ? "mensual" : sp.g === "mes" ? "mes" : "anual";
@@ -63,14 +74,19 @@ export default async function ComparativaPage({
       ? [null, null]
       : await Promise.all([
           granularitat !== "mensual"
-            ? getComparativaTemporal(scope, id, {
-                granularitat,
-                anys,
-                mes: granularitat === "mes" ? mesActual : undefined,
-              })
+            ? getComparativaTemporal(
+                scope,
+                id,
+                {
+                  granularitat,
+                  anys,
+                  mes: granularitat === "mes" ? mesActual : undefined,
+                },
+                grup
+              )
             : Promise.resolve(null),
           granularitat === "mensual"
-            ? getComparativaMensualEntreAnys(scope, id, anys)
+            ? getComparativaMensualEntreAnys(scope, id, anys, grup)
             : Promise.resolve(null),
         ]);
 
@@ -328,6 +344,7 @@ export default async function ComparativaPage({
           granularitat={granularitat}
           mes={mesActual}
           mesosSeleccionats={mesosSeleccionats}
+          nomesEmpresa={!potLiniaCentre}
         />
       </div>
 

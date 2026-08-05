@@ -1,21 +1,174 @@
 .page {
-  padding: var(--opsia-space-10) var(--opsia-space-10);
+  padding: var(--opsia-space-8) var(--opsia-space-10);
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-8);
 }
 
-.grid {
+.header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--opsia-space-4);
+  flex-wrap: wrap;
+}
+
+.eyebrow {
+  margin: 0 0 var(--opsia-space-1);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--opsia-accent-primary);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--opsia-ink-strong);
+}
+
+.subtitle {
+  margin: var(--opsia-space-2) 0 0;
+  color: var(--opsia-ink-soft);
+  font-size: var(--opsia-font-size-sm);
+}
+
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.9rem;
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-accent-primary);
+  color: #fff;
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: opacity var(--opsia-transition-fast);
+}
+
+.cta:hover {
+  opacity: 0.92;
+}
+
+.kpiSection {
+  min-width: 0;
+}
+
+.empty {
+  padding: var(--opsia-space-8);
+  border: 1px dashed var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-md, 10px);
+  background: rgba(255, 255, 255, 0.45);
+}
+
+.empty h3 {
+  margin: 0 0 var(--opsia-space-2);
+  font-size: 1.05rem;
+  color: var(--opsia-ink-strong);
+}
+
+.empty p {
+  margin: 0;
+  color: var(--opsia-ink-soft);
+  font-size: var(--opsia-font-size-sm);
+}
+
+.emptyLink {
+  display: inline-block;
+  margin-top: var(--opsia-space-4);
+  color: var(--opsia-accent-primary);
+  font-weight: 600;
+  font-size: var(--opsia-font-size-sm);
+}
+
+.sectionTitle {
+  margin: 0 0 var(--opsia-space-3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--opsia-ink-soft);
+}
+
+.shortcuts {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--opsia-space-6);
-  max-width: 900px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--opsia-space-3);
 }
 
-@media (max-width: 640px) {
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-3);
+  padding: var(--opsia-space-4);
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-bg-card, #fff);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--opsia-transition-fast), background var(--opsia-transition-fast);
+}
+
+.shortcut:hover {
+  border-color: var(--opsia-accent-primary);
+  background: rgba(47, 111, 109, 0.04);
+}
+
+.shortcutIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  background: rgba(47, 111, 109, 0.1);
+  color: var(--opsia-accent-primary);
+  flex-shrink: 0;
+}
+
+.shortcutText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.shortcutLabel {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 600;
+  color: var(--opsia-ink-strong);
+}
+
+.shortcutHint {
+  font-size: 0.75rem;
+  color: var(--opsia-ink-soft);
+}
+
+.shortcutArrow {
+  color: var(--opsia-ink-soft);
+  flex-shrink: 0;
+  opacity: 0.6;
+}
+
+@media (max-width: 1100px) {
+  .shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
   .page {
     padding: var(--opsia-space-6) var(--opsia-space-4);
+    gap: var(--opsia-space-6);
   }
 
-  .grid {
+  .shortcuts {
     grid-template-columns: 1fr;
   }
 }

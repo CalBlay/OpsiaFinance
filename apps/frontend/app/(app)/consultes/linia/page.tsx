@@ -6,9 +6,11 @@ import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import { VendesPieChart } from "@/components/consultes/VendesPieChart";
 import styles from "@/components/consultes/report.module.css";
+import { auth } from "@/lib/auth";
 import {
   MESOS_CURTS,
   type VistaCompte,
+  esUnMes,
   etiquetaRangMesos,
   getAnysAmbDades,
   getArbreSeleccio,
@@ -17,13 +19,20 @@ import {
   parseRangMesosFromSearchParams,
   rangToQuery,
 } from "@/lib/consultes";
+import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic, indicesCentresOperatius, segmentsVendes } from "@/lib/consultes-grafics";
-import { esLiniaFdlc, exclouFdlcDeConsultaLinia } from "@/lib/grups-empresa";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import {
+  esLiniaFdlc,
+  exclouFdlcDeConsultaLinia,
+  grupMostraConsultesLiniaCentre,
+} from "@/lib/grups-empresa";
 import { NODE_EBITDA, NODE_INGRESSOS, NODE_VENDES, buildKpisInforme } from "@/lib/kpi-definitions";
 import type { RangMesos } from "@/lib/periodes";
 import { COL_REPARTIMENT_ID, aplicarGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { redirect } from "next/navigation";
+import { ajustarImportConsultaAction } from "../actions";
 import { LiniaSelectors } from "./LiniaSelectors";
 
 export const dynamic = "force-dynamic";
@@ -53,12 +62,23 @@ export default async function ConsultaLiniaPage({
   }>;
 }) {
   const sp = await searchParams;
-  const [arbre, anys] = await Promise.all([getArbreSeleccio(), getAnysAmbDades()]);
+  const [session, arbre, anys, grup] = await Promise.all([
+    auth(),
+    getArbreSeleccio(),
+    getAnysAmbDades(),
+    getGrupEmpresaActual(),
+  ]);
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
   const rang = parseRangMesosFromSearchParams(sp);
+
+  if (!grupMostraConsultesLiniaCentre(grup)) {
+    redirect(`/consultes/empresa?any=${anyActual}${rangToQuery(rang)}`);
+  }
+
   const lnId = sp.ln ?? null;
   const vista: VistaCompte = sp.vista === "gestio" ? "gestio" : "directe";
+  const canEdit = session?.user?.role === "ADMIN" && vista === "directe";
 
   const linies = exclouFdlcDeConsultaLinia(
     arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom }))
@@ -67,7 +87,7 @@ export default async function ConsultaLiniaPage({
   if (lnId) {
     const lnSeleccionada = arbre.find((l) => l.id === lnId);
     if (lnSeleccionada && esLiniaFdlc(lnSeleccionada.codi)) {
-      redirect(`/consultes/empresa?grup=fdlc&any=${anyActual}${rangToQuery(rang)}`);
+      redirect(`/consultes/empresa?any=${anyActual}${rangToQuery(rang)}`);
     }
   }
 
@@ -149,7 +169,7 @@ export default async function ConsultaLiniaPage({
           <h1 className={styles.title}>Compte d&apos;explotació · per línia de negoci</h1>
           <p className={styles.subtitle}>
             {comp?.liniaNegoci || ev
-              ? `${comp?.liniaNegoci?.codi ?? ev?.titol.split(" · ")[0] ?? ""} · ${comp?.liniaNegoci?.nom ?? ev?.titol ?? ""} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · compte de gestió" : " · directe SAP"}`
+              ? `${comp?.liniaNegoci ? etiquetaLiniaNegoci(comp.liniaNegoci) : (ev?.titol ?? "")} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · compte de gestió" : " · directe SAP"}`
               : "Selecciona una línia de negoci per veure el total del període."}
           </p>
         </div>
@@ -192,15 +212,22 @@ export default async function ConsultaLiniaPage({
           <DetallCompteCollapsible
             defaultOpen
             title="Compte de la línia (total)"
-            caption="Imports totals de la línia de negoci. Cada columna és un mes del període seleccionat."
+            caption={
+              canEdit
+                ? "Clic a una casella per veure el detall i crear un ajust a la LN."
+                : "Imports totals de la línia de negoci. Cada columna és un mes del període seleccionat."
+            }
           >
             <PivotTableDrilldown
               columns={columnsMes}
               rows={rowsMes}
               totalLabel="Període"
               firstColLabel="Concepte"
+              canEdit={canEdit}
+              editConfig={canEdit ? { onSave: ajustarImportConsultaAction } : undefined}
               drilldown={{
                 any: anyActual,
+                vista,
                 colMap: Object.fromEntries(
                   columnsMes.map((c, i) => [
                     c.key,
@@ -241,9 +268,19 @@ export default async function ConsultaLiniaPage({
                 rows={comp.concepts}
                 totalLabel="Total LN"
                 firstColLabel="Concepte"
+                canEdit={canEdit}
+                editConfig={canEdit ? { onSave: ajustarImportConsultaAction } : undefined}
                 drilldown={{
                   any: anyActual,
-                  colMap: Object.fromEntries(centres.map((c) => [c.id, { rang, centreId: c.id }])),
+                  vista,
+                  colMap: Object.fromEntries(
+                    centres.map((c) => [
+                      c.id,
+                      c.id === COL_REPARTIMENT_ID
+                        ? { rang, liniaNegociId: lnId ?? undefined }
+                        : { rang, mes: esUnMes(rang) ? rang.des : undefined, centreId: c.id },
+                    ])
+                  ),
                 }}
               />
             </DetallCompteCollapsible>

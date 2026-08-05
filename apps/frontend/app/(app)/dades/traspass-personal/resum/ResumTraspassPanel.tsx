@@ -1,5 +1,6 @@
 "use client";
 
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import type { ResumTraspassPersonal } from "@/lib/traspass-personal/resum";
 import { pivotResumLn } from "@/lib/traspass-personal/resum-pivot";
@@ -13,35 +14,32 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
   const pivotLn = pivotResumLn(resum.perLn);
 
   return (
-    <div className={styles.stack}>
-      <div className={styles.toolbar}>
-        <div>
-          <h1 className={styles.title}>Resum traspassos de personal</h1>
-          <p className={styles.subtitle}>
-            Només traspassos <strong>confirmats</strong>. Volum anual traspassat:{" "}
-            {formatNum(resum.volumTraspassAny, 2)} € (suma de moviments origen→destí).
-          </p>
-        </div>
-        <div className={styles.toolbarActions}>
-          <Link href="/dades/traspass-personal" className={styles.linkBtn}>
-            Tornar a importació
-          </Link>
-          <label className={styles.anySelect}>
-            Any{" "}
-            <select
-              value={resum.any}
-              onChange={(e) => router.push(`/dades/traspass-personal/resum?any=${e.target.value}`)}
-            >
-              {(resum.anysDisponibles.length ? resum.anysDisponibles : [resum.any]).map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-      </div>
-
+    <DadesPageShell
+      backHref="/dades/traspass-personal"
+      backLabel="Traspassos personal"
+      title="Resum traspassos de personal"
+      description={
+        <>
+          Només traspassos <strong>confirmats</strong>. Volum anual traspassat:{" "}
+          {formatNum(resum.volumTraspassAny, 2)} € (suma de moviments origen→destí).
+        </>
+      }
+      actions={
+        <label className={styles.anySelect}>
+          Any{" "}
+          <select
+            value={resum.any}
+            onChange={(e) => router.push(`/dades/traspass-personal/resum?any=${e.target.value}`)}
+          >
+            {(resum.anysDisponibles.length ? resum.anysDisponibles : [resum.any]).map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </label>
+      }
+    >
       {resum.buit ? (
         <p className={styles.muted}>
           No hi ha traspassos confirmats per {resum.any}. Confirma imports mensuals a{" "}
@@ -155,6 +153,6 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
           </section>
         </>
       )}
-    </div>
+    </DadesPageShell>
   );
 }

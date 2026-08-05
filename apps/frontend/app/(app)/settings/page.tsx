@@ -11,10 +11,11 @@ import {
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { formatDateShort } from "@/lib/utils";
+import { redirect } from "next/navigation";
 import { UserRowActions } from "./UserRowActions";
 import styles from "./page.module.css";
 
-export const metadata = { title: "Settings — OpsiaFinance" };
+export const metadata = { title: "Configuració — OpsiaFinance" };
 
 export default async function SettingsPage() {
   const [session, users] = await Promise.all([
@@ -32,8 +33,12 @@ export default async function SettingsPage() {
     }),
   ]);
 
+  if (session?.user.role !== "ADMIN") {
+    redirect("/settings/dimensions");
+  }
+
   const currentUserId = session?.user.id;
-  const isAdmin = session?.user.role === "ADMIN";
+  const isAdmin = true;
 
   return (
     <div className={styles.page}>

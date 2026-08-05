@@ -44,9 +44,8 @@ export async function processarImportFdlc(
   if (!imp.rutaStorage)
     return { ok: false, missatge: "Fitxer no disponible al servidor. Puja'l de nou." };
 
-  const any =
-    imp.period?.any ??
-    (imp.nomFitxer.match(/20\d{2}/)?.[0] ? Number(imp.nomFitxer.match(/20\d{2}/)![0]) : null);
+  const anyMatch = imp.nomFitxer.match(/20\d{2}/)?.[0];
+  const any = imp.period?.any ?? (anyMatch ? Number(anyMatch) : null);
   if (!any) {
     return { ok: false, missatge: "Cal indicar l'exercici (any) abans de processar un PyG FDLC." };
   }
@@ -128,7 +127,9 @@ export async function processarImportFdlc(
     await db.dadaResultat.createMany({ data: allRows.slice(i, i + BATCH) });
   }
 
-  const refPeriodId = periodIdByMes.get(mesosDetectats[0]!) ?? periodIds[0];
+  const primerMesDetectat = mesosDetectats[0];
+  const refPeriodId =
+    (primerMesDetectat !== undefined ? periodIdByMes.get(primerMesDetectat) : null) ?? periodIds[0];
   await db.importacio.update({
     where: { id: imp.id },
     data: { estat: "CLASSIFICAT", periodId: refPeriodId },
@@ -137,6 +138,7 @@ export async function processarImportFdlc(
   revalidatePath(`/dades/${imp.id}`);
   revalidatePath("/dades");
   revalidatePath("/consultes/empresa");
+  revalidatePath("/consultes/centre");
 
   let avis = "";
   if (comptesNoMapats.length > 0) {

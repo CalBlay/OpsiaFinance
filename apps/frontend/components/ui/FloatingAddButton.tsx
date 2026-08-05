@@ -9,13 +9,16 @@ interface FloatingAddButtonProps {
   onClick?: () => void;
   className?: string;
   label?: string;
+  disabled?: boolean;
 }
 
+/** Botó corporatiu flotant «+» per afegir / pujar fitxers a Dades. */
 export function FloatingAddButton({
   href,
   onClick,
   className,
   label = "Afegir",
+  disabled,
 }: FloatingAddButtonProps) {
   const base = cn(
     "fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-4 sm:right-10",
@@ -23,20 +26,28 @@ export function FloatingAddButton({
     "bg-primary text-primary-foreground",
     "shadow-xl flex items-center justify-center",
     "hover:bg-primary/90 active:scale-95",
-    "transition-all duration-150 cursor-pointer z-50",
+    "transition-all duration-150 z-50",
+    disabled ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer",
     className
   );
 
-  if (href) {
+  if (href && !disabled) {
     return (
-      <Link href={href} className={base} aria-label={label}>
+      <Link href={href} className={base} aria-label={label} title={label}>
         <Plus className="h-7 w-7" strokeWidth={2.2} />
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onClick} className={base} aria-label={label}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={base}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+    >
       <Plus className="h-7 w-7" strokeWidth={2.2} />
     </button>
   );

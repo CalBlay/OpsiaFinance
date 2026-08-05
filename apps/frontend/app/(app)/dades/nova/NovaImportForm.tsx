@@ -1,5 +1,6 @@
 "use client";
 
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { FDLC_LN_CODI } from "@/lib/fdlc/constants";
@@ -8,7 +9,6 @@ import { TIPUS_INFORME_LABELS, type TipusInforme } from "@/types";
 import {
   AlertTriangle,
   CheckCircle2,
-  ChevronLeft,
   FileSpreadsheet,
   Layers,
   Upload,
@@ -328,32 +328,30 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
   );
 
   return (
-    <div className={styles.page}>
-      <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
-        <Link href="/dades">
-          <ChevronLeft size={14} strokeWidth={2.5} />
-          Dades
-        </Link>
-      </Button>
-
-      <h1 className={styles.title}>Nova importació</h1>
-      <p className={styles.subtitle}>
-        Puja un o diversos informes Excel. Conveni de nom recomanat:{" "}
-        <span className="font-mono text-sm">mes_any_XX</span> (p.ex.{" "}
-        <span className="font-mono text-sm">01_2025_00</span> = gener 2025, LN00000).
-      </p>
-
+    <DadesPageShell
+      narrow
+      backHref="/dades"
+      backLabel="Importacions"
+      title="Nova importació"
+      description={
+        <>
+          Puja un o diversos informes Excel. Conveni de nom recomanat:{" "}
+          <span className="font-mono text-sm">mes_any_XX</span> (p.ex.{" "}
+          <span className="font-mono text-sm">01_2025_00</span> = gener 2025, LN00000).
+        </>
+      }
+    >
       <div className={styles.section}>
         <p className={styles.sectionLabel}>Fitxers Excel</p>
-        <div
+        <label
           className={`${styles.dropZone} ${isDragging ? styles.dragging : ""} ${files.length ? styles.hasFile : ""}`}
+          htmlFor="nova-importacio-fitxers"
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
           }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={handleDrop}
-          onClick={() => pickerRef.current?.click()}
           style={{ cursor: "pointer" }}
         >
           {files.length ? (
@@ -395,8 +393,9 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
               <p className={styles.dropHint}>Un o diversos fitxers · .xlsx, .xls</p>
             </div>
           )}
-        </div>
+        </label>
         <input
+          id="nova-importacio-fitxers"
           ref={pickerRef}
           type="file"
           accept=".xlsx,.xls"
@@ -544,9 +543,9 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                 )}
               </div>
               <div className="flex flex-col gap-1.5">
-                {bulkResum.resultats.map((r, i) => (
+                {bulkResum.resultats.map((r) => (
                   <div
-                    key={i}
+                    key={`${r.nom}-${r.periode}-${r.ln ?? "sense-ln"}`}
                     className="flex items-start gap-2 rounded-md border border-border p-2 text-sm"
                   >
                     {r.ok ? (
@@ -747,6 +746,6 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
           </div>
         </div>
       )}
-    </div>
+    </DadesPageShell>
   );
 }

@@ -1,3 +1,4 @@
+import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { costTotalLinia, normalitzaNomRestaurant } from "@/lib/cost-salarial/import";
 import { db } from "@/lib/db";
@@ -212,7 +213,7 @@ export async function getAnysCostSalarial(): Promise<number[]> {
   return periods.map((p) => p.any);
 }
 
-export async function getCentresRestaurants() {
+export async function getCentresRestaurants(nomesMirallFdlc = false) {
   const ln = await db.liniaNegoci.findUnique({
     where: { codi: "LN00001" },
     select: {
@@ -222,16 +223,15 @@ export async function getCentresRestaurants() {
       },
     },
   });
-  return (ln?.centres ?? [])
-    .map((c) => ({
-      ...c,
-      etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
-    }))
-    .sort(
-      (a, b) =>
-        a.etiqueta.localeCompare(b.etiqueta, "ca", { sensitivity: "base", numeric: true }) ||
-        a.codi.localeCompare(b.codi, "ca")
-    );
+  const { CENTRE_CODI_MIRALL_SERVEIS_FDLC } = await import("@/lib/fdlc/mirall-vendes-centre");
+  return ordenaPerCodi(
+    (ln?.centres ?? [])
+      .filter((c) => !nomesMirallFdlc || c.codi === CENTRE_CODI_MIRALL_SERVEIS_FDLC)
+      .map((c) => ({
+        ...c,
+        etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
+      }))
+  );
 }
 
 export async function getInformeRestaurant(

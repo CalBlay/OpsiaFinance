@@ -16,7 +16,7 @@ export default function NouUsuariPage() {
       <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
         <Link href="/settings">
           <ChevronLeft size={14} strokeWidth={2.5} />
-          Settings
+          Configuració
         </Link>
       </Button>
 
@@ -57,7 +57,7 @@ export default function NouUsuariPage() {
           >
             <option value="CONSULTA">Consultor — només lectura</option>
             <option value="EDICIO">Editor — càrrega i edició</option>
-            <option value="ADMIN">Admin — accés complet</option>
+            <option value="ADMIN">Administrador — accés complet</option>
           </select>
         </div>
 

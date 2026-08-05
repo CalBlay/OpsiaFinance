@@ -1,3 +1,5 @@
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
+import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import Link from "next/link";
@@ -7,6 +9,8 @@ import styles from "./page.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Traspassos de personal — OpsiaFinance" };
 
+const tab = getDadesTabById("traspass-personal");
+
 export default async function TraspassPersonalLlistaPage() {
   const session = await auth();
   const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
@@ -14,24 +18,49 @@ export default async function TraspassPersonalLlistaPage() {
   const periods = await db.period.findMany({
     where: { execucioTraspassPersonal: { isNot: null } },
     orderBy: [{ any: "desc" }, { mes: "desc" }],
-    include: { execucioTraspassPersonal: { select: { id: true, estat: true } } },
+    include: {
+      execucioTraspassPersonal: {
+        select: {
+          id: true,
+          estat: true,
+          nomFitxer: true,
+          createdAt: true,
+          updatedAt: true,
+          importacio: {
+            select: {
+              id: true,
+              nomFitxer: true,
+              createdAt: true,
+              creatPerUser: { select: { name: true } },
+            },
+          },
+        },
+      },
+    },
   });
 
+  const items = periods.map((p) => ({
+    id: p.id,
+    nom: p.nom,
+    any: p.any,
+    mes: p.mes,
+    execucioTraspassPersonal: p.execucioTraspassPersonal,
+  }));
+
   return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Traspassos de personal</h1>
-        <p className={styles.subtitle}>
-          Importa l&apos;excel mensual d&apos;hores i confirma els traspassos de cost salarial entre
-          centres. S&apos;apliquen a la vista Gestió (tractat).{" "}
+    <DadesPageShell
+      title={tab.title}
+      description={
+        <>
+          {tab.description}{" "}
           <Link href="/dades/traspass-personal/resum" className={styles.resumLink}>
             Veure resum per mes i LN →
           </Link>
-        </p>
-      </header>
-
+        </>
+      }
+    >
+      <PeriodLinkList periods={items} canEdit={canEdit} />
       <UploadHoresForm canEdit={canEdit} />
-      <PeriodLinkList periods={periods} />
-    </div>
+    </DadesPageShell>
   );
 }

@@ -1,4 +1,5 @@
 import styles from "@/components/consultes/report.module.css";
+import { etiquetaCentre } from "@/lib/consultes-etiquetes";
 import {
   PARTIDES_SALARIALS,
   getAnysCostSalarial,
@@ -6,6 +7,8 @@ import {
   getComparativaRestaurants,
   getInformeRestaurant,
 } from "@/lib/cost-salarial/consultes";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import { grupFiltraRestaurantsNomesMirall } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { formatNum } from "@/lib/utils";
 import { CostSalarialPresentacio } from "./CostSalarialPresentacio";
@@ -32,14 +35,37 @@ export default async function ConsultaCostSalarialPage({
   searchParams: Promise<{ any?: string; mes?: string; centre?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
-  const [centres, anysCost] = await Promise.all([getCentresRestaurants(), getAnysCostSalarial()]);
+  const grup = await getGrupEmpresaActual();
+  const nomesMirall = grupFiltraRestaurantsNomesMirall(grup);
+  const [centres, anysCost] = await Promise.all([
+    getCentresRestaurants(nomesMirall),
+    getAnysCostSalarial(),
+  ]);
 
-  const anyActual = sp.any ? Number(sp.any) : (anysCost[0] ?? new Date().getFullYear());
+  const anyCalendari = new Date().getFullYear();
+  const anyActual = sp.any
+    ? Number(sp.any)
+    : anysCost.includes(anyCalendari)
+      ? anyCalendari
+      : (anysCost[0] ?? anyCalendari);
   const anys = anysCost.length ? anysCost : [anyActual];
+  // Sense ?mes= → acumulat de tot l'any (visió general de la línia).
   const mes = sp.mes ? Number(sp.mes) : null;
-  const centreId = sp.centre ?? null;
-  const vista: "comparativa" | "restaurant" | "sala-cuina" =
-    sp.vista === "restaurant" || sp.vista === "sala-cuina" ? sp.vista : "comparativa";
+  const centreId =
+    sp.centre && centres.some((c) => c.id === sp.centre)
+      ? sp.centre
+      : nomesMirall
+        ? (centres[0]?.id ?? null)
+        : (sp.centre ?? null);
+  const vista: "comparativa" | "restaurant" | "sala-cuina" = nomesMirall
+    ? centreId
+      ? sp.vista === "sala-cuina"
+        ? "sala-cuina"
+        : "restaurant"
+      : "comparativa"
+    : sp.vista === "restaurant" || sp.vista === "sala-cuina"
+      ? sp.vista
+      : "comparativa";
 
   const periode = periodeLabel(anyActual, mes);
 
@@ -51,6 +77,15 @@ export default async function ConsultaCostSalarialPage({
       ? getInformeRestaurant(centreId, anyActual, mes)
       : Promise.resolve(null),
   ]);
+
+  // Amb FDLC (només CCR00008), la comparativa multi-centre no té sentit: filtrar files.
+  const _comparativaFiltrada =
+    comparativa && nomesMirall
+      ? {
+          ...comparativa,
+          files: comparativa.files.filter((f) => centres.some((c) => c.id === f.centre.id)),
+        }
+      : comparativa;
 
   return (
     <div className={styles.page}>
@@ -139,7 +174,7 @@ export default async function ConsultaCostSalarialPage({
                             className={local.link}
                             href={`/consultes/cost-salarial?vista=restaurant&centre=${f.centre.id}&any=${anyActual}${mes ? `&mes=${mes}` : ""}`}
                           >
-                            {f.centre.codi} · {f.centre.etiqueta}
+                            {etiquetaCentre(f.centre)}
                           </a>
                         </td>
                         <td className={local.right}>{formatNum(f.sala)}</td>

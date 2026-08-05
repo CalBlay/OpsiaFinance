@@ -1,7 +1,7 @@
-import { recalcularCompositesOnly } from "@/lib/compte-subtotals";
+import { recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import type { ConceptePivot } from "@/lib/consultes";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
-import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
+import { NODE_COST_SALARIAL, nodePresentacioGestio } from "@/lib/repartiment/nodes";
 
 /** Acumula delta per centre i node. */
 export function aplicarDeltaCentre(
@@ -67,16 +67,26 @@ export function aplicarDeltasTraspassPersonalCentres(
   deltaByCentreNode: Map<string, Map<number, number>>
 ): ConceptePivot[] {
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
+  const byNode = new Map(merged.map((r) => [r.node, r]));
+
+  for (let i = 0; i < centreIds.length; i++) {
+    const nodes = deltaByCentreNode.get(centreIds[i]);
+    if (!nodes) continue;
+    for (const [node, delta] of nodes) {
+      if (delta === 0) continue;
+      const row = byNode.get(nodePresentacioGestio(node));
+      if (row) row.valors[i] += delta;
+    }
+  }
 
   for (const row of merged) {
-    for (let i = 0; i < centreIds.length; i++) {
-      const delta = deltaByCentreNode.get(centreIds[i])?.get(row.node) ?? 0;
-      if (delta !== 0) row.valors[i] += delta;
-    }
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
 
-  return recalcularCompositesOnly(merged);
+  return recalcularSubtotalsCompte(
+    merged.map((r) => ({ node: r.node, esSubtotal: r.esSubtotal })),
+    merged
+  );
 }
 
 /** Agrega deltas per centre → deltas per LN. */
@@ -136,25 +146,27 @@ export async function aplicarTraspassPersonalEvolucioCentre(
   });
 
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
+  const targetNode = nodePresentacioGestio(NODE_COST_SALARIAL);
+  const sousRow = merged.find((r) => r.node === targetNode);
+
   for (const ex of execucions) {
     const mesIdx = ex.period.mes - 1;
-    if (mesIdx < 0 || mesIdx > 11) continue;
+    if (mesIdx < 0 || mesIdx > 11 || !sousRow) continue;
     for (const m of ex.moviments) {
       const imp = Number(m.import_);
-      const node = NODE_COST_SALARIAL;
-      for (const row of merged) {
-        if (row.node !== node) continue;
-        // Mateix criteri de signe (costos negatius al compte).
-        if (m.centreOrigenId === centreId) row.valors[mesIdx] += imp;
-        if (m.centreDestiId === centreId) row.valors[mesIdx] -= imp;
-      }
+      // Mateix criteri de signe (costos negatius al compte).
+      if (m.centreOrigenId === centreId) sousRow.valors[mesIdx] += imp;
+      if (m.centreDestiId === centreId) sousRow.valors[mesIdx] -= imp;
     }
   }
 
   for (const row of merged) {
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
-  return recalcularCompositesOnly(merged);
+  return recalcularSubtotalsCompte(
+    merged.map((r) => ({ node: r.node, esSubtotal: r.esSubtotal })),
+    merged
+  );
 }
 
 /** Combina deltas de repartiment LN i traspass personal per vista empresa. */

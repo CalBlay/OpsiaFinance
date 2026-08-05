@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "@/components/consultes/report.module.css";
+import { etiquetaCentre } from "@/lib/consultes-etiquetes";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -71,8 +72,8 @@ export function VendesSelectors({
             }
           }}
         >
-          <option value="restaurant">Detall restaurant</option>
           <option value="comparativa">Tota la línia (LN)</option>
+          <option value="restaurant">Detall restaurant</option>
         </select>
       </div>
 
@@ -89,7 +90,7 @@ export function VendesSelectors({
           >
             {centres.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.etiqueta || c.nom}
+                {etiquetaCentre(c)}
               </option>
             ))}
           </select>

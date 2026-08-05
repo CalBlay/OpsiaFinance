@@ -93,6 +93,14 @@
   color: var(--color-primary);
 }
 
+.repartiment {
+  color: #0f766e;
+}
+
+.mirall {
+  color: #a16207;
+}
+
 .tableWrap {
   border: 1px solid var(--color-border);
   border-radius: 0.5rem;
@@ -149,6 +157,14 @@
   background: color-mix(in srgb, var(--color-primary) 5%, transparent);
 }
 
+.repartimentRow {
+  background: color-mix(in srgb, #0f766e 6%, transparent);
+}
+
+.mirallRow {
+  background: color-mix(in srgb, #a16207 7%, transparent);
+}
+
 .badge {
   display: inline-block;
   padding: 0.1rem 0.4rem;
@@ -167,4 +183,106 @@
 .badgeAjust {
   background: color-mix(in srgb, var(--color-primary) 15%, transparent);
   color: var(--color-primary);
+}
+
+.badgeRepartiment {
+  background: color-mix(in srgb, #0f766e 18%, transparent);
+  color: #0f766e;
+}
+
+.badgeMirall {
+  background: color-mix(in srgb, #a16207 18%, transparent);
+  color: #a16207;
+}
+
+.editSection {
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.editTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-foreground);
+}
+
+.editHint {
+  margin: 0 0 0.75rem;
+  font-size: 0.78rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.4;
+}
+
+.editHint code {
+  font-size: 0.74rem;
+  padding: 0.05rem 0.3rem;
+  border-radius: 0.25rem;
+  background: var(--color-muted);
+}
+
+.editRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: flex-end;
+}
+
+.editField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  min-width: 10rem;
+  flex: 1;
+}
+
+.editInput {
+  height: 2rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  background: var(--color-card);
+  color: var(--color-foreground);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.editInput:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
+}
+
+.saveBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2rem;
+  padding: 0 0.75rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.saveBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.editError {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-destructive);
 }

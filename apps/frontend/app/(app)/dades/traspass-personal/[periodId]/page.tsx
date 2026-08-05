@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { getExecucioTraspassPerPeriode } from "@/lib/traspass-personal/service";
 import { TraspassExecucioPanel } from "../TraspassExecucioPanel";
-import styles from "../page.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -42,13 +41,11 @@ export default async function TraspassPersonalDetallPage({
     : null;
 
   return (
-    <div className={styles.page}>
-      <TraspassExecucioPanel
-        periodId={periodId}
-        periodNom={execucioRaw?.period.nom ?? "—"}
-        execucio={execucio}
-        canEdit={canEdit}
-      />
-    </div>
+    <TraspassExecucioPanel
+      periodId={periodId}
+      periodNom={execucioRaw?.period.nom ?? "—"}
+      execucio={execucio}
+      canEdit={canEdit}
+    />
   );
 }

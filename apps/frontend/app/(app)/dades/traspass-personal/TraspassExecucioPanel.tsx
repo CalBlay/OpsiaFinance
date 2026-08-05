@@ -1,5 +1,6 @@
 "use client";
 
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { Button } from "@/components/ui/Button";
 import { formatNum } from "@/lib/utils";
 import { Check, Pencil, Trash2, X } from "lucide-react";
@@ -32,7 +33,7 @@ type Alerta = {
 };
 
 export function TraspassExecucioPanel({
-  periodId,
+  periodId: _periodId,
   periodNom,
   execucio,
   canEdit,
@@ -65,11 +66,13 @@ export function TraspassExecucioPanel({
   const parseNum = (raw: string) => Number(raw.replace(/\s/g, "").replace(",", "."));
 
   return (
-    <div className={styles.stack}>
-      <div className={styles.toolbar}>
-        <div>
-          <h1 className={styles.title}>Traspassos personal · {periodNom}</h1>
-          {execucio && (
+    <DadesPageShell
+      backHref="/dades/traspass-personal"
+      backLabel="Traspassos personal"
+      title={`Traspassos personal · ${periodNom}`}
+      description={
+        <>
+          {execucio ? (
             <span
               className={`${styles.badge} ${
                 execucio.estat === "CONFIRMAT" ? styles.badgeConfirmat : styles.badgeBorrador
@@ -77,15 +80,14 @@ export function TraspassExecucioPanel({
             >
               {execucio.estat === "CONFIRMAT" ? "Confirmat" : "Esborrany"}
             </span>
-          )}
-          {execucio?.nomFitxer && <p className={styles.muted}>Fitxer: {execucio.nomFitxer}</p>}
-        </div>
-        <div className={styles.toolbarActions}>
+          ) : null}
+          {execucio?.nomFitxer ? ` Fitxer: ${execucio.nomFitxer}` : null}
+        </>
+      }
+      actions={
+        <>
           <Button asChild variant="outline" size="sm">
             <Link href="/dades/traspass-personal/resum">Resum anual</Link>
-          </Button>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/dades/traspass-personal">Tornar</Link>
           </Button>
           {canEdit && execucio?.estat === "CONFIRMAT" && (
             <Button
@@ -129,9 +131,9 @@ export function TraspassExecucioPanel({
               Eliminar importació
             </Button>
           )}
-        </div>
-      </div>
-
+        </>
+      }
+    >
       {!execucio ? (
         <p className={styles.muted}>
           Encara no s&apos;ha importat l&apos;excel d&apos;hores d&apos;aquest mes.
@@ -287,6 +289,6 @@ export function TraspassExecucioPanel({
           )}
         </>
       )}
-    </div>
+    </DadesPageShell>
   );
 }

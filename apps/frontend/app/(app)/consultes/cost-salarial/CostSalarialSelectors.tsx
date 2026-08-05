@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "@/components/consultes/report.module.css";
+import { etiquetaCentre } from "@/lib/consultes-etiquetes";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
 
@@ -57,7 +58,7 @@ export function CostSalarialSelectors({
             go(any, mes, v === "comparativa" ? null : centreId, v);
           }}
         >
-          <option value="comparativa">Comparativa restaurants</option>
+          <option value="comparativa">Tota la línia (LN)</option>
           <option value="restaurant">Detall restaurant</option>
           <option value="sala-cuina">Sala vs Cuina</option>
         </select>
@@ -77,7 +78,7 @@ export function CostSalarialSelectors({
             <option value="">Tots / selecciona…</option>
             {centres.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.codi} · {c.etiqueta || c.nom}
+                {etiquetaCentre(c)}
               </option>
             ))}
           </select>
@@ -114,7 +115,7 @@ export function CostSalarialSelectors({
           value={mes ?? ""}
           onChange={(e) => go(any, e.target.value ? Number(e.target.value) : null, centreId, vista)}
         >
-          <option value="">Acumulat any</option>
+          <option value="">Tot l&apos;any</option>
           {MESOS_LLARGS.map((m, i) => (
             <option key={m} value={i + 1}>
               {m}

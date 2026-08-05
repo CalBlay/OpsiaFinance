@@ -1,11 +1,16 @@
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
+import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { auth } from "@/lib/auth";
+import { llistaCarreguesFitxer } from "@/lib/carrega-fitxer";
 import { getCentresRestaurants } from "@/lib/cost-salarial/consultes";
 import { db } from "@/lib/db";
 import { CostSalarialManager } from "./CostSalarialManager";
-import styles from "./page.module.css";
+import { HistorialCostSalarial } from "./HistorialCostSalarial";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cost salarial restaurants — OpsiaFinance" };
+
+const tab = getDadesTabById("cost-salarial");
 
 export default async function CostSalarialDadesPage({
   searchParams,
@@ -16,7 +21,7 @@ export default async function CostSalarialDadesPage({
   const anyFiltre = sp.any ? Number(sp.any) : null;
   const mesFiltre = sp.mes ? Number(sp.mes) : null;
 
-  const [session, centres, anysRaw, registres] = await Promise.all([
+  const [session, centres, anysRaw, registres, carregues] = await Promise.all([
     auth(),
     getCentresRestaurants(),
     db.period.findMany({
@@ -60,6 +65,7 @@ export default async function CostSalarialDadesPage({
       },
       take: 500,
     }),
+    llistaCarreguesFitxer("COST_SALARIAL"),
   ]);
 
   const role = session?.user?.role;
@@ -87,17 +93,20 @@ export default async function CostSalarialDadesPage({
     centreLabel: `${r.centre.codi} · ${r.centre.nom}`,
   }));
 
-  return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <p className={styles.subtitle}>
-          Font pròpia de cost salarial per restaurant (Sala / Cuina). Puja l&apos;Excel mensual
-          (només afegeix o actualitza línies) o edita manualment. {registresPlain.length} registre
-          {registresPlain.length !== 1 ? "s" : ""}
-          {anyFiltre || mesFiltre ? " (filtre actiu)" : ""}.
-        </p>
-      </div>
+  const meta = `${registresPlain.length} registre${registresPlain.length !== 1 ? "s" : ""}${
+    anyFiltre || mesFiltre ? " (filtre actiu)" : ""
+  }`;
 
+  return (
+    <DadesPageShell
+      title={tab.title}
+      description={
+        <>
+          {tab.description} {meta}.
+        </>
+      }
+    >
+      <HistorialCostSalarial items={carregues} canEdit={canEdit} />
       <CostSalarialManager
         centres={centres}
         anys={anys}
@@ -106,6 +115,6 @@ export default async function CostSalarialDadesPage({
         filtreAny={anyFiltre}
         filtreMes={mesFiltre}
       />
-    </div>
+    </DadesPageShell>
   );
 }

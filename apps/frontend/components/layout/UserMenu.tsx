@@ -10,13 +10,7 @@ interface UserMenuProps {
   role: string;
 }
 
-const ROLE_LABELS: Record<string, string> = {
-  ADMIN: "Admin",
-  EDICIO: "Editor",
-  CONSULTA: "Consultor",
-};
-
-export function UserMenu({ name, role }: UserMenuProps) {
+export function UserMenu({ name, role: _role }: UserMenuProps) {
   return (
     <div className={styles.wrapper}>
       <div className={styles.avatar} title={name}>

@@ -1,9 +1,6 @@
 "use client";
 
 import { cn, formatNum } from "@/lib/utils";
-import { Check, Pencil, X as XIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
 import styles from "./PivotTable.module.css";
 
 export interface PivotColumn {
@@ -22,7 +19,8 @@ export interface PivotRow {
 }
 
 export type PivotEditSave = (input: {
-  centreId: string;
+  centreId?: string;
+  liniaNegociId?: string;
   any: number;
   mes: number;
   concepteResultatId: string;
@@ -32,13 +30,11 @@ export type PivotEditSave = (input: {
 }) => Promise<{ ok: boolean; missatge: string }>;
 
 export interface PivotEditConfig {
-  centreId: string;
-  any: number;
   onSave: PivotEditSave;
 }
 
 /** Accepta un import o una operació (p.ex. `122052,81 + 1000`). */
-function parseInput(s: string): number | null {
+export function parseImportInput(s: string): number | null {
   const src = s
     .trim()
     .replace(/\s+/g, "")
@@ -105,162 +101,6 @@ function CellDisplay({ value }: { value: number }) {
   return <span className={value < 0 ? styles.neg : styles.pos}>{formatNum(value)}</span>;
 }
 
-function EditableCell({
-  value,
-  concepteId,
-  mes,
-  edit,
-}: {
-  value: number;
-  concepteId: string;
-  mes: number;
-  edit: PivotEditConfig;
-}) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState("");
-  const [motiu, setMotiu] = useState("");
-  const [current, setCurrent] = useState(value);
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!editing) setCurrent(value);
-  }, [value, editing]);
-
-  function startEdit() {
-    setDraft(String(current).replace(".", ","));
-    setMotiu("");
-    setError(null);
-    setEditing(true);
-    setTimeout(() => {
-      const el = inputRef.current;
-      if (!el) return;
-      el.focus();
-      const len = el.value.length;
-      el.setSelectionRange(len, len);
-    }, 0);
-  }
-
-  function cancel() {
-    setEditing(false);
-    setError(null);
-    setMotiu("");
-  }
-
-  function save() {
-    const nou = parseInput(draft);
-    if (nou === null) {
-      setError("Valor no vàlid");
-      return;
-    }
-    if (!motiu.trim()) {
-      setError("El motiu és obligatori");
-      return;
-    }
-    if (nou === current) {
-      setEditing(false);
-      return;
-    }
-
-    startTransition(async () => {
-      const res = await edit.onSave({
-        centreId: edit.centreId,
-        any: edit.any,
-        mes,
-        concepteResultatId: concepteId,
-        valorActual: current,
-        valorObjectiu: nou,
-        motiu: motiu.trim(),
-      });
-      if (res.ok) {
-        setCurrent(nou);
-        setEditing(false);
-        setMotiu("");
-        router.refresh();
-      } else {
-        setError(res.missatge);
-      }
-    });
-  }
-
-  function handleKey(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      save();
-    }
-    if (e.key === "Escape") cancel();
-  }
-
-  if (!editing) {
-    return (
-      <span className={styles.importWrap}>
-        <CellDisplay value={current} />
-        <button
-          type="button"
-          className={styles.editTrigger}
-          onClick={startEdit}
-          aria-label="Ajusta import"
-        >
-          <Pencil size={12} />
-        </button>
-      </span>
-    );
-  }
-
-  return (
-    <span className={styles.editPanel}>
-      <input
-        ref={inputRef}
-        className={styles.editInput}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onKeyDown={handleKey}
-        disabled={isPending}
-        aria-label="Nou import"
-        placeholder="Import o operació"
-      />
-      <input
-        className={styles.motiuInput}
-        value={motiu}
-        onChange={(e) => setMotiu(e.target.value)}
-        onKeyDown={handleKey}
-        disabled={isPending}
-        aria-label="Motiu de l'ajust"
-        placeholder="Motiu"
-      />
-      <span className={styles.editActions}>
-        <button
-          type="button"
-          className={styles.editBtn}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            save();
-          }}
-          disabled={isPending}
-          aria-label="Desa"
-        >
-          <Check size={13} />
-        </button>
-        <button
-          type="button"
-          className={styles.editBtnCancel}
-          onMouseDown={(e) => {
-            e.preventDefault();
-            cancel();
-          }}
-          disabled={isPending}
-          aria-label="Cancel·la"
-        >
-          <XIcon size={13} />
-        </button>
-      </span>
-      {error && <span className={styles.editError}>{error}</span>}
-    </span>
-  );
-}
-
 export type PivotCellClickHandler = (info: {
   concepteId: string;
   concepteNom: string;
@@ -277,8 +117,6 @@ export function PivotTable({
   totalLabel = "Total",
   showTotal = true,
   firstColLabel = "Concepte",
-  canEdit = false,
-  editConfig,
   onCellClick,
 }: {
   columns: PivotColumn[];
@@ -286,11 +124,12 @@ export function PivotTable({
   totalLabel?: string;
   showTotal?: boolean;
   firstColLabel?: string;
+  /** @deprecated L'edició es fa al modal de detall. */
   canEdit?: boolean;
+  /** @deprecated L'edició es fa al modal de detall. */
   editConfig?: PivotEditConfig;
   onCellClick?: PivotCellClickHandler;
 }) {
-  const editable = canEdit && !!editConfig;
   const clickable = !!onCellClick;
 
   return (
@@ -317,21 +156,13 @@ export function PivotTable({
                 {r.descripcio}
               </td>
               {r.valors.map((v, i) => {
-                const cellEditable = editable && !r.esSubtotal && !!r.concepteId;
-                const edit = cellEditable ? editConfig : undefined;
                 const col = columns[i];
                 const columnKey = col?.key ?? `${r.node}-${i}`;
-                const canClick =
-                  clickable && !cellEditable && !r.esSubtotal && !!r.concepteId && v !== 0;
+                const canClick = clickable && !r.esSubtotal && !!r.concepteId;
                 return (
                   <td
                     key={columnKey}
-                    className={cn(
-                      styles.td,
-                      styles.right,
-                      cellEditable && styles.editableTd,
-                      canClick && styles.clickableTd
-                    )}
+                    className={cn(styles.td, styles.right, canClick && styles.clickableTd)}
                     role={canClick ? "button" : undefined}
                     tabIndex={canClick ? 0 : undefined}
                     onClick={
@@ -371,11 +202,7 @@ export function PivotTable({
                         : undefined
                     }
                   >
-                    {cellEditable && r.concepteId && edit ? (
-                      <EditableCell value={v} concepteId={r.concepteId} mes={i + 1} edit={edit} />
-                    ) : (
-                      <CellDisplay value={v} />
-                    )}
+                    <CellDisplay value={v} />
                   </td>
                 );
               })}

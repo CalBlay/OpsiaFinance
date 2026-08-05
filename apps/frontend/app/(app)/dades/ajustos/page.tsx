@@ -1,11 +1,14 @@
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
+import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { auth } from "@/lib/auth";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { db } from "@/lib/db";
 import { AjustosManager } from "./AjustosManager";
-import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustos — OpsiaFinance" };
+
+const tab = getDadesTabById("ajustos");
 
 export default async function AjustosPage() {
   const [session, arbre, concepts, ajustos] = await Promise.all([
@@ -56,15 +59,15 @@ export default async function AjustosPage() {
   }));
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <p className={styles.subtitle}>
-          Correccions manuals que se sumen a les dades SAP a les consultes. {ajustos.length} ajust
-          {ajustos.length !== 1 ? "os" : ""}.
-        </p>
-      </div>
-
+    <DadesPageShell
+      title={tab.title}
+      description={
+        <>
+          {tab.description} {ajustos.length} ajust{ajustos.length !== 1 ? "os" : ""}.
+        </>
+      }
+    >
       <AjustosManager arbre={arbre} concepts={concepts} ajustos={ajustosPlain} canEdit={canEdit} />
-    </div>
+    </DadesPageShell>
   );
 }

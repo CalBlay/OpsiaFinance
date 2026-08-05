@@ -9,6 +9,12 @@ export const FDLC_NODES_INGRESS = new Set([2, 3, 4, 33, 36]);
 export const FDLC_NODE_NETEJA = 46;
 export const FDLC_NODE_SOFTWARE = 47;
 
+/** Compte PGC de serveis restaurant (es mira a CCR00008 com a VENDES). */
+export const FDLC_COMPTE_SERVEIS_RESTAURANT = "70500002";
+
+/** Node FDLC on mapa {@link FDLC_COMPTE_SERVEIS_RESTAURANT}. */
+export const FDLC_NODE_SERVEIS_RESTAURANT = 3;
+
 export function normalitzarCodiCompte(cuenta: string | number): string {
   return String(cuenta).trim().replace(/\s/g, "");
 }
@@ -16,7 +22,7 @@ export function normalitzarCodiCompte(cuenta: string | number): string {
 /** Mapatge explícit per subcompte (ingressos separats per KPI). */
 const COMPTES_EXPLICIT: Record<string, number> = {
   "70500001": 2, // Allotjaments hotel → Vendes
-  "70500002": 3, // Serveis restaurant → Prestació de serveis
+  [FDLC_COMPTE_SERVEIS_RESTAURANT]: FDLC_NODE_SERVEIS_RESTAURANT, // → Prestació de serveis
   "75200000": 4, // Lloguers i canon → Altres ingressos
 };
 
@@ -56,7 +62,7 @@ export function mapFdlcCompte(cuenta: string | number, descripcio: string): numb
   if (explicit !== undefined) return explicit;
 
   if (digits.startsWith("705") || codi.startsWith("705")) {
-    if (/RESTAURANT|SERVEIS\s*RESTAUR/.test(desc)) return 3;
+    if (/RESTAURANT|SERVEIS\s*RESTAUR/.test(desc)) return FDLC_NODE_SERVEIS_RESTAURANT;
     if (/ALLOTJ|HOTEL|HABITACI/.test(desc)) return 2;
     return 2;
   }

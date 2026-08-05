@@ -1,8 +1,10 @@
 "use client";
 
+import { DadesFilterBar } from "@/components/dades/DadesFilterBar";
+import { DadesEmpty, DadesNewBtn, DadesPanel, dadesUi as ui } from "@/components/dades/DadesPanel";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
-import { Check, Copy, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Check, Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   type AjustInput,
@@ -254,16 +256,14 @@ export function AjustosManager({
       )}
 
       {canEdit && !obert && (
-        <button
-          type="button"
-          className={styles.newBtn}
+        <DadesNewBtn
           onClick={() => {
             reset();
             setObert(true);
           }}
         >
           <Plus size={16} /> Nou ajust
-        </button>
+        </DadesNewBtn>
       )}
 
       {canEdit && obert && (
@@ -450,107 +450,79 @@ export function AjustosManager({
       )}
 
       {ajustos.length === 0 ? (
-        <div className={styles.empty}>
-          <p className={styles.emptyTitle}>Cap ajust registrat</p>
-          <p className={styles.emptyText}>
-            Els ajustos manuals que creïs apareixeran aquí i se sumaran a les consultes.
-          </p>
-        </div>
+        <DadesPanel title="Registre d'ajustos">
+          <DadesEmpty text="Encara no hi ha cap ajust. Crea'n un amb «Nou ajust»." />
+        </DadesPanel>
       ) : (
-        <>
-          <div className={styles.filters}>
-            <label className={styles.searchWrap}>
-              <Search size={15} className={styles.searchIcon} aria-hidden />
-              <input
-                className={styles.searchInput}
-                type="search"
-                placeholder="Cerca centre, concepte, motiu, autor…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                aria-label="Cerca ajustos"
-              />
-            </label>
-            <select
-              className={styles.filterSelect}
-              value={filtreAny}
-              onChange={(e) => setFiltreAny(e.target.value)}
-              aria-label="Filtra per any"
-            >
-              <option value="">Tots els anys</option>
-              {anysDisponibles.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-            <select
-              className={styles.filterSelect}
-              value={filtreMes}
-              onChange={(e) => setFiltreMes(e.target.value)}
-              aria-label="Filtra per mes"
-            >
-              <option value="">Tots els mesos</option>
-              {MESOS_LLARGS.map((m, i) => (
-                <option key={`${i + 1}-${m}`} value={i + 1}>
-                  {m}
-                </option>
-              ))}
-            </select>
-            <select
-              className={styles.filterSelect}
-              value={filtreConcepte}
-              onChange={(e) => setFiltreConcepte(e.target.value)}
-              aria-label="Filtra per concepte"
-            >
-              <option value="">Tots els conceptes</option>
-              {conceptesUsats.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.descripcio}
-                </option>
-              ))}
-            </select>
-            <select
-              className={cn(styles.filterSelect, styles.filterSelectWide)}
-              value={filtreAmbit}
-              onChange={(e) => setFiltreAmbit(e.target.value)}
-              aria-label="Filtra per centre o línia"
-            >
-              <option value="">Tots els centres / LN</option>
-              {ambitsUsats.map((label) => (
-                <option key={label} value={label}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            {teFiltres && (
-              <button type="button" className={styles.clearFilters} onClick={netejaFiltres}>
-                <X size={14} /> Neteja
-              </button>
-            )}
-          </div>
-
-          <p className={styles.filterMeta}>
-            {teFiltres
-              ? `Mostrant ${filtrats.length} de ${ajustos.length} ajustos`
-              : `${ajustos.length} ajustos`}
-          </p>
+        <DadesPanel
+          title="Registre d'ajustos"
+          meta={
+            teFiltres
+              ? `${filtrats.length} de ${ajustos.length}`
+              : `${ajustos.length} ajust${ajustos.length !== 1 ? "os" : ""}`
+          }
+        >
+          <DadesFilterBar
+            query={q}
+            onQueryChange={setQ}
+            placeholder="Cerca centre, concepte, motiu, autor…"
+            onClear={netejaFiltres}
+            filters={[
+              {
+                id: "any",
+                value: filtreAny,
+                onChange: setFiltreAny,
+                options: anysDisponibles.map((y) => ({
+                  value: String(y),
+                  label: String(y),
+                })),
+                allLabel: "Tots els anys",
+                "aria-label": "Filtra per any",
+              },
+              {
+                id: "mes",
+                value: filtreMes,
+                onChange: setFiltreMes,
+                options: MESOS_LLARGS.map((m, i) => ({
+                  value: String(i + 1),
+                  label: m,
+                })),
+                allLabel: "Tots els mesos",
+                "aria-label": "Filtra per mes",
+              },
+              {
+                id: "concepte",
+                value: filtreConcepte,
+                onChange: setFiltreConcepte,
+                options: conceptesUsats.map((c) => ({
+                  value: c.id,
+                  label: c.descripcio,
+                })),
+                allLabel: "Tots els conceptes",
+                "aria-label": "Filtra per concepte",
+              },
+              {
+                id: "ambit",
+                value: filtreAmbit,
+                onChange: setFiltreAmbit,
+                options: ambitsUsats.map((label) => ({ value: label, label })),
+                allLabel: "Tots els centres / LN",
+                "aria-label": "Filtra per centre o línia",
+              },
+            ]}
+          />
 
           {filtrats.length === 0 ? (
-            <div className={styles.empty}>
-              <p className={styles.emptyTitle}>Cap resultat</p>
-              <p className={styles.emptyText}>
-                No hi ha ajustos amb aquests criteris. Prova a canviar la cerca o els filtres.
-              </p>
-            </div>
+            <DadesEmpty text="Cap ajust amb aquests criteris." />
           ) : (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
+            <div className={ui.tableWrap}>
+              <table className={ui.table}>
                 <thead>
                   <tr>
                     <th>Període</th>
                     <th>Àmbit</th>
                     <th>Concepte</th>
-                    <th className={styles.right}>Import</th>
+                    <th className={ui.right}>Import</th>
                     <th>Motiu</th>
                     <th>Autor</th>
                     {canEdit && <th />}
@@ -559,16 +531,18 @@ export function AjustosManager({
                 <tbody>
                   {filtrats.map((a) => (
                     <tr key={a.id}>
-                      <td className={styles.nowrap}>{a.periodNom}</td>
+                      <td className={ui.nowrap}>{a.periodNom}</td>
                       <td>{a.centre ?? a.liniaNegoci ?? "—"}</td>
                       <td>{a.concepte}</td>
-                      <td className={cn(styles.right, styles.nowrap, a.import_ < 0 && styles.neg)}>
+                      <td className={cn(ui.right, ui.nowrap, a.import_ < 0 && styles.neg)}>
                         {formatNum(a.import_, 2)} €
                       </td>
-                      <td className={styles.motiu}>{a.motiu}</td>
-                      <td className={styles.dim}>{a.autor}</td>
+                      <td className={cn(ui.ellipsis, ui.muted)} title={a.motiu}>
+                        {a.motiu || "—"}
+                      </td>
+                      <td className={ui.muted}>{a.autor}</td>
                       {canEdit && (
-                        <td className={styles.nowrap}>
+                        <td className={ui.actions}>
                           <button
                             type="button"
                             className={styles.iconBtn}
@@ -604,7 +578,7 @@ export function AjustosManager({
               </table>
             </div>
           )}
-        </>
+        </DadesPanel>
       )}
     </>
   );

@@ -1,3 +1,4 @@
+import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { esCentreAdministracio, etiquetaGrafic } from "@/lib/consultes-grafics";
 import { normalitzaNomRestaurant } from "@/lib/cost-salarial/import";
 import { db } from "@/lib/db";
@@ -72,6 +73,13 @@ export interface DiaVenda {
   base: number;
 }
 
+export interface FormaPagamentVenda {
+  forma: string;
+  unitats: number;
+  base: number;
+  pct: number | null;
+}
+
 export interface ArticleRank {
   article: string;
   tipusArticle: string | null;
@@ -134,6 +142,8 @@ export interface InformeVendesRestaurant {
   desviacioPl: number | null;
   dies: DiaVenda[];
   evolucioMesos: MesEvolucio[];
+  /** Desglossament per forma de pagament (tickets CCR00008). */
+  formesPagament: FormaPagamentVenda[];
   productes: RankingsCategoria;
   /** Rànquings agregats per família TPV (camp `article` = nom família) */
   families: RankingsCategoria;
@@ -214,7 +224,9 @@ export async function getAnysVendesRestaurants(): Promise<number[]> {
   return periods.map((p) => p.any);
 }
 
-export async function getCentresRestaurantsVendes(): Promise<CentreRestOpt[]> {
+export async function getCentresRestaurantsVendes(
+  nomesMirallFdlc = false
+): Promise<CentreRestOpt[]> {
   const ln = await db.liniaNegoci.findUnique({
     where: { codi: "LN00001" },
     select: {
@@ -224,22 +236,25 @@ export async function getCentresRestaurantsVendes(): Promise<CentreRestOpt[]> {
       },
     },
   });
-  return (ln?.centres ?? [])
-    .filter((c) => !esCentreAdministracio(c))
-    .map((c) => ({
-      ...c,
-      etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
-    }))
-    .sort(
-      (a, b) =>
-        a.etiqueta.localeCompare(b.etiqueta, "ca", { sensitivity: "base", numeric: true }) ||
-        a.codi.localeCompare(b.codi, "ca")
-    );
+  const { CENTRE_CODI_MIRALL_SERVEIS_FDLC } = await import("@/lib/fdlc/mirall-vendes-centre");
+  return ordenaPerCodi(
+    (ln?.centres ?? [])
+      .filter((c) => !esCentreAdministracio(c))
+      .filter((c) => !nomesMirallFdlc || c.codi === CENTRE_CODI_MIRALL_SERVEIS_FDLC)
+      .map((c) => ({
+        ...c,
+        etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
+      }))
+  );
 }
 
-export async function getComparativaVendes(any: number, mes: number): Promise<ComparativaVendes> {
+export async function getComparativaVendes(
+  any: number,
+  mes: number,
+  nomesMirallFdlc = false
+): Promise<ComparativaVendes> {
   const anual = mes <= 0;
-  const centres = await getCentresRestaurantsVendes();
+  const centres = await getCentresRestaurantsVendes(nomesMirallFdlc);
   const centreIds = centres.map((c) => c.id);
   const prev = mesAnterior(any, mes);
   const anyAnt = any - 1;
@@ -739,6 +754,7 @@ export async function getInformeVendesRestaurant(
         data: true,
         unitats: true,
         base: true,
+        formaPagament: true,
         period: { select: { mes: true } },
       },
     }),
@@ -799,14 +815,39 @@ export async function getInformeVendesRestaurant(
     }
   }
 
-  const dies: DiaVenda[] = anual
-    ? []
-    : diaries.map((d) => ({
-        dia: d.dia,
-        dataIso: d.data.toISOString().slice(0, 10),
-        unitats: Number(d.unitats),
-        base: Number(d.base),
-      }));
+  const diesMap = new Map<number, DiaVenda>();
+  for (const d of diaries) {
+    if (anual) break;
+    const cur = diesMap.get(d.dia) ?? {
+      dia: d.dia,
+      dataIso: d.data.toISOString().slice(0, 10),
+      unitats: 0,
+      base: 0,
+    };
+    cur.unitats += Number(d.unitats);
+    cur.base += Number(d.base);
+    diesMap.set(d.dia, cur);
+  }
+  const dies: DiaVenda[] = [...diesMap.values()].sort((a, b) => a.dia - b.dia);
+
+  const formesMap = new Map<string, { unitats: number; base: number }>();
+  for (const d of diaries) {
+    const forma = d.formaPagament?.trim();
+    if (!forma) continue;
+    const cur = formesMap.get(forma) ?? { unitats: 0, base: 0 };
+    cur.unitats += Number(d.unitats);
+    cur.base += Number(d.base);
+    formesMap.set(forma, cur);
+  }
+  const baseFormes = [...formesMap.values()].reduce((s, f) => s + f.base, 0);
+  const formesPagament: FormaPagamentVenda[] = [...formesMap.entries()]
+    .map(([forma, v]) => ({
+      forma,
+      unitats: v.unitats,
+      base: v.base,
+      pct: pct(v.base, baseFormes),
+    }))
+    .sort((a, b) => b.base - a.base);
 
   const base = diaries.reduce((s, d) => s + Number(d.base), 0);
   const unitats = diaries.reduce((s, d) => s + Number(d.unitats), 0);
@@ -845,6 +886,7 @@ export async function getInformeVendesRestaurant(
     desviacioPl: diaries.length ? base - vendesPl : null,
     dies,
     evolucioMesos: anual ? evolucioMesos : [],
+    formesPagament,
     productes: rankingsCategoria(productesRows, productesRowsAnt),
     families: rankingsCategoria(familiesRows, familiesRowsAnt),
     subfamilies: rankingsCategoria(subfamiliesRows, subfamiliesRowsAnt),

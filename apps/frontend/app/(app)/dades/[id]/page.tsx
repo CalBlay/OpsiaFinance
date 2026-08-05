@@ -1,5 +1,5 @@
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { EstatImportBadge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import { auth } from "@/lib/auth";
 import { esSubtotalPresentacio, recalcularSubtotalsDetallImport } from "@/lib/compte-subtotals";
 import { getArbreSeleccio } from "@/lib/consultes";
@@ -7,8 +7,7 @@ import { db } from "@/lib/db";
 import { codiLnDelNomFitxer } from "@/lib/nom-fitxer";
 import { formatDateShort } from "@/lib/utils";
 import type { EstatImport } from "@/types";
-import { Calendar, ChevronLeft, FileSpreadsheet, FileText, Tag, User } from "lucide-react";
-import Link from "next/link";
+import { Calendar, FileText, Tag, User } from "lucide-react";
 import { notFound } from "next/navigation";
 import { type DadaRow, DadesEditables } from "./DadesEditables";
 import { ImportActions } from "./ImportActions";
@@ -91,7 +90,7 @@ export default async function ImportDetailPage({
     );
   }
 
-  const isAdmin = session?.user?.role === "ADMIN";
+  const _isAdmin = session?.user?.role === "ADMIN";
   const isEditor = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
 
   const dadesCalc = recalcularSubtotalsDetallImport(
@@ -111,38 +110,30 @@ export default async function ImportDetailPage({
   );
 
   return (
-    <div className={styles.page}>
-      {/* ─── Breadcrumb ───────────────────────────────────────── */}
-      <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
-        <Link href="/dades">
-          <ChevronLeft size={14} strokeWidth={2.5} />
-          Dades
-        </Link>
-      </Button>
-
-      {/* ─── Capçalera ────────────────────────────────────────── */}
-      <div className={styles.header}>
-        <div className={styles.headerLeft}>
-          <div className={styles.fileRow}>
-            <FileSpreadsheet size={22} className={styles.fileIcon} />
-            <h1 className={styles.title}>{imp.nomFitxer}</h1>
-          </div>
-          <div className={styles.metaRow}>
-            <EstatImportBadge estat={imp.estat as EstatImport} />
-            {imp.mida && <span className={styles.metaItem}>{(imp.mida / 1024).toFixed(0)} KB</span>}
-          </div>
-        </div>
-        {isEditor && (
+    <DadesPageShell
+      backHref="/dades"
+      backLabel="Importacions"
+      title={imp.nomFitxer}
+      description={
+        <span className={styles.metaRow}>
+          <EstatImportBadge estat={imp.estat as EstatImport} />
+          {imp.mida ? (
+            <span className={styles.metaItem}>{(imp.mida / 1024).toFixed(0)} KB</span>
+          ) : null}
+        </span>
+      }
+      actions={
+        isEditor ? (
           <ImportActions
             importId={imp.id}
             estat={imp.estat as EstatImport}
             rutaStorage={imp.rutaStorage}
           />
-        )}
-      </div>
-
+        ) : undefined
+      }
+    >
       {avisosLn.length > 0 && (
-        <div className="mb-6 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-medium">Possible confusió de línia de negoci</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
             {avisosLn.map((a) => (
@@ -243,6 +234,6 @@ export default async function ImportDetailPage({
           </>
         )}
       </div>
-    </div>
+    </DadesPageShell>
   );
 }

@@ -38,7 +38,7 @@ export function Badge({ children, className, variant = "default" }: BadgeProps) 
 /* ─── Badge de rol (OpsiaFinance) ────────────────────────────────────────────── */
 
 const ROLE_LABELS: Record<UserRole, string> = {
-  ADMIN: "Admin",
+  ADMIN: "Administrador",
   EDICIO: "Editor",
   CONSULTA: "Consultor",
 };

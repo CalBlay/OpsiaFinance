@@ -1,12 +1,19 @@
 "use client";
 
 import type { DetallCellaParams, DetallCellaResult } from "@/lib/consultes";
+import { etiquetaCentre, etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
+import type { GrupEmpresa } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
-import { X } from "lucide-react";
-import { useEffect, useState, useTransition } from "react";
-import { fetchDetallCellaAction } from "../../app/(app)/consultes/actions";
+import { Check, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, useTransition } from "react";
+import {
+  ajustarImportConsultaAction,
+  fetchDetallCellaAction,
+} from "../../app/(app)/consultes/actions";
 import styles from "./DetallCellaModal.module.css";
+import { type PivotEditSave, parseImportInput } from "./PivotTable";
 
 export interface DetallCellaContext {
   concepteId: string;
@@ -17,18 +24,41 @@ export interface DetallCellaContext {
   centreId?: string;
   liniaNegociId?: string;
   lnIdsGrup?: string[];
+  vista?: "directe" | "gestio";
+  /** Àmbit d'empresa (calblay / fdlc / consolidat). */
+  grup?: GrupEmpresa;
   columnLabel?: string;
+  cellValue?: number;
 }
 
 export function DetallCellaModal({
   context,
   onClose,
+  canEdit = false,
+  onSave,
 }: {
   context: DetallCellaContext;
   onClose: () => void;
+  canEdit?: boolean;
+  onSave?: PivotEditSave;
 }) {
+  const router = useRouter();
   const [data, setData] = useState<DetallCellaResult | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [draft, setDraft] = useState("");
+  const [motiu, setMotiu] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, startSave] = useTransition();
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const mesEditable =
+    context.mes ??
+    (context.rang && context.rang.des === context.rang.fins ? context.rang.des : undefined);
+  const potEditar =
+    canEdit &&
+    !!mesEditable &&
+    (!!context.centreId || !!context.liniaNegociId) &&
+    context.vista !== "gestio";
 
   useEffect(() => {
     const params: DetallCellaParams = {
@@ -39,12 +69,22 @@ export function DetallCellaModal({
       centreId: context.centreId,
       liniaNegociId: context.liniaNegociId,
       lnIdsGrup: context.lnIdsGrup,
+      vista: context.vista,
+      grup: context.grup,
     };
     startTransition(async () => {
       const result = await fetchDetallCellaAction(params);
       setData(result);
     });
   }, [context]);
+
+  useEffect(() => {
+    if (!potEditar) return;
+    const base = context.cellValue ?? data?.total ?? 0;
+    setDraft(String(base).replace(".", ","));
+    setMotiu("");
+    setError(null);
+  }, [potEditar, context.cellValue, data?.total]);
 
   const periodeLabel = context.mes
     ? `${MESOS_LLARGS[context.mes - 1]} ${context.any}`
@@ -53,6 +93,44 @@ export function DetallCellaModal({
         ? `${MESOS_LLARGS[context.rang.des - 1]} ${context.any}`
         : `${MESOS_LLARGS[context.rang.des - 1]} – ${MESOS_LLARGS[context.rang.fins - 1]} ${context.any}`
       : `Acumulat ${context.any}`;
+
+  function desarAjust() {
+    if (!potEditar || !mesEditable) return;
+    const nou = parseImportInput(draft);
+    if (nou === null) {
+      setError("Valor no vàlid");
+      return;
+    }
+    if (!motiu.trim()) {
+      setError("El motiu és obligatori");
+      return;
+    }
+    const actual = context.cellValue ?? data?.total ?? 0;
+    if (nou === actual) {
+      setError("Sense canvis");
+      return;
+    }
+
+    const save = onSave ?? ajustarImportConsultaAction;
+    startSave(async () => {
+      const res = await save({
+        centreId: context.centreId,
+        liniaNegociId: context.liniaNegociId,
+        any: context.any,
+        mes: mesEditable,
+        concepteResultatId: context.concepteId,
+        valorActual: actual,
+        valorObjectiu: nou,
+        motiu: motiu.trim(),
+      });
+      if (res.ok) {
+        onClose();
+        router.refresh();
+      } else {
+        setError(res.missatge);
+      }
+    });
+  }
 
   return (
     <div
@@ -92,11 +170,7 @@ export function DetallCellaModal({
         <div className={styles.body}>
           {isPending && <p className={styles.loading}>Carregant detall…</p>}
 
-          {!isPending && data && data.items.length === 0 && (
-            <p className={styles.empty}>Sense dades per aquest concepte i període.</p>
-          )}
-
-          {!isPending && data && data.items.length > 0 && (
+          {!isPending && data && (
             <>
               <div className={styles.summary}>
                 <span>
@@ -108,57 +182,150 @@ export function DetallCellaModal({
                     <strong className={styles.ajust}>{formatNum(data.totalAjustos, 2)} €</strong>
                   </span>
                 )}
+                {data.totalRepartiment !== 0 && (
+                  <span>
+                    Repartiment:{" "}
+                    <strong className={styles.repartiment}>
+                      {formatNum(data.totalRepartiment, 2)} €
+                    </strong>
+                  </span>
+                )}
+                {data.totalMirall !== 0 && (
+                  <span>
+                    Mirall:{" "}
+                    <strong className={styles.mirall}>{formatNum(data.totalMirall, 2)} €</strong>
+                  </span>
+                )}
                 <span>
                   Total: <strong>{formatNum(data.total, 2)} €</strong>
                 </span>
               </div>
 
-              <div className={styles.tableWrap}>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Origen</th>
-                      <th>Mes</th>
-                      <th>Centre</th>
-                      <th>Línia</th>
-                      <th className={styles.right}>Import</th>
-                      <th>Motiu</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.items.map((item) => (
-                      <tr
-                        key={`${item.origen}-${item.mes}-${item.centreCodi ?? ""}-${item.liniaCodi ?? ""}-${item.import_}-${item.motiu ?? ""}`}
-                        className={item.origen === "ajust" ? styles.ajustRow : undefined}
-                      >
-                        <td>
-                          <span
+              {data.items.length === 0 ? (
+                <p className={styles.empty}>Sense moviments SAP/ajust per aquest concepte.</p>
+              ) : (
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Origen</th>
+                        <th>Mes</th>
+                        <th>Centre</th>
+                        <th>Línia</th>
+                        <th className={styles.right}>Import</th>
+                        <th>Motiu</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.items.map((item) => (
+                        <tr
+                          key={`${item.origen}-${item.mes}-${item.centreCodi ?? ""}-${item.liniaCodi ?? ""}-${item.import_}-${item.motiu ?? ""}`}
+                          className={
+                            item.origen === "ajust"
+                              ? styles.ajustRow
+                              : item.origen === "repartiment"
+                                ? styles.repartimentRow
+                                : item.origen === "mirall"
+                                  ? styles.mirallRow
+                                  : undefined
+                          }
+                        >
+                          <td>
+                            <span
+                              className={cn(
+                                styles.badge,
+                                item.origen === "ajust"
+                                  ? styles.badgeAjust
+                                  : item.origen === "repartiment"
+                                    ? styles.badgeRepartiment
+                                    : item.origen === "mirall"
+                                      ? styles.badgeMirall
+                                      : styles.badgeDada
+                              )}
+                            >
+                              {item.origen === "dada"
+                                ? "SAP"
+                                : item.origen === "ajust"
+                                  ? "Ajust"
+                                  : item.origen === "repartiment"
+                                    ? "Repart."
+                                    : "Mirall"}
+                            </span>
+                          </td>
+                          <td className={styles.nowrap}>{MESOS_LLARGS[item.mes - 1]}</td>
+                          <td>
+                            {item.centreCodi || item.centreNom
+                              ? etiquetaCentre({ codi: item.centreCodi, nom: item.centreNom })
+                              : "—"}
+                          </td>
+                          <td>
+                            {item.liniaCodi || item.liniaNom
+                              ? etiquetaLiniaNegoci({
+                                  codi: item.liniaCodi,
+                                  nom: item.liniaNom,
+                                })
+                              : "—"}
+                          </td>
+                          <td
                             className={cn(
-                              styles.badge,
-                              item.origen === "ajust" ? styles.badgeAjust : styles.badgeDada
+                              styles.right,
+                              styles.nowrap,
+                              item.import_ < 0 && styles.neg
                             )}
                           >
-                            {item.origen === "dada" ? "SAP" : "Ajust"}
-                          </span>
-                        </td>
-                        <td className={styles.nowrap}>{MESOS_LLARGS[item.mes - 1]}</td>
-                        <td>{item.centreCodi ? `${item.centreCodi} · ${item.centreNom}` : "—"}</td>
-                        <td>{item.liniaCodi ? `${item.liniaCodi} · ${item.liniaNom}` : "—"}</td>
-                        <td
-                          className={cn(
-                            styles.right,
-                            styles.nowrap,
-                            item.import_ < 0 && styles.neg
-                          )}
-                        >
-                          {formatNum(item.import_, 2)} €
-                        </td>
-                        <td className={styles.motiu}>{item.motiu ?? ""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                            {formatNum(item.import_, 2)} €
+                          </td>
+                          <td className={styles.motiu}>{item.motiu ?? ""}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {potEditar && (
+                <div className={styles.editSection}>
+                  <h4 className={styles.editTitle}>Ajustar import</h4>
+                  <p className={styles.editHint}>
+                    Es crea un ajust a Dades → Ajustos (delta = nou − actual). Pots escriure una
+                    operació (p.ex. <code>122052,81 + 1000</code>).
+                  </p>
+                  <div className={styles.editRow}>
+                    <label className={styles.editField}>
+                      <span>Nou import</span>
+                      <input
+                        ref={inputRef}
+                        className={styles.editInput}
+                        value={draft}
+                        onChange={(e) => setDraft(e.target.value)}
+                        disabled={saving}
+                        aria-label="Nou import"
+                      />
+                    </label>
+                    <label className={styles.editField}>
+                      <span>Motiu</span>
+                      <input
+                        className={styles.editInput}
+                        value={motiu}
+                        onChange={(e) => setMotiu(e.target.value)}
+                        disabled={saving}
+                        aria-label="Motiu de l'ajust"
+                        placeholder="Obligatori"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className={styles.saveBtn}
+                      onClick={desarAjust}
+                      disabled={saving}
+                    >
+                      <Check size={14} />
+                      Desa ajust
+                    </button>
+                  </div>
+                  {error && <p className={styles.editError}>{error}</p>}
+                </div>
+              )}
             </>
           )}
         </div>

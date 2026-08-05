@@ -1,4 +1,6 @@
 import styles from "@/components/consultes/report.module.css";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import { grupFiltraRestaurantsNomesMirall } from "@/lib/grups-empresa";
 import {
   getAnysVendesRestaurants,
   getCentresRestaurantsVendes,
@@ -52,24 +54,39 @@ export default async function ConsultaVendesRestaurantsPage({
   }>;
 }) {
   const sp = await searchParams;
+  const grup = await getGrupEmpresaActual();
+  const nomesMirall = grupFiltraRestaurantsNomesMirall(grup);
   const [centres, anysVendes] = await Promise.all([
-    getCentresRestaurantsVendes(),
+    getCentresRestaurantsVendes(nomesMirall),
     getAnysVendesRestaurants(),
   ]);
 
   const ara = new Date();
-  const anyActual = sp.any ? Number(sp.any) : (anysVendes[0] ?? ara.getFullYear());
+  const anyCalendari = ara.getFullYear();
+  const anyActual = sp.any
+    ? Number(sp.any)
+    : anysVendes.includes(anyCalendari)
+      ? anyCalendari
+      : (anysVendes[0] ?? anyCalendari);
   const anys = anysVendes.length ? anysVendes : [anyActual];
-  const mesRaw = sp.mes != null && sp.mes !== "" ? Number(sp.mes) : ara.getMonth() + 1;
-  const mes = Number.isFinite(mesRaw) && mesRaw >= 0 && mesRaw <= 12 ? mesRaw : ara.getMonth() + 1;
+  // Sense ?mes= → visió general de tota la línia (tot l'any). mes=0 = acumulat anual.
+  const mesRaw = sp.mes != null && sp.mes !== "" ? Number(sp.mes) : 0;
+  const mes = Number.isFinite(mesRaw) && mesRaw >= 0 && mesRaw <= 12 ? mesRaw : 0;
   const vista: "comparativa" | "restaurant" =
-    sp.vista === "restaurant" ? "restaurant" : "comparativa";
-  const centreId = vista === "restaurant" ? (sp.centre ?? centres[0]?.id ?? null) : null;
+    nomesMirall || sp.vista === "restaurant" ? "restaurant" : "comparativa";
+  const centreId =
+    vista === "restaurant"
+      ? sp.centre && centres.some((c) => c.id === sp.centre)
+        ? sp.centre
+        : (centres[0]?.id ?? null)
+      : null;
   const detall: DetallVendes =
     sp.detall && DETALLS_OK.has(sp.detall) ? (sp.detall as DetallVendes) : "";
 
   const [comparativa, informe] = await Promise.all([
-    vista === "comparativa" ? getComparativaVendes(anyActual, mes) : Promise.resolve(null),
+    vista === "comparativa"
+      ? getComparativaVendes(anyActual, mes, nomesMirall)
+      : Promise.resolve(null),
     vista === "restaurant" && centreId
       ? getInformeVendesRestaurant(centreId, anyActual, mes)
       : Promise.resolve(null),

@@ -1,4 +1,6 @@
-import { normalitzaNomRestaurant } from "@/lib/cost-salarial/import";
+import { crearCarregaFitxer } from "@/lib/carrega-fitxer";
+import type { TipusCarregaFitxer } from "@/lib/carrega-fitxer";
+import { indexaCentrePerNom, normalitzaNomRestaurant } from "@/lib/cost-salarial/restaurant-noms";
 import { db } from "@/lib/db";
 import {
   type TipusFitxerVendes,
@@ -7,6 +9,11 @@ import {
   parseVendesArticlesBuffer,
   parseVendesDiariesBuffer,
 } from "@/lib/excel-parsers/vendes-restaurants";
+import {
+  CENTRE_CODI_TICKETS_PAGAMENT,
+  esFormatVendesTicketsPagament,
+  parseVendesTicketsPagamentBuffer,
+} from "@/lib/excel-parsers/vendes-tickets-pagament";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { teTaxonomiaVendesArticle } from "@/lib/vendes-restaurants/prisma-fields";
 
@@ -20,6 +27,7 @@ export interface ImportVendesResult {
   periode: string | null;
   files: number;
   errors: string[];
+  carregaId?: string;
 }
 
 async function carregaCentres() {
@@ -36,7 +44,7 @@ async function carregaCentres() {
   const byNom = new Map<string, { id: string; codi: string; nom: string }>();
   for (const c of ln?.centres ?? []) {
     byCodi.set(c.codi.toUpperCase(), c);
-    byNom.set(normalitzaNomRestaurant(c.nom), c);
+    indexaCentrePerNom(byNom, c);
   }
   return { byCodi, byNom };
 }
@@ -100,16 +108,155 @@ function resolCentre(
   return { centre, errors };
 }
 
+function tipusCarrega(tipus: TipusFitxerVendes): TipusCarregaFitxer {
+  if (tipus === "V") return "VENDES_V";
+  if (tipus === "PACK") return "VENDES_PACK";
+  return "VENDES_DETALL";
+}
+
+async function netejaCarreguesOrfes(carregaIds: string[]) {
+  const ids = [...new Set(carregaIds.filter(Boolean))];
+  for (const id of ids) {
+    const c = await db.carregaFitxer.findUnique({
+      where: { id },
+      select: {
+        _count: { select: { vendesDiaries: true, vendesArticles: true } },
+      },
+    });
+    if (c && c._count.vendesDiaries === 0 && c._count.vendesArticles === 0) {
+      await db.carregaFitxer.delete({ where: { id } }).catch(() => undefined);
+    }
+  }
+}
+
+async function importarTicketsFormaPagament(
+  buffer: Buffer,
+  nomFitxer: string,
+  opts: { creatPer: string; mida?: number }
+): Promise<ImportVendesResult> {
+  const parsed = parseVendesTicketsPagamentBuffer(buffer);
+  const errors = [...parsed.errors];
+  for (const a of parsed.avisos) errors.push(a);
+
+  if (!parsed.linies.length) {
+    return {
+      ok: false,
+      missatge: "No s'ha pogut importar el fitxer de tickets (forma de pagament).",
+      tipus: "V",
+      centreCodi: CENTRE_CODI_TICKETS_PAGAMENT,
+      periode: null,
+      files: 0,
+      errors,
+    };
+  }
+
+  const { byCodi } = await carregaCentres();
+  const centre = byCodi.get(CENTRE_CODI_TICKETS_PAGAMENT) ?? null;
+  if (!centre) {
+    return {
+      ok: false,
+      missatge: `Centre ${CENTRE_CODI_TICKETS_PAGAMENT} no trobat a LN00001.`,
+      tipus: "V",
+      centreCodi: CENTRE_CODI_TICKETS_PAGAMENT,
+      periode: null,
+      files: 0,
+      errors,
+    };
+  }
+
+  const periodes = new Map<string, { any: number; mes: number; periodId: string }>();
+  for (const l of parsed.linies) {
+    const key = `${l.any}-${l.mes}`;
+    if (!periodes.has(key)) {
+      const periodId = await resolPeriodId(l.any, l.mes);
+      periodes.set(key, { any: l.any, mes: l.mes, periodId });
+    }
+  }
+
+  const carregaIds: string[] = [];
+  const prevCarregues: string[] = [];
+  let totalFiles = 0;
+
+  for (const { any, mes, periodId } of periodes.values()) {
+    const liniesMes = parsed.linies.filter((l) => l.any === any && l.mes === mes);
+    const periodeLabel = `${MESOS_LLARGS[mes - 1]} ${any}`;
+
+    const carregaId = await crearCarregaFitxer({
+      tipus: "VENDES_V",
+      nomFitxer,
+      mida: opts.mida ?? buffer.length,
+      periodId,
+      resum: `${centre.codi} · tickets · ${liniesMes.length} files · ${periodeLabel}`,
+      creatPer: opts.creatPer,
+    });
+    carregaIds.push(carregaId);
+
+    const prev = await db.vendaDiariaRestaurant.findMany({
+      where: { periodId, centreId: centre.id },
+      select: { carregaId: true },
+    });
+    for (const p of prev) {
+      if (p.carregaId) prevCarregues.push(p.carregaId);
+    }
+
+    await db.$transaction(async (tx) => {
+      await tx.vendaDiariaRestaurant.deleteMany({
+        where: { periodId, centreId: centre.id },
+      });
+      if (liniesMes.length) {
+        await tx.vendaDiariaRestaurant.createMany({
+          data: liniesMes.map((l) => ({
+            periodId,
+            centreId: centre.id,
+            carregaId,
+            dia: l.dia,
+            data: l.data,
+            formaPagament: l.formaPagament,
+            unitats: l.unitats,
+            base: l.base,
+          })),
+        });
+      }
+    });
+
+    totalFiles += liniesMes.length;
+  }
+
+  await netejaCarreguesOrfes(prevCarregues);
+
+  const mesosLabel = [...periodes.values()]
+    .sort((a, b) => a.any - b.any || a.mes - b.mes)
+    .map((p) => `${MESOS_LLARGS[p.mes - 1]} ${p.any}`)
+    .join(", ");
+
+  return {
+    ok: true,
+    missatge: `${centre.codi}: ${totalFiles} files (dia × forma pagament) · base sense IVA 10% · ${mesosLabel}.`,
+    tipus: "V",
+    centreCodi: centre.codi,
+    periode: mesosLabel,
+    files: totalFiles,
+    errors,
+    carregaId: carregaIds[0],
+  };
+}
+
 export async function importarVendesDesDeBuffer(
   buffer: Buffer,
-  nomFitxer: string
+  nomFitxer: string,
+  opts: { creatPer: string; mida?: number }
 ): Promise<ImportVendesResult> {
+  // Format tickets CCR00008 (Dia/Mes/Any/Total/Forma pagament) — detectat pel contingut
+  if (esFormatVendesTicketsPagament(buffer)) {
+    return importarTicketsFormaPagament(buffer, nomFitxer, opts);
+  }
+
   const meta = metaDesDelNomFitxer(nomFitxer);
   if (!meta) {
     return {
       ok: false,
       missatge:
-        "Nom de fitxer no reconegut. Usa V_MM_YYYY[_CC], Pack_MM_YYYY[_CC] o Detall_MM_YYYY_CC.",
+        "Nom de fitxer no reconegut. Usa V_MM_YYYY[_CC], Pack_MM_YYYY[_CC], Detall_MM_YYYY_CC, o un Excel de tickets (Dia/Mes/Any/Forma de pagament) per a CCR00008.",
       tipus: null,
       centreCodi: null,
       periode: null,
@@ -155,6 +302,20 @@ export async function importarVendesDesDeBuffer(
       };
     }
 
+    const carregaId = await crearCarregaFitxer({
+      tipus: tipusCarrega("V"),
+      nomFitxer,
+      mida: opts.mida ?? buffer.length,
+      periodId,
+      resum: `${centre.codi} · ${parsed.linies.length} dies · ${periodeLabel}`,
+      creatPer: opts.creatPer,
+    });
+
+    const prev = await db.vendaDiariaRestaurant.findMany({
+      where: { periodId, centreId: centre.id },
+      select: { carregaId: true },
+    });
+
     await db.$transaction(async (tx) => {
       await tx.vendaDiariaRestaurant.deleteMany({
         where: { periodId, centreId: centre.id },
@@ -164,14 +325,18 @@ export async function importarVendesDesDeBuffer(
           data: parsed.linies.map((l) => ({
             periodId,
             centreId: centre.id,
+            carregaId,
             dia: l.dia,
             data: l.data,
             unitats: l.unitats,
             base: l.base,
+            formaPagament: "",
           })),
         });
       }
     });
+
+    await netejaCarreguesOrfes(prev.map((p) => p.carregaId).filter(Boolean) as string[]);
 
     return {
       ok: true,
@@ -181,6 +346,7 @@ export async function importarVendesDesDeBuffer(
       periode: periodeLabel,
       files: parsed.linies.length,
       errors,
+      carregaId,
     };
   }
 
@@ -206,6 +372,20 @@ export async function importarVendesDesDeBuffer(
     };
   }
 
+  const carregaId = await crearCarregaFitxer({
+    tipus: tipusCarrega(meta.tipus),
+    nomFitxer,
+    mida: opts.mida ?? buffer.length,
+    periodId,
+    resum: `${centre.codi} · ${parsed.linies.length} línies · ${periodeLabel}`,
+    creatPer: opts.creatPer,
+  });
+
+  const prev = await db.vendaArticleRestaurant.findMany({
+    where: { periodId, centreId: centre.id, origen },
+    select: { carregaId: true },
+  });
+
   await db.$transaction(async (tx) => {
     await tx.vendaArticleRestaurant.deleteMany({
       where: { periodId, centreId: centre.id, origen },
@@ -217,6 +397,7 @@ export async function importarVendesDesDeBuffer(
           const row: Record<string, unknown> = {
             periodId,
             centreId: centre.id,
+            carregaId,
             origen,
             article: l.article,
             tipusArticle: l.tipusArticle,
@@ -235,6 +416,8 @@ export async function importarVendesDesDeBuffer(
     }
   });
 
+  await netejaCarreguesOrfes(prev.map((p) => p.carregaId).filter(Boolean) as string[]);
+
   const etiqueta = origen === "PACK" ? "packs/menús" : "productes";
   return {
     ok: true,
@@ -244,5 +427,6 @@ export async function importarVendesDesDeBuffer(
     periode: periodeLabel,
     files: parsed.linies.length,
     errors,
+    carregaId,
   };
 }

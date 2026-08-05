@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "@/components/consultes/report.module.css";
+import { etiquetaCentre, etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { useRouter } from "next/navigation";
 
 interface LnOpt {
@@ -26,6 +27,10 @@ export function CentreSelectors({
   vista: "directe" | "gestio";
 }) {
   const router = useRouter();
+  const lnSelectId = "centre-select-ln";
+  const centreSelectId = "centre-select-centre";
+  const anySelectId = "centre-select-any";
+  const vistaSelectId = "centre-select-vista";
 
   const lnSeleccionada = arbre.find((ln) => ln.id === lnId) ?? null;
   const centres = lnSeleccionada?.centres ?? [];
@@ -47,8 +52,11 @@ export function CentreSelectors({
   return (
     <div className={styles.selectors}>
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Línia de negoci</label>
+        <label className={styles.fieldLabel} htmlFor={lnSelectId}>
+          Línia de negoci
+        </label>
         <select
+          id={lnSelectId}
           className={styles.select}
           value={lnId ?? ""}
           onChange={(e) => go(e.target.value || null, null, any, vista)}
@@ -56,15 +64,18 @@ export function CentreSelectors({
           <option value="">Selecciona una línia…</option>
           {arbre.map((ln) => (
             <option key={ln.id} value={ln.id}>
-              {ln.codi} · {ln.nom}
+              {etiquetaLiniaNegoci(ln)}
             </option>
           ))}
         </select>
       </div>
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Centre</label>
+        <label className={styles.fieldLabel} htmlFor={centreSelectId}>
+          Centre
+        </label>
         <select
+          id={centreSelectId}
           className={styles.select}
           value={centreId ?? ""}
           disabled={!lnId}
@@ -75,15 +86,18 @@ export function CentreSelectors({
           </option>
           {centres.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.codi} · {c.nom}
+              {etiquetaCentre(c)}
             </option>
           ))}
         </select>
       </div>
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Any</label>
+        <label className={styles.fieldLabel} htmlFor={anySelectId}>
+          Any
+        </label>
         <select
+          id={anySelectId}
           className={styles.select}
           style={{ minWidth: 100 }}
           value={any}
@@ -98,8 +112,11 @@ export function CentreSelectors({
       </div>
 
       <div className={styles.field}>
-        <label className={styles.fieldLabel}>Vista</label>
+        <label className={styles.fieldLabel} htmlFor={vistaSelectId}>
+          Vista
+        </label>
         <select
+          id={vistaSelectId}
           className={styles.select}
           value={vista}
           onChange={(e) =>

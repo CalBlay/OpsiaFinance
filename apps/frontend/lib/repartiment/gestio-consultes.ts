@@ -1,6 +1,7 @@
-import { type ConcepteOrdre, recalcularCompositesOnly } from "@/lib/compte-subtotals";
+import { type ConcepteOrdre, recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import type { ConceptePivot } from "@/lib/consultes";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
+import { nodePresentacioGestio } from "@/lib/repartiment/nodes";
 
 export const COL_REPARTIMENT_ID = "__repartiment__";
 
@@ -24,9 +25,13 @@ export function agregarDeltasPerLn(
   return deltaByLnNode;
 }
 
+function conceptsFromRows(rows: ConceptePivot[]): ConcepteOrdre[] {
+  return rows.map((r) => ({ node: r.node, esSubtotal: r.esSubtotal }));
+}
+
 /**
  * Aplica moviments de repartiment confirmats sobre files directes SAP (columnes LN).
- * Els deltas s'apliquen després del càlcul directe; només es recalculen subtotals composits.
+ * Els deltas es mostren a la línia de detall; els subtotals es recalculen.
  */
 export function aplicarGestioRepartiment(
   _concepts: ConcepteOrdre[],
@@ -35,16 +40,23 @@ export function aplicarGestioRepartiment(
   deltaByLnNode: Map<string, Map<number, number>>
 ): ConceptePivot[] {
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
+  const byNode = new Map(merged.map((r) => [r.node, r]));
+
+  for (let i = 0; i < lnIds.length; i++) {
+    const nodes = deltaByLnNode.get(lnIds[i]);
+    if (!nodes) continue;
+    for (const [node, delta] of nodes) {
+      if (delta === 0) continue;
+      const row = byNode.get(nodePresentacioGestio(node));
+      if (row) row.valors[i] += delta;
+    }
+  }
 
   for (const row of merged) {
-    for (let i = 0; i < lnIds.length; i++) {
-      const delta = deltaByLnNode.get(lnIds[i])?.get(row.node) ?? 0;
-      if (delta !== 0) row.valors[i] += delta;
-    }
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
 
-  return recalcularCompositesOnly(merged);
+  return recalcularSubtotalsCompte(conceptsFromRows(merged), merged);
 }
 
 /**
@@ -57,14 +69,23 @@ export function aplicarGestioRepartimentLn(
 ): ConceptePivot[] {
   const extended = rows.map((r) => ({
     ...r,
-    valors: [...r.valors, deltaByNode.get(r.node) ?? 0],
+    valors: [...r.valors, 0],
   }));
+  if (extended.length === 0) return extended;
+  const byNode = new Map(extended.map((r) => [r.node, r]));
+  const colRepart = extended[0].valors.length - 1;
+
+  for (const [node, delta] of deltaByNode) {
+    if (delta === 0) continue;
+    const row = byNode.get(nodePresentacioGestio(node));
+    if (row) row.valors[colRepart] += delta;
+  }
 
   for (const row of extended) {
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
 
-  return recalcularCompositesOnly(extended);
+  return recalcularSubtotalsCompte(conceptsFromRows(extended), extended);
 }
 
 /** Nodes on el total empresa ha de ser invariant (zero-sum entre LN). */
@@ -170,21 +191,24 @@ export async function aplicarGestioEvolucioLn(
   const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));
 
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
+  const byNode = new Map(merged.map((r) => [r.node, r]));
+
   for (const [periodId, perLn] of deltasPerPeriode) {
     const mesIdx = (mesByPeriodId.get(periodId) ?? 1) - 1;
     if (mesIdx < 0 || mesIdx > 11) continue;
     const nodes = perLn.get(liniaNegociId);
     if (!nodes) continue;
-    for (const row of merged) {
-      const delta = nodes.get(row.node) ?? 0;
-      if (delta !== 0) row.valors[mesIdx] += delta;
+    for (const [node, delta] of nodes) {
+      if (delta === 0) continue;
+      const row = byNode.get(nodePresentacioGestio(node));
+      if (row) row.valors[mesIdx] += delta;
     }
   }
 
   for (const row of merged) {
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
-  return recalcularCompositesOnly(merged);
+  return recalcularSubtotalsCompte(conceptsFromRows(merged), merged);
 }
 
 /**
@@ -208,6 +232,8 @@ export async function aplicarGestioEvolucioEmpresa(
   const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));
 
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
+  const byNode = new Map(merged.map((r) => [r.node, r]));
+
   for (const [periodId, perLn] of deltasPerPeriode) {
     const mesIdx = (mesByPeriodId.get(periodId) ?? 1) - 1;
     if (mesIdx < 0 || mesIdx > 11) continue;
@@ -219,14 +245,15 @@ export async function aplicarGestioEvolucioEmpresa(
       }
     }
 
-    for (const row of merged) {
-      const delta = perNode.get(row.node) ?? 0;
-      if (delta !== 0) row.valors[mesIdx] += delta;
+    for (const [node, delta] of perNode) {
+      if (delta === 0) continue;
+      const row = byNode.get(nodePresentacioGestio(node));
+      if (row) row.valors[mesIdx] += delta;
     }
   }
 
   for (const row of merged) {
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
-  return recalcularCompositesOnly(merged);
+  return recalcularSubtotalsCompte(conceptsFromRows(merged), merged);
 }

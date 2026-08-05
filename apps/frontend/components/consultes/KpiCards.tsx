@@ -10,9 +10,9 @@ function variacioPct(actual: number, anterior: number): number | null {
   return ((actual - anterior) / Math.abs(anterior)) * 100;
 }
 
-function pctAbs(pct: number | null): string | null {
+function pctFmt(pct: number | null, signed: boolean): string | null {
   if (pct === null) return null;
-  return formatNum(Math.abs(pct), 1);
+  return signed ? formatNum(pct, 1) : formatNum(Math.abs(pct), 1);
 }
 
 function DeltaIcon({ positiu, size = 16 }: { positiu: boolean; size?: number }) {
@@ -23,14 +23,22 @@ function DeltaIcon({ positiu, size = 16 }: { positiu: boolean; size?: number }) 
 function KpiCardShell({
   label,
   periodeLabel,
+  tone,
   children,
 }: {
   label: string;
   periodeLabel: string;
+  tone?: "ebitda-pos" | "ebitda-neg";
   children: React.ReactNode;
 }) {
   return (
-    <div className={styles.kpiCardExec}>
+    <div
+      className={cn(
+        styles.kpiCardExec,
+        tone === "ebitda-pos" && styles.kpiCardExecEbitdaPos,
+        tone === "ebitda-neg" && styles.kpiCardExecEbitdaNeg
+      )}
+    >
       <div className={styles.kpiExecHeader}>
         <span className={styles.kpiExecLabel}>{label}</span>
         <span className={styles.kpiExecPeriode}>{periodeLabel}</span>
@@ -48,18 +56,40 @@ function KpiImportBlock({ import_, neg }: { import_: number; neg?: boolean }) {
   );
 }
 
-function KpiPctSobreVendes({ pct, hint }: { pct: number; hint: string }) {
+function KpiPctSobreVendes({
+  pct,
+  hint,
+  signed = false,
+}: {
+  pct: number;
+  hint: string;
+  /** EBITDA: conserva el signe; costos: valor absolut. */
+  signed?: boolean;
+}) {
   return (
     <div className={styles.kpiExecPctRow}>
-      <span className={styles.kpiExecPctVal}>{pctAbs(pct)}%</span>
+      <span
+        className={cn(
+          styles.kpiExecPctVal,
+          signed && pct < 0 && styles.kpiExecPctNeg,
+          signed && pct > 0 && styles.kpiExecPctPos
+        )}
+      >
+        {pctFmt(pct, signed)}%
+      </span>
       <span className={styles.kpiExecPctHint}>{hint}</span>
     </div>
   );
 }
 
+function ebitdaTone(import_: number): "ebitda-pos" | "ebitda-neg" {
+  return import_ < 0 ? "ebitda-neg" : "ebitda-pos";
+}
+
 function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: string }) {
+  const tone = k.tipus === "ebitda" ? ebitdaTone(k.import_) : undefined;
   return (
-    <KpiCardShell label={k.label} periodeLabel={periodeLabel}>
+    <KpiCardShell label={k.label} periodeLabel={periodeLabel} tone={tone}>
       <KpiImportBlock import_={k.import_} neg />
       {k.tipus === "vendes" && k.nota && k.importSecundari !== undefined ? (
         <div className={styles.kpiExecSub}>
@@ -68,7 +98,7 @@ function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: 
       ) : k.tipus === "vendes" ? (
         <div className={styles.kpiExecSub}>Total del període</div>
       ) : k.pctVendes !== null ? (
-        <KpiPctSobreVendes pct={k.pctVendes} hint="sobre vendes" />
+        <KpiPctSobreVendes pct={k.pctVendes} hint="sobre vendes" signed={k.tipus === "ebitda"} />
       ) : null}
     </KpiCardShell>
   );
@@ -76,7 +106,8 @@ function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: 
 
 function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeLabel: string }) {
   const teComparativa = k.refLabel && k.totalitatAnterior !== null;
-  const varPct = teComparativa ? variacioPct(k.totalitat, k.totalitatAnterior!) : null;
+  const anterior = k.totalitatAnterior;
+  const varPct = teComparativa && anterior !== null ? variacioPct(k.totalitat, anterior) : null;
   const ppDiff =
     k.pctActual !== null && k.pctAnterior !== null
       ? Math.abs(k.pctActual) - Math.abs(k.pctAnterior)
@@ -86,12 +117,18 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
   const deltaPrincipal = usaVarPct ? varPct : ppDiff;
   const deltaPositiu =
     deltaPrincipal === null ? null : k.tipus === "cost" ? deltaPrincipal < 0 : deltaPrincipal > 0;
+  const tone = k.tipus === "ebitda" ? ebitdaTone(k.totalitat) : undefined;
+  const pctSigned = k.tipus === "ebitda";
 
   return (
-    <KpiCardShell label={k.label} periodeLabel={periodeLabel}>
+    <KpiCardShell label={k.label} periodeLabel={periodeLabel} tone={tone}>
       <KpiImportBlock import_={k.totalitat} neg />
       {k.tipus !== "vendes" && k.pctActual !== null && (
-        <KpiPctSobreVendes pct={k.pctActual} hint={`sobre vendes · ${k.actualLabel ?? ""}`} />
+        <KpiPctSobreVendes
+          pct={k.pctActual}
+          hint={`sobre vendes · ${k.actualLabel ?? ""}`}
+          signed={pctSigned}
+        />
       )}
       {k.tipus === "vendes" && k.actualLabel && (
         <div className={styles.kpiExecSub}>{k.actualLabel}</div>
@@ -106,21 +143,21 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
         >
           <DeltaIcon positiu={deltaPositiu} size={18} />
           <span className={styles.kpiExecBannerText}>
-            {usaVarPct ? (
+            {usaVarPct && varPct !== null ? (
               <>
-                {varPct! > 0 ? "+" : ""}
-                {formatNum(varPct!, 1)}%
+                {varPct > 0 ? "+" : ""}
+                {formatNum(varPct, 1)}%
                 <span className={styles.kpiExecBannerVs}>
                   {k.tipus === "vendes" ? " vendes" : " EBITDA"} vs {k.refLabel}
                 </span>
               </>
-            ) : (
+            ) : ppDiff !== null ? (
               <>
-                {ppDiff! > 0 ? "+" : ""}
-                {formatNum(ppDiff!, 1)} pp
+                {ppDiff > 0 ? "+" : ""}
+                {formatNum(ppDiff, 1)} pp
                 <span className={styles.kpiExecBannerVs}> sobre vendes vs {k.refLabel}</span>
               </>
-            )}
+            ) : null}
           </span>
         </div>
       )}
@@ -129,13 +166,13 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
         <div className={styles.kpiExecCompare}>
           <div className={styles.kpiExecCompareItem}>
             <span className={styles.kpiExecCompareAny}>{k.refLabel}</span>
-            <span className={styles.kpiExecComparePct}>{pctAbs(k.pctAnterior)}%</span>
+            <span className={styles.kpiExecComparePct}>{pctFmt(k.pctAnterior, pctSigned)}%</span>
           </div>
           <span className={styles.kpiExecCompareArrow}>→</span>
           <div className={styles.kpiExecCompareItem}>
             <span className={styles.kpiExecCompareAny}>{k.actualLabel}</span>
             <span className={cn(styles.kpiExecComparePct, styles.kpiExecComparePctActual)}>
-              {pctAbs(k.pctActual)}%
+              {pctFmt(k.pctActual, pctSigned)}%
             </span>
           </div>
         </div>
@@ -145,7 +182,10 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
         <div className={styles.kpiExecFoot}>
           {k.refLabel}: <strong>{formatNum(k.totalitatAnterior)} €</strong>
           {k.tipus !== "vendes" && k.pctAnterior !== null && (
-            <span className={styles.kpiExecFootPct}> · {pctAbs(k.pctAnterior)}% s/ vendes</span>
+            <span className={styles.kpiExecFootPct}>
+              {" "}
+              · {pctFmt(k.pctAnterior, pctSigned)}% s/ vendes
+            </span>
           )}
         </div>
       )}

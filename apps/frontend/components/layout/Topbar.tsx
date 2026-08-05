@@ -1,15 +1,17 @@
 import { auth } from "@/lib/auth";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import Link from "next/link";
+import { GrupEmpresaSelector } from "./GrupEmpresaSelector";
 import styles from "./Topbar.module.css";
 import { UserMenu } from "./UserMenu";
 
 export async function Topbar() {
-  const session = await auth();
+  const [session, grup] = await Promise.all([auth(), getGrupEmpresaActual()]);
   const user = session?.user;
 
   return (
     <header className={styles.topbar}>
-      <div />
+      <GrupEmpresaSelector value={grup} />
 
       <Link href="/" className={styles.brand} aria-label="OpsiaFinance — Inici">
         <span className={styles.brandOpsia}>Opsia</span>

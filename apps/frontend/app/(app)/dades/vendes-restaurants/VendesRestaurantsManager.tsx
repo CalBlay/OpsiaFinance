@@ -1,10 +1,13 @@
 "use client";
 
+import { DadesFilterBar, coincideixCerca } from "@/components/dades/DadesFilterBar";
+import { DadesEmpty, dadesUi as ui } from "@/components/dades/DadesPanel";
+import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
-import { Eye, Pencil, Trash2, Upload, X } from "lucide-react";
+import { Eye, Pencil, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useRef, useState, useTransition } from "react";
+import { type ReactNode, useMemo, useRef, useState, useTransition } from "react";
 import {
   type AmbitVendes,
   deleteVendaArticleAction,
@@ -34,7 +37,14 @@ interface ResumDTO {
 
 type Result = { ok: boolean; missatge: string; errors?: string[]; detalls?: string[] };
 
-type DiaDet = { id: string; dia: number; dataIso: string; unitats: number; base: number };
+type DiaDet = {
+  id: string;
+  dia: number;
+  dataIso: string;
+  unitats: number;
+  base: number;
+  formaPagament: string;
+};
 type ArtDet = {
   id: string;
   article: string;
@@ -80,6 +90,7 @@ export function VendesRestaurantsManager({
   const [editArt, setEditArt] = useState<ArtDet | null>(null);
   const [editUnitats, setEditUnitats] = useState("");
   const [editBase, setEditBase] = useState("");
+  const [query, setQuery] = useState("");
 
   const notify = (r: Result) => {
     setFeedback(r);
@@ -228,6 +239,15 @@ export function VendesRestaurantsManager({
     setEditBase(String(a.base).replace(".", ","));
   };
 
+  const resumsFiltrats = useMemo(() => {
+    return resums.filter((r) =>
+      coincideixCerca(
+        `${r.centreCodi} ${r.centreNom} ${r.periodNom} ${r.periodAny} ${r.periodMes}`,
+        query
+      )
+    );
+  }, [resums, query]);
+
   return (
     <>
       {feedback && (
@@ -251,111 +271,96 @@ export function VendesRestaurantsManager({
       )}
 
       {canEdit && (
-        <div className={styles.uploadCard}>
-          <div>
-            <h3 className={styles.uploadTitle}>Pujar Excel de vendes</h3>
-            <p className={styles.uploadHint}>
-              Pots seleccionar <strong>tots els Excel de cop</strong> (ex. gener–juliol de Camp Nou
-              = 3 × mes). El sistema llegeix mes, any i centre del nom:{" "}
-              <strong>V_MM_YYYY[_CC]</strong>, <strong>Detall_MM_YYYY_CC</strong>,{" "}
-              <strong>Pack_MM_YYYY[_CC]</strong>. El sufix <strong>_CC</strong> són els 2 darrers
-              dígits del centre (ex. _04 → CCR00004). Cada fitxer substitueix només aquell
-              restaurant + període + tipus. Detall i Pack han de portar{" "}
-              <strong>Article [Grupo] / [Familia] / [Subfamilia]</strong>.
-            </p>
-          </div>
-          <label className={styles.uploadBtn}>
-            <Upload size={16} />
-            {isPending ? "Processant…" : "Seleccionar fitxers"}
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls,.xlsm"
-              multiple
-              hidden
-              disabled={isPending}
-              onChange={(e) => pujar(e.target.files)}
-            />
-          </label>
-        </div>
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.xlsm"
+            multiple
+            hidden
+            disabled={isPending}
+            onChange={(e) => pujar(e.target.files)}
+          />
+          <FloatingAddButton
+            label="Pujar Excel de vendes"
+            disabled={isPending}
+            onClick={() => fileRef.current?.click()}
+          />
+        </>
       )}
 
-      <div className={styles.filters}>
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor="vendes-dades-any">
-            Any
-          </label>
-          <select
-            id="vendes-dades-any"
-            className={styles.input}
-            value={filtreAny ?? ""}
-            onChange={(e) => aplicarFiltre(e.target.value, filtreMes ? String(filtreMes) : "")}
-          >
-            <option value="">Tots</option>
-            {anys.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor="vendes-dades-mes">
-            Mes
-          </label>
-          <select
-            id="vendes-dades-mes"
-            className={styles.input}
-            value={filtreMes ?? ""}
-            onChange={(e) => aplicarFiltre(filtreAny ? String(filtreAny) : "", e.target.value)}
-          >
-            <option value="">Tots</option>
-            {MESOS_LLARGS.map((m, i) => (
-              <option key={m} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <DadesFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Cerca restaurant, període…"
+        onClear={() => {
+          setQuery("");
+          aplicarFiltre("", "");
+        }}
+        filters={[
+          {
+            id: "any",
+            value: filtreAny ? String(filtreAny) : "",
+            onChange: (v) => aplicarFiltre(v, filtreMes ? String(filtreMes) : ""),
+            options: anys.map((y) => ({ value: String(y), label: String(y) })),
+            allLabel: "Tots els anys",
+            "aria-label": "Filtra per any",
+          },
+          {
+            id: "mes",
+            value: filtreMes ? String(filtreMes) : "",
+            onChange: (v) => aplicarFiltre(filtreAny ? String(filtreAny) : "", v),
+            options: MESOS_LLARGS.map((m, i) => ({
+              value: String(i + 1),
+              label: m,
+            })),
+            allLabel: "Tots els mesos",
+            "aria-label": "Filtra per mes",
+          },
+        ]}
+        summary={
+          query.trim() ? `${resumsFiltrats.length} de ${resums.length} períodes/centre` : undefined
+        }
+      />
 
       {resums.length === 0 ? (
-        <div className={styles.empty}>
-          <p className={styles.emptyTitle}>Sense vendes importades</p>
-          <p className={styles.emptyText}>
-            Puja els Excel mensuals V / Detall / Pack de cada restaurant.
-          </p>
-        </div>
+        <DadesEmpty
+          boxed
+          title="Sense vendes importades"
+          text="Puja els Excel mensuals V / Detall / Pack de cada restaurant."
+        />
+      ) : resumsFiltrats.length === 0 ? (
+        <DadesEmpty boxed title="Cap resultat" text="Prova a canviar la cerca o els filtres." />
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
+        <div className={ui.tableWrap}>
+          <table className={ui.table}>
             <thead>
               <tr>
                 <th>Període</th>
                 <th>Restaurant</th>
-                <th className={styles.right}>Dies (V)</th>
-                <th className={styles.right}>Vendes (V)</th>
-                <th className={styles.right}>Productes</th>
-                <th className={styles.right}>€ productes</th>
-                <th className={styles.right}>Packs</th>
-                <th className={styles.right}>€ packs</th>
+                <th className={ui.right}>Dies (V)</th>
+                <th className={ui.right}>Vendes (V)</th>
+                <th className={ui.right}>Productes</th>
+                <th className={ui.right}>€ productes</th>
+                <th className={ui.right}>Packs</th>
+                <th className={ui.right}>€ packs</th>
                 <th />
               </tr>
             </thead>
             <tbody>
-              {resums.map((r) => (
+              {resumsFiltrats.map((r) => (
                 <tr key={`${r.periodAny}-${r.periodMes}-${r.centreId}`}>
-                  <td className={styles.nowrap}>{r.periodNom}</td>
+                  <td className={ui.nowrap}>{r.periodNom}</td>
                   <td>
                     {r.centreCodi} · {r.centreNom}
                   </td>
-                  <td className={styles.right}>{r.dies || "–"}</td>
-                  <td className={styles.right}>{r.dies ? formatNum(r.baseDies) : "–"}</td>
-                  <td className={styles.right}>{r.productes || "–"}</td>
-                  <td className={styles.right}>{r.productes ? formatNum(r.baseProductes) : "–"}</td>
-                  <td className={styles.right}>{r.packs || "–"}</td>
-                  <td className={styles.right}>{r.packs ? formatNum(r.basePacks) : "–"}</td>
-                  <td className={styles.nowrap}>
+                  <td className={ui.right}>{r.dies || "–"}</td>
+                  <td className={ui.right}>{r.dies ? formatNum(r.baseDies) : "–"}</td>
+                  <td className={ui.right}>{r.productes || "–"}</td>
+                  <td className={ui.right}>{r.productes ? formatNum(r.baseProductes) : "–"}</td>
+                  <td className={ui.right}>{r.packs || "–"}</td>
+                  <td className={ui.right}>{r.packs ? formatNum(r.basePacks) : "–"}</td>
+                  <td className={ui.nowrap}>
                     <button
                       type="button"
                       className={styles.iconBtn}
@@ -454,7 +459,7 @@ export function VendesRestaurantsManager({
 
           <BlocFitxer
             titol="Fitxer V · vendes diàries"
-            comptador={`${detall.dies.length} dies · ${formatNum(detall.dies.reduce((s, d) => s + d.base, 0))} €`}
+            comptador={`${detall.dies.length} files · ${formatNum(detall.dies.reduce((s, d) => s + d.base, 0))} €`}
             canEdit={canEdit}
             onEliminar={() => eliminarBloc(detall.resum, "V")}
             disabled={isPending || !detall.dies.length}
@@ -468,7 +473,8 @@ export function VendesRestaurantsManager({
                     <tr>
                       <th>Dia</th>
                       <th>Data</th>
-                      <th className={styles.right}>Unitats</th>
+                      <th>Forma pagament</th>
+                      <th className={styles.right}>Tickets</th>
                       <th className={styles.right}>Base €</th>
                       {canEdit && <th />}
                     </tr>
@@ -480,6 +486,7 @@ export function VendesRestaurantsManager({
                         <td className={styles.nowrap}>
                           {d.dataIso.slice(8, 10)}/{d.dataIso.slice(5, 7)}/{d.dataIso.slice(0, 4)}
                         </td>
+                        <td>{d.formaPagament || "—"}</td>
                         <td className={styles.right}>{formatNum(d.unitats, 0)}</td>
                         <td className={styles.right}>{formatNum(d.base)}</td>
                         {canEdit && (

@@ -3,7 +3,7 @@
 import { PeriodRangSelectors } from "@/components/consultes/PeriodRangSelectors";
 import styles from "@/components/consultes/report.module.css";
 import type { VistaCompte } from "@/lib/consultes";
-import { GRUP_EMPRESA_LABELS, type GrupEmpresa } from "@/lib/grups-empresa";
+import { type GrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { type RangMesos, rangToQuery } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
@@ -23,37 +23,28 @@ export function EmpresaSelectors({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const groupSelectId = "empresa-group";
   const yearSelectId = "empresa-year";
   const viewSelectId = "empresa-view";
+  const mostraVistaGestio = grupPermetVistaGestio(grup);
 
-  // Estat local: el select no torna enrere mentre la pàgina recarrega
-  const [localGrup, setLocalGrup] = useState(grup);
   const [localAny, setLocalAny] = useState(any);
   const [localRang, setLocalRang] = useState(rang);
   const [localVista, setLocalVista] = useState(vista);
 
   useEffect(() => {
-    setLocalGrup(grup);
     setLocalAny(any);
     setLocalRang(rang);
     setLocalVista(vista);
-  }, [grup, any, rang, vista]);
+  }, [any, rang, vista]);
 
-  const go = (
-    nextAny: number,
-    nextRang: RangMesos,
-    nextVista: VistaCompte,
-    nextGrup: GrupEmpresa
-  ) => {
-    const vistaEfectiva = nextGrup === "fdlc" ? "directe" : nextVista;
+  const go = (nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
+    const vistaEfectiva = mostraVistaGestio ? nextVista : "directe";
     setLocalAny(nextAny);
     setLocalRang(nextRang);
     setLocalVista(vistaEfectiva);
-    setLocalGrup(nextGrup);
     startTransition(() => {
       router.replace(
-        `/consultes/empresa?grup=${nextGrup}&any=${nextAny}${rangToQuery(nextRang)}&vista=${vistaEfectiva}`,
+        `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}&vista=${vistaEfectiva}`,
         { scroll: false }
       );
     });
@@ -66,27 +57,6 @@ export function EmpresaSelectors({
       aria-busy={isPending}
     >
       <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={groupSelectId}>
-          Empresa
-        </label>
-        <select
-          id={groupSelectId}
-          className={styles.select}
-          style={{ minWidth: 120 }}
-          value={localGrup}
-          disabled={isPending}
-          onChange={(e) => go(localAny, localRang, localVista, e.target.value as GrupEmpresa)}
-        >
-          {(Object.entries(GRUP_EMPRESA_LABELS) as [GrupEmpresa, string][])
-            .sort((a, b) => a[1].localeCompare(b[1], "ca", { sensitivity: "base" }))
-            .map(([val, label]) => (
-              <option key={val} value={val}>
-                {label}
-              </option>
-            ))}
-        </select>
-      </div>
-      <div className={styles.field}>
         <label className={styles.fieldLabel} htmlFor={yearSelectId}>
           Any
         </label>
@@ -96,7 +66,7 @@ export function EmpresaSelectors({
           style={{ minWidth: 100 }}
           value={localAny}
           disabled={isPending}
-          onChange={(e) => go(Number(e.target.value), localRang, localVista, localGrup)}
+          onChange={(e) => go(Number(e.target.value), localRang, localVista)}
         >
           {anys.map((y) => (
             <option key={y} value={y}>
@@ -109,9 +79,9 @@ export function EmpresaSelectors({
         rang={localRang}
         anyActual={localAny}
         disabled={isPending}
-        onChange={(next) => go(localAny, next, localVista, localGrup)}
+        onChange={(next) => go(localAny, next, localVista)}
       />
-      {localGrup === "calblay" && (
+      {mostraVistaGestio && (
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor={viewSelectId}>
             Vista
@@ -122,7 +92,7 @@ export function EmpresaSelectors({
             style={{ minWidth: 160 }}
             value={localVista}
             disabled={isPending}
-            onChange={(e) => go(localAny, localRang, e.target.value as VistaCompte, localGrup)}
+            onChange={(e) => go(localAny, localRang, e.target.value as VistaCompte)}
           >
             <option value="directe">Directe</option>
             <option value="gestio">Gestió</option>

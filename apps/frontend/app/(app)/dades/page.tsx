@@ -1,11 +1,11 @@
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
+import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import { db } from "@/lib/db";
 import type { ImportCercaItem } from "@/lib/import-search";
 import { formatDateShort } from "@/lib/utils";
 import type { EstatImport } from "@/types";
-import { FileSpreadsheet } from "lucide-react";
 import { ImportsLlista } from "./ImportsLlista";
-import styles from "./page.module.css";
 
 export const metadata = { title: "Dades — OpsiaFinance" };
 
@@ -17,6 +17,8 @@ const ESTAT_LABELS: Record<EstatImport, string> = {
   ERROR: "Error",
   ARXIVAT: "Arxivat",
 };
+
+const tab = getDadesTabById("importacions");
 
 export default async function DadesPage() {
   const imports = await db.importacio.findMany({
@@ -45,20 +47,9 @@ export default async function DadesPage() {
   }));
 
   return (
-    <div className={styles.page}>
-      {imports.length === 0 ? (
-        <div className={styles.empty}>
-          <FileSpreadsheet size={40} strokeWidth={1.2} className={styles.emptyIcon} />
-          <p className={styles.emptyTitle}>Encara no hi ha importacions</p>
-          <p className={styles.emptyText}>
-            Prem el botó <strong>+</strong> per pujar el primer informe Excel.
-          </p>
-        </div>
-      ) : (
-        <ImportsLlista imports={items} />
-      )}
-
+    <DadesPageShell title={tab.title} description={tab.description}>
+      <ImportsLlista imports={items} />
       <FloatingAddButton href="/dades/nova" label="Nova importació" />
-    </div>
+    </DadesPageShell>
   );
 }

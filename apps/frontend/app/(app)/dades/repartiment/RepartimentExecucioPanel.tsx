@@ -1,8 +1,8 @@
 "use client";
 
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { Button } from "@/components/ui/Button";
 import { formatNum } from "@/lib/utils";
-import Link from "next/link";
 import { useTransition } from "react";
 import {
   calcularRepartimentAction,
@@ -67,53 +67,52 @@ export function RepartimentExecucioPanel({
   };
 
   return (
-    <div className={styles.stack}>
-      <div className={styles.toolbar}>
-        <div>
-          <h1 className={styles.title}>Repartiment · {periodNom}</h1>
-          {execucio && (
-            <span
-              className={`${styles.badge} ${
-                execucio.estat === "CONFIRMAT" ? styles.badgeConfirmat : styles.badgeBorrador
-              }`}
+    <DadesPageShell
+      backHref="/dades/repartiment"
+      backLabel="Repartiment"
+      title={`Repartiment · ${periodNom}`}
+      description={
+        execucio ? (
+          <span
+            className={`${styles.badge} ${
+              execucio.estat === "CONFIRMAT" ? styles.badgeConfirmat : styles.badgeBorrador
+            }`}
+          >
+            {execucio.estat === "CONFIRMAT" ? "Confirmat" : "Esborrany"}
+          </span>
+        ) : (
+          "Encara no s’ha calculat el repartiment per aquest període."
+        )
+      }
+      actions={
+        canEdit ? (
+          <>
+            <Button
+              disabled={pending}
+              onClick={() =>
+                startTransition(async () => {
+                  await calcularRepartimentAction(periodId);
+                })
+              }
             >
-              {execucio.estat === "CONFIRMAT" ? "Confirmat" : "Esborrany"}
-            </span>
-          )}
-        </div>
-        <div className={styles.toolbarActions}>
-          <Button asChild variant="outline" size="sm">
-            <Link href="/dades/repartiment">Tornar</Link>
-          </Button>
-          {canEdit && (
-            <>
+              {pending ? "Calculant…" : "Calcular / actualitzar"}
+            </Button>
+            {execucio?.estat === "BORRADOR" && execucio.moviments.length > 0 && (
               <Button
                 disabled={pending}
                 onClick={() =>
                   startTransition(async () => {
-                    await calcularRepartimentAction(periodId);
+                    await confirmarRepartimentAction(execucio.id);
                   })
                 }
               >
-                {pending ? "Calculant…" : "Calcular / actualitzar"}
+                Confirmar repartiment
               </Button>
-              {execucio?.estat === "BORRADOR" && execucio.moviments.length > 0 && (
-                <Button
-                  disabled={pending}
-                  onClick={() =>
-                    startTransition(async () => {
-                      await confirmarRepartimentAction(execucio.id);
-                    })
-                  }
-                >
-                  Confirmar repartiment
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
+            )}
+          </>
+        ) : undefined
+      }
+    >
       {!execucio ? (
         <p className={styles.muted}>
           Encara no s&apos;ha calculat el repartiment d&apos;aquest mes. Assegura&apos;t que les
@@ -211,6 +210,6 @@ export function RepartimentExecucioPanel({
           </section>
         </>
       )}
-    </div>
+    </DadesPageShell>
   );
 }

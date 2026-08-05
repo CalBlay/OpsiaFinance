@@ -6,6 +6,7 @@ import type {
   BlocRanking,
   ComparativaVendes,
   DiaVenda,
+  FormaPagamentVenda,
   InformeVendesRestaurant,
   MesEvolucio,
   MixCategoria,
@@ -253,6 +254,40 @@ function MiniDies({ dies }: { dies: DiaVenda[] }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function FormesPagamentPanel({ formes }: { formes: FormaPagamentVenda[] }) {
+  if (!formes.length) return null;
+  const max = Math.max(...formes.map((f) => f.base), 1);
+  return (
+    <div className={styles.panel}>
+      <div className={styles.panelHead}>
+        <div>
+          <p className={styles.panelKicker}>Estadística</p>
+          <h3 className={styles.panelTitle}>Forma de pagament</h3>
+        </div>
+      </div>
+      <ul className={styles.formesList}>
+        {formes.map((f) => (
+          <li key={f.forma} className={styles.formesRow}>
+            <div className={styles.formesMeta}>
+              <span className={styles.formesNom}>{f.forma}</span>
+              <span className={styles.formesVal}>
+                {formatNum(f.base)} €{f.pct != null ? ` · ${formatNum(f.pct, 1)}%` : ""}
+              </span>
+            </div>
+            <div className={styles.formesTrack}>
+              <div
+                className={styles.formesFill}
+                style={{ width: `${Math.max(4, (f.base / max) * 100)}%` }}
+              />
+            </div>
+            <span className={styles.formesTickets}>{formatNum(f.unitats, 0)} tickets</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -582,8 +617,8 @@ function RestaurantsDetall({
               <span className={varClass(f.variacioPct)}>{fmtPct(f.variacioPct)}</span>
               <span className={styles.restPl}>
                 {f.desviacioPl == null
-                  ? "vs P&L –"
-                  : `vs P&L ${f.desviacioPl >= 0 ? "+" : ""}${formatNum(f.desviacioPl)} €`}
+                  ? "vs compte –"
+                  : `vs compte ${f.desviacioPl >= 0 ? "+" : ""}${formatNum(f.desviacioPl)} €`}
               </span>
             </div>
           </button>
@@ -842,9 +877,9 @@ export function VendesComparativaPresentacio({
           onClick={() => go({ detall: data.ambit === "any" ? "evolucio" : "calendari" })}
         />
         <Tile
-          label="Vs P&L"
+          label="Vs compte"
           value={vsPl}
-          hint={data.totals.vendesPl ? `P&L ${formatNum(data.totals.vendesPl)} €` : undefined}
+          hint={data.totals.vendesPl ? `Compte ${formatNum(data.totals.vendesPl)} €` : undefined}
           accent={
             data.totals.desviacioPl != null && Math.abs(data.totals.desviacioPl) >= 1
               ? "warn"
@@ -1227,9 +1262,9 @@ export function VendesRestaurantPresentacio({
           onClick={() => go(data.ambit === "any" ? "evolucio" : "calendari")}
         />
         <Tile
-          label="Vs P&L"
+          label="Vs compte"
           value={vsPl}
-          hint={data.vendesPl ? `P&L ${formatNum(data.vendesPl)} €` : undefined}
+          hint={data.vendesPl ? `Compte ${formatNum(data.vendesPl)} €` : undefined}
           accent={data.desviacioPl != null && Math.abs(data.desviacioPl) >= 1 ? "warn" : undefined}
           onClick={() => go(data.ambit === "any" ? "evolucio" : "calendari")}
         />
@@ -1280,6 +1315,8 @@ export function VendesRestaurantPresentacio({
           </div>
         )}
       </div>
+
+      {data.formesPagament.length > 0 ? <FormesPagamentPanel formes={data.formesPagament} /> : null}
 
       <section className={styles.rankSection}>
         <div className={styles.sectionHead}>

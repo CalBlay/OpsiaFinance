@@ -1,5 +1,6 @@
 "use client";
 
+import type { GrupEmpresa } from "@/lib/grups-empresa";
 import { useState } from "react";
 import { type DetallCellaContext, DetallCellaModal } from "./DetallCellaModal";
 import {
@@ -25,6 +26,9 @@ export interface DrilldownConfig {
   colMap: DrilldownColumnMap;
   /** Llista d'IDs de LN del grup (Cal Blay o FDLC). Exclou LN d'altres grups al drill-down. */
   lnIdsGrup?: string[];
+  vista?: "directe" | "gestio";
+  /** Àmbit d'empresa (calblay / fdlc / consolidat). */
+  grup?: GrupEmpresa;
 }
 
 export function PivotTableDrilldown({
@@ -60,7 +64,10 @@ export function PivotTableDrilldown({
       centreId: params.centreId,
       liniaNegociId: params.liniaNegociId,
       lnIdsGrup: drilldown.lnIdsGrup,
+      vista: drilldown.vista,
+      grup: drilldown.grup,
       columnLabel: info.colLabel,
+      cellValue: info.value,
     });
   };
 
@@ -72,11 +79,16 @@ export function PivotTableDrilldown({
         totalLabel={totalLabel}
         showTotal={showTotal}
         firstColLabel={firstColLabel}
-        canEdit={canEdit}
-        editConfig={editConfig}
         onCellClick={handleCellClick}
       />
-      {modalCtx && <DetallCellaModal context={modalCtx} onClose={() => setModalCtx(null)} />}
+      {modalCtx && (
+        <DetallCellaModal
+          context={modalCtx}
+          onClose={() => setModalCtx(null)}
+          canEdit={canEdit}
+          onSave={editConfig?.onSave}
+        />
+      )}
     </>
   );
 }

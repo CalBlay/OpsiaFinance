@@ -1,10 +1,15 @@
+import { DadesPageShell } from "@/components/dades/DadesPageShell";
+import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { auth } from "@/lib/auth";
+import { llistaCarreguesFitxer } from "@/lib/carrega-fitxer";
 import { db } from "@/lib/db";
+import { HistorialVendes } from "./HistorialVendes";
 import { VendesRestaurantsManager } from "./VendesRestaurantsManager";
-import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Vendes restaurants — OpsiaFinance" };
+
+const tab = getDadesTabById("vendes-restaurants");
 
 export default async function VendesRestaurantsDadesPage({
   searchParams,
@@ -25,7 +30,7 @@ export default async function VendesRestaurantsDadesPage({
         }
       : {};
 
-  const [session, anysRaw, diaries, articles] = await Promise.all([
+  const [session, anysRaw, diaries, articles, carregues] = await Promise.all([
     auth(),
     db.period.findMany({
       where: {
@@ -39,6 +44,7 @@ export default async function VendesRestaurantsDadesPage({
       where: periodFilter,
       select: {
         centreId: true,
+        dia: true,
         unitats: true,
         base: true,
         period: { select: { any: true, mes: true, nom: true } },
@@ -55,6 +61,7 @@ export default async function VendesRestaurantsDadesPage({
         centre: { select: { codi: true, nom: true } },
       },
     }),
+    llistaCarreguesFitxer(["VENDES_V", "VENDES_DETALL", "VENDES_PACK"]),
   ]);
 
   type Acc = {
@@ -65,6 +72,7 @@ export default async function VendesRestaurantsDadesPage({
     centreCodi: string;
     centreNom: string;
     dies: number;
+    diesSet: Set<number>;
     baseDies: number;
     productes: number;
     packs: number;
@@ -84,13 +92,15 @@ export default async function VendesRestaurantsDadesPage({
       centreCodi: d.centre.codi,
       centreNom: d.centre.nom,
       dies: 0,
+      diesSet: new Set<number>(),
       baseDies: 0,
       productes: 0,
       packs: 0,
       baseProductes: 0,
       basePacks: 0,
     };
-    cur.dies += 1;
+    cur.diesSet.add(d.dia);
+    cur.dies = cur.diesSet.size;
     cur.baseDies += Number(d.base);
     map.set(key, cur);
   }
@@ -105,6 +115,7 @@ export default async function VendesRestaurantsDadesPage({
       centreCodi: a.centre.codi,
       centreNom: a.centre.nom,
       dies: 0,
+      diesSet: new Set<number>(),
       baseDies: 0,
       productes: 0,
       packs: 0,
@@ -121,28 +132,33 @@ export default async function VendesRestaurantsDadesPage({
     map.set(key, cur);
   }
 
-  const resums = [...map.values()].sort((a, b) => {
-    if (a.periodAny !== b.periodAny) return b.periodAny - a.periodAny;
-    if (a.periodMes !== b.periodMes) return b.periodMes - a.periodMes;
-    return a.centreCodi.localeCompare(b.centreCodi);
-  });
+  const resums = [...map.values()]
+    .map(({ diesSet: _diesSet, ...r }) => r)
+    .sort((a, b) => {
+      if (a.periodAny !== b.periodAny) return b.periodAny - a.periodAny;
+      if (a.periodMes !== b.periodMes) return b.periodMes - a.periodMes;
+      return a.centreCodi.localeCompare(b.centreCodi);
+    });
 
   const role = session?.user?.role;
   const canEdit = role === "ADMIN" || role === "EDICIO";
   const anys = anysRaw.map((a) => a.any);
   if (!anys.length) anys.push(new Date().getFullYear());
 
-  return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <p className={styles.subtitle}>
-          Vendes TPV per restaurant (LN00001). Tres fitxers mensuals: totals diaris (V), productes
-          (Detall) i packs/menús (Pack). {resums.length} període
-          {resums.length !== 1 ? "s" : ""}/centre
-          {anyFiltre || mesFiltre ? " (filtre actiu)" : ""}.
-        </p>
-      </div>
+  const meta = `${resums.length} període${resums.length !== 1 ? "s" : ""}/centre${
+    anyFiltre || mesFiltre ? " (filtre actiu)" : ""
+  }`;
 
+  return (
+    <DadesPageShell
+      title={tab.title}
+      description={
+        <>
+          {tab.description} {meta}.
+        </>
+      }
+    >
+      <HistorialVendes items={carregues} canEdit={canEdit} />
       <VendesRestaurantsManager
         resums={resums}
         anys={anys}
@@ -150,6 +166,6 @@ export default async function VendesRestaurantsDadesPage({
         filtreAny={anyFiltre}
         filtreMes={mesFiltre}
       />
-    </div>
+    </DadesPageShell>
   );
 }

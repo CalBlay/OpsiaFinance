@@ -7,6 +7,9 @@
   display: flex;
   flex-direction: column;
   gap: var(--opsia-space-1);
+  align-self: stretch;
+  min-height: 100%;
+  overflow-y: auto;
 }
 
 /* ─── Navegació ──────────────────────────────────────────────────────────────── */
@@ -51,6 +54,28 @@
 
 .navItem.active .icon {
   opacity: 1;
+}
+
+.adminBlock {
+  margin-top: auto;
+  padding-top: var(--opsia-space-4);
+  border-top: 1px solid var(--opsia-line-soft);
+}
+
+.adminLabel {
+  margin: 0 0 var(--opsia-space-2);
+  padding: 0 var(--opsia-space-3);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--opsia-ink-soft);
+  opacity: 0.75;
+}
+
+.navItemSecondary {
+  color: var(--opsia-ink-soft);
+  opacity: 0.9;
 }
 
 /* ─── Responsive (mòbil) ─────────────────────────────────────────────────────── */

@@ -1,7 +1,4 @@
-.page {
-  padding: var(--opsia-space-8) var(--opsia-space-10);
-  width: 100%;
-}
+/* Estils específics de la llista d'importacions (el padding ve de DadesPageShell). */
 
 /* ─── Capçalera ──────────────────────────────────────────────────────────────── */
 .header {

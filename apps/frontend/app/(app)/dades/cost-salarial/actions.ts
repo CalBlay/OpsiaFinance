@@ -13,7 +13,7 @@ const ERR = (m: string, errors?: string[]): Result => ({ ok: false, missatge: m,
 async function getEditor() {
   const session = await auth();
   const role = session?.user?.role;
-  if (role === "ADMIN" || role === "EDICIO") return session!.user.id;
+  if (role === "ADMIN" || role === "EDICIO") return session?.user.id ?? null;
   return null;
 }
 
@@ -76,8 +76,16 @@ export async function uploadCostSalarialAction(formData: FormData): Promise<Resu
   const file = formData.get("fitxer");
   if (!(file instanceof File) || file.size === 0) return ERR("Cal seleccionar un fitxer Excel.");
 
+  const modeRaw = String(formData.get("mode") ?? "nomes_nous");
+  const mode = modeRaw === "actualitzar" ? "actualitzar" : "nomes_nous";
+
   const buffer = Buffer.from(await file.arrayBuffer());
-  const result = await importarCostSalarialDesDeBuffer(buffer);
+  const result = await importarCostSalarialDesDeBuffer(buffer, {
+    nomFitxer: file.name,
+    mida: file.size,
+    creatPer: userId,
+    mode,
+  });
   refresh();
   if (!result.ok) return ERR(result.missatge, result.errors);
   return OK(result.missatge, result.errors);
@@ -143,4 +151,25 @@ export async function deleteCostSalarialAction(id: string): Promise<Result> {
   await db.costSalarialRestaurant.delete({ where: { id } });
   refresh();
   return OK("Registre eliminat.");
+}
+
+export async function deleteCarregaCostSalarialAction(carregaId: string): Promise<Result> {
+  const userId = await getEditor();
+  if (!userId) return ERR("Sense permisos.");
+  const { eliminarCarregaFitxer } = await import("@/lib/carrega-fitxer");
+  const r = await eliminarCarregaFitxer(carregaId);
+  refresh();
+  return r.ok ? OK(r.missatge) : ERR(r.missatge);
+}
+
+export async function updateNotesCarregaCostAction(
+  carregaId: string,
+  notes: string
+): Promise<Result> {
+  const userId = await getEditor();
+  if (!userId) return ERR("Sense permisos.");
+  const { actualitzarNotesCarrega } = await import("@/lib/carrega-fitxer");
+  const r = await actualitzarNotesCarrega(carregaId, notes);
+  refresh();
+  return r.ok ? OK(r.missatge) : ERR(r.missatge);
 }

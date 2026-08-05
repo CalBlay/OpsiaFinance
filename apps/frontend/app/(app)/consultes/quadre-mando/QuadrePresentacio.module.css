@@ -1,0 +1,247 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  width: 100%;
+}
+
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+}
+
+.kpi_ok {
+  border-color: rgba(22, 163, 74, 0.35);
+  background: rgba(22, 163, 74, 0.05);
+}
+
+.kpi_warn {
+  border-color: rgba(217, 119, 6, 0.4);
+  background: rgba(217, 119, 6, 0.06);
+}
+
+.kpi_bad {
+  border-color: rgba(220, 38, 38, 0.35);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.kpiLabel {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.kpiValue {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--color-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.kpiHint {
+  font-size: 0.72rem;
+  color: var(--color-muted-foreground);
+}
+
+.meta {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-muted-foreground);
+}
+
+.tableWrap {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: var(--color-card);
+}
+
+.rowSelected {
+  background: rgba(47, 111, 109, 0.08) !important;
+}
+
+.restName {
+  display: block;
+  font-weight: 600;
+  color: var(--color-foreground);
+}
+
+.restCodi {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--color-muted-foreground);
+}
+
+.primeCell {
+  font-weight: 600;
+}
+
+.totalRow {
+  background: rgba(34, 49, 63, 0.04) !important;
+}
+
+.neg {
+  color: #b91c1c;
+}
+
+.pos {
+  color: #15803d;
+}
+
+.semafor {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 999px;
+}
+
+.semafor_verd {
+  background: #16a34a;
+}
+
+.semafor_ambre {
+  background: #d97706;
+}
+
+.semafor_vermell {
+  background: #dc2626;
+}
+
+.semafor_gris {
+  background: #a8a29e;
+}
+
+.hintSelect {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+}
+
+.fitxa {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1.1rem 1.25rem;
+  background: var(--color-card);
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.fitxaHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.fitxaTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.fitxaSub {
+  margin: 0.15rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted-foreground);
+}
+
+.fitxaClose {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.65rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--color-muted-foreground);
+}
+
+.fitxaClose:hover {
+  color: var(--color-foreground);
+  background: rgba(34, 49, 63, 0.05);
+}
+
+.fitxaKpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+}
+
+.fitxaKpis strong {
+  color: var(--color-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.comentarisTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.comentaris ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--color-foreground);
+}
+
+.fitxaLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.fitxaLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--color-border);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--opsia-accent-primary, #2f6f6d);
+}
+
+.fitxaLink:hover {
+  background: rgba(47, 111, 109, 0.06);
+}
+
+@media (max-width: 1200px) {
+  .kpiRow {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .kpiRow {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

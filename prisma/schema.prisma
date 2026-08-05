@@ -22,6 +22,7 @@ model User {
 
   imports Importacio[]
   ajustos Ajust[]
+  carreguesFitxer CarregaFitxer[]
 }
 
 enum UserRole {
@@ -125,6 +126,7 @@ model Period {
   costsSalarials CostSalarialRestaurant[]
   vendesDiaries  VendaDiariaRestaurant[]
   vendesArticles VendaArticleRestaurant[]
+  carreguesFitxer CarregaFitxer[]
 
   @@unique([any, mes])
 }
@@ -552,6 +554,39 @@ enum DepartamentSalarial {
   CUINA
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// MODUL: Historial de càrregues (Cost salarial / Vendes restaurants)
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum TipusCarregaFitxer {
+  COST_SALARIAL
+  VENDES_V
+  VENDES_DETALL
+  VENDES_PACK
+}
+
+/// Registre d'un fitxer Excel pujat (operatiu restaurants).
+model CarregaFitxer {
+  id        String            @id @default(cuid())
+  tipus     TipusCarregaFitxer
+  nomFitxer String
+  mida      Int?
+  periodId  String?
+  period    Period?           @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  resum     String?           // ex. «3 restaurants · maig 2026»
+  notes     String?
+  creatPer  String
+  creatPerUser User           @relation(fields: [creatPer], references: [id])
+  createdAt DateTime          @default(now())
+
+  costsSalarials CostSalarialRestaurant[]
+  vendesDiaries  VendaDiariaRestaurant[]
+  vendesArticles VendaArticleRestaurant[]
+
+  @@index([tipus, createdAt])
+  @@index([periodId])
+}
+
 /// Fet de cost salarial per restaurant, departament (Sala/Cuina) i període.
 /// Font independent del compte de resultats SAP. Upsert per period+centre+departament.
 model CostSalarialRestaurant {
@@ -564,6 +599,9 @@ model CostSalarialRestaurant {
   centre    Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
 
   departament DepartamentSalarial
+
+  carregaId String?
+  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
 
   totalSalari          Decimal @db.Decimal(18, 2) @default(0)
   incentiusMensual     Decimal @db.Decimal(18, 2) @default(0)
@@ -581,6 +619,7 @@ model CostSalarialRestaurant {
   @@unique([periodId, centreId, departament])
   @@index([periodId])
   @@index([centreId])
+  @@index([carregaId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -593,7 +632,8 @@ enum OrigenVendaArticle {
   PACK
 }
 
-/// Vendes diàries agregades (fitxer V_MM_YYYY[_CC].xls). Imports en Base (sense IVA).
+/// Vendes diàries agregades (fitxer V_MM_YYYY[_CC].xls o tickets CCR00008).
+/// Imports en Base (sense IVA). Amb forma de pagament: una fila per dia × forma.
 model VendaDiariaRestaurant {
   id       String   @id @default(cuid())
 
@@ -603,8 +643,14 @@ model VendaDiariaRestaurant {
   centreId String
   centre   Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
 
+  carregaId String?
+  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+
   dia      Int      // 1–31
   data     DateTime @db.Date
+
+  /// "" = format V clàssic (sense desglossament); "Targeta" | "Efectiu" | …
+  formaPagament String @default("")
 
   unitats  Decimal  @db.Decimal(18, 2) @default(0)
   base     Decimal  @db.Decimal(18, 2) @default(0)
@@ -612,9 +658,10 @@ model VendaDiariaRestaurant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([periodId, centreId, dia])
+  @@unique([periodId, centreId, dia, formaPagament])
   @@index([periodId])
   @@index([centreId])
+  @@index([carregaId])
 }
 
 /// Vendes per article del mes (Detall = productes; Pack = packs/menús). Base sense IVA.
@@ -626,6 +673,9 @@ model VendaArticleRestaurant {
 
   centreId String
   centre   Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  carregaId String?
+  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
 
   origen   OrigenVendaArticle
   article  String
@@ -649,6 +699,7 @@ model VendaArticleRestaurant {
   @@index([centreId])
   @@index([origen])
   @@index([categoria])
+  @@index([carregaId])
 }
 
 enum CategoriaVenda {

@@ -1,6 +1,7 @@
 "use client";
 
 import styles from "@/components/consultes/report.module.css";
+import { etiquetaCentre, etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { MESOS_CURTS, MESOS_LLARGS } from "@/lib/periodes";
 import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -25,6 +26,7 @@ export function ComparativaSelectors({
   granularitat,
   mes,
   mesosSeleccionats,
+  nomesEmpresa = false,
 }: {
   arbre: LnOpt[];
   scope: "empresa" | "linia" | "centre";
@@ -32,6 +34,8 @@ export function ComparativaSelectors({
   granularitat: "anual" | "mensual" | "mes";
   mes: number;
   mesosSeleccionats: number[];
+  /** FDLC: només àmbit empresa. */
+  nomesEmpresa?: boolean;
 }) {
   const router = useRouter();
   const [mesosOpen, setMesosOpen] = useState(false);
@@ -105,23 +109,25 @@ export function ComparativaSelectors({
 
   return (
     <div className={styles.selectors}>
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
-          Àmbit
-        </label>
-        <select
-          id={scopeSelectId}
-          className={styles.select}
-          value={scope}
-          onChange={(e) => goScope(e.target.value, "")}
-        >
-          <option value="centre">Centre</option>
-          <option value="empresa">Empresa (Cal Blay)</option>
-          <option value="linia">Línia de negoci</option>
-        </select>
-      </div>
+      {!nomesEmpresa && (
+        <div className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
+            Àmbit
+          </label>
+          <select
+            id={scopeSelectId}
+            className={styles.select}
+            value={scope}
+            onChange={(e) => goScope(e.target.value, "")}
+          >
+            <option value="centre">Centre</option>
+            <option value="empresa">Empresa</option>
+            <option value="linia">Línia de negoci</option>
+          </select>
+        </div>
+      )}
 
-      {scope === "linia" && (
+      {!nomesEmpresa && scope === "linia" && (
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor={lineSelectId}>
             Línia de negoci
@@ -135,14 +141,14 @@ export function ComparativaSelectors({
             <option value="">Selecciona…</option>
             {arbre.map((ln) => (
               <option key={ln.id} value={ln.id}>
-                {ln.codi} · {ln.nom}
+                {etiquetaLiniaNegoci(ln)}
               </option>
             ))}
           </select>
         </div>
       )}
 
-      {scope === "centre" && (
+      {!nomesEmpresa && scope === "centre" && (
         <div className={styles.field}>
           <label className={styles.fieldLabel} htmlFor={centreSelectId}>
             Centre
@@ -155,10 +161,10 @@ export function ComparativaSelectors({
           >
             <option value="">Selecciona…</option>
             {arbre.map((ln) => (
-              <optgroup key={ln.id} label={`${ln.codi} · ${ln.nom}`}>
+              <optgroup key={ln.id} label={etiquetaLiniaNegoci(ln)}>
                 {ln.centres.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.codi} · {c.nom}
+                    {etiquetaCentre(c)}
                   </option>
                 ))}
               </optgroup>

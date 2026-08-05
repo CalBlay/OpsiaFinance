@@ -1,23 +1,38 @@
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
 import { EvolucioChart } from "@/components/consultes/EvolucioChart";
+import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import styles from "@/components/consultes/report.module.css";
+import { auth } from "@/lib/auth";
 import {
   type AmbitEvolucio,
   MESOS_CURTS,
+  type VistaCompte,
   getAnysAmbDades,
   getArbreSeleccio,
   getEvolucioMensual,
 } from "@/lib/consultes";
-import { exclouFdlcDeConsultaLinia } from "@/lib/grups-empresa";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import {
+  exclouFdlcDeConsultaLinia,
+  filtraLiniesPerGrup,
+  grupMostraConsultesLiniaCentre,
+  grupPermetVistaGestio,
+} from "@/lib/grups-empresa";
 import {
   NODE_EBITDA,
   NODE_INGRESSOS,
   buildKpisEmpresa,
   buildKpisInforme,
 } from "@/lib/kpi-definitions";
+import {
+  aplicarGestioEvolucioEmpresa,
+  aplicarGestioEvolucioLn,
+} from "@/lib/repartiment/gestio-consultes";
+import { getInfoGestioConsulta } from "@/lib/repartiment/service";
+import { ajustarImportConsultaAction } from "../actions";
 import { EvolucioSelectors } from "./EvolucioSelectors";
 
 export const dynamic = "force-dynamic";
@@ -26,21 +41,54 @@ export const metadata = { title: "Evolució mensual — OpsiaFinance" };
 export default async function EvolucioPage({
   searchParams,
 }: {
-  searchParams: Promise<{ scope?: string; ln?: string; any?: string }>;
+  searchParams: Promise<{ scope?: string; ln?: string; any?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
-  const [arbre, anys] = await Promise.all([getArbreSeleccio(), getAnysAmbDades()]);
+  const [session, arbre, anys, grup] = await Promise.all([
+    auth(),
+    getArbreSeleccio(),
+    getAnysAmbDades(),
+    getGrupEmpresaActual(),
+  ]);
 
-  const scope: AmbitEvolucio = sp.scope === "linia" ? "linia" : "empresa";
+  const potLinia = grupMostraConsultesLiniaCentre(grup);
+  const scope: AmbitEvolucio = potLinia && sp.scope === "linia" ? "linia" : "empresa";
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
-  const lnId = sp.ln ?? null;
+  const lnId = potLinia ? (sp.ln ?? null) : null;
+  const vista: VistaCompte =
+    grupPermetVistaGestio(grup) && sp.vista === "gestio" ? "gestio" : "directe";
+  const canEdit = session?.user?.role === "ADMIN" && vista === "directe" && scope === "linia";
   const linies = exclouFdlcDeConsultaLinia(
     arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom }))
   );
-  const lnIdsEmpresa = linies.map((l) => l.id);
+  const lnIdsEmpresa = filtraLiniesPerGrup(
+    arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
+    grup
+  ).map((l) => l.id);
+  const rangAny = { des: 1, fins: 12 };
 
   const necessitaLn = scope === "linia" && !lnId;
-  const ev = necessitaLn ? null : await getEvolucioMensual(scope, lnId, anyActual);
+  const [evRaw, infoGestio] = necessitaLn
+    ? [null, null]
+    : await Promise.all([
+        getEvolucioMensual(scope, lnId, anyActual, grup),
+        vista === "gestio" ? getInfoGestioConsulta(anyActual, rangAny) : Promise.resolve(null),
+      ]);
+
+  let ev = evRaw;
+  if (ev && vista === "gestio") {
+    if (scope === "linia" && lnId) {
+      ev = {
+        ...ev,
+        concepts: await aplicarGestioEvolucioLn(lnId, anyActual, ev.concepts),
+      };
+    } else if (scope === "empresa") {
+      ev = {
+        ...ev,
+        concepts: await aplicarGestioEvolucioEmpresa(anyActual, ev.concepts),
+      };
+    }
+  }
 
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
   const findRow = (node: number) => ev?.concepts.find((c) => c.node === node);
@@ -51,6 +99,7 @@ export default async function EvolucioPage({
       : buildKpisInforme((node) => findRow(node)?.total ?? 0)
     : [];
   const periodeLabel = `Acumulat ${anyActual}`;
+  const vistaLabel = vista === "gestio" ? "compte de gestió" : "directe SAP";
 
   const chartSeries = ev
     ? [
@@ -75,7 +124,9 @@ export default async function EvolucioPage({
         <div>
           <h1 className={styles.title}>Evolució mensual</h1>
           <p className={styles.subtitle}>
-            {ev ? `${ev.titol} — ${anyActual}` : "Tria l'àmbit per veure l'evolució mes a mes."}
+            {ev
+              ? `${ev.titol} — ${anyActual} · ${vistaLabel}`
+              : "Tria l'àmbit per veure l'evolució mes a mes."}
           </p>
         </div>
         <EvolucioSelectors
@@ -84,6 +135,9 @@ export default async function EvolucioPage({
           scope={scope}
           lnId={lnId}
           any={anyActual}
+          vista={vista}
+          nomesEmpresa={!potLinia}
+          mostraVistaGestio={grupPermetVistaGestio(grup)}
         />
       </div>
 
@@ -99,6 +153,7 @@ export default async function EvolucioPage({
         </div>
       ) : (
         <>
+          <GestioAvis vista={vista} info={infoGestio} />
           <KpiInformeCards kpis={kpis} periodeLabel={periodeLabel} />
 
           <div className={styles.chartCard}>
@@ -106,14 +161,24 @@ export default async function EvolucioPage({
             <EvolucioChart categories={MESOS_CURTS} series={chartSeries} />
           </div>
 
-          <DetallCompteCollapsible caption="Imports en euros. Fes clic a un import per veure el detall. Les files ressaltades són subtotals i totals.">
+          <DetallCompteCollapsible
+            caption={
+              canEdit
+                ? "Clic a una casella per veure el detall i crear un ajust."
+                : "Imports en euros. Fes clic a un import per veure el detall. Les files ressaltades són subtotals i totals."
+            }
+          >
             <PivotTableDrilldown
               columns={columns}
               rows={ev?.concepts ?? []}
               totalLabel="Any"
               firstColLabel="Concepte"
+              canEdit={canEdit}
+              editConfig={canEdit ? { onSave: ajustarImportConsultaAction } : undefined}
               drilldown={{
                 any: anyActual,
+                vista,
+                grup,
                 lnIdsGrup: scope === "empresa" ? lnIdsEmpresa : undefined,
                 colMap: Object.fromEntries(
                   Array.from({ length: 12 }, (_, i) => [

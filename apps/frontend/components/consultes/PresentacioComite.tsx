@@ -1,6 +1,6 @@
 "use client";
 
-import { formatNum } from "@/lib/utils";
+import { cn, formatNum } from "@/lib/utils";
 import {
   Bar,
   BarChart,
@@ -125,13 +125,39 @@ export function PresentacioComite({
       </header>
 
       <div className={styles.kpiRow}>
-        {kpis.map((k) => (
-          <div key={k.label} className={styles.kpiCard} data-accent={k.accent ?? "cost"}>
-            <span className={styles.kpiLabel}>{k.label}</span>
-            <span className={styles.kpiValue}>{formatNum(k.import_)} €</span>
-            {k.hint && <span className={styles.kpiHint}>{k.hint}</span>}
-          </div>
-        ))}
+        {kpis.map((k) => {
+          const ebitdaAccent =
+            k.accent === "ebitda"
+              ? k.import_ < 0
+                ? "ebitda-neg"
+                : "ebitda-pos"
+              : (k.accent ?? "cost");
+          return (
+            <div key={k.label} className={styles.kpiCard} data-accent={ebitdaAccent}>
+              <span className={styles.kpiLabel}>{k.label}</span>
+              <span
+                className={cn(
+                  styles.kpiValue,
+                  k.accent === "ebitda" && k.import_ < 0 && styles.kpiValueNeg,
+                  k.accent === "ebitda" && k.import_ > 0 && styles.kpiValuePos
+                )}
+              >
+                {formatNum(k.import_)} €
+              </span>
+              {k.hint && (
+                <span
+                  className={cn(
+                    styles.kpiHint,
+                    k.accent === "ebitda" && k.import_ < 0 && styles.kpiHintNeg,
+                    k.accent === "ebitda" && k.import_ > 0 && styles.kpiHintPos
+                  )}
+                >
+                  {k.hint}
+                </span>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <div className={styles.grid2}>

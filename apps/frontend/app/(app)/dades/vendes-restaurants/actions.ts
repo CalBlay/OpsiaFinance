@@ -47,7 +47,10 @@ export async function uploadVendesRestaurantsAction(formData: FormData): Promise
 
   for (const file of files) {
     const buffer = Buffer.from(await file.arrayBuffer());
-    const result = await importarVendesDesDeBuffer(buffer, file.name);
+    const result = await importarVendesDesDeBuffer(buffer, file.name, {
+      creatPer: userId,
+      mida: file.size,
+    });
     if (result.ok) {
       okCount++;
       detalls.push(result.missatge);
@@ -128,7 +131,14 @@ export async function getDetallVendesAction(input: {
 }): Promise<{
   ok: boolean;
   missatge?: string;
-  dies: Array<{ id: string; dia: number; dataIso: string; unitats: number; base: number }>;
+  dies: Array<{
+    id: string;
+    dia: number;
+    dataIso: string;
+    unitats: number;
+    base: number;
+    formaPagament: string;
+  }>;
   productes: Array<{
     id: string;
     article: string;
@@ -171,8 +181,8 @@ export async function getDetallVendesAction(input: {
   const [dies, productes, packs] = await Promise.all([
     db.vendaDiariaRestaurant.findMany({
       where: { periodId: period.id, centreId: input.centreId },
-      orderBy: { dia: "asc" },
-      select: { id: true, dia: true, data: true, unitats: true, base: true },
+      orderBy: [{ dia: "asc" }, { formaPagament: "asc" }],
+      select: { id: true, dia: true, data: true, unitats: true, base: true, formaPagament: true },
     }),
     db.vendaArticleRestaurant.findMany({
       where: { periodId: period.id, centreId: input.centreId, origen: "DETALL" },
@@ -212,6 +222,7 @@ export async function getDetallVendesAction(input: {
       dataIso: d.data.toISOString().slice(0, 10),
       unitats: Number(d.unitats),
       base: Number(d.base),
+      formaPagament: d.formaPagament,
     })),
     productes: (productes as ArtRow[]).map(mapArt),
     packs: (packs as ArtRow[]).map(mapArt),
@@ -272,4 +283,25 @@ export async function deleteVendaArticleAction(id: string): Promise<Result> {
   await db.vendaArticleRestaurant.delete({ where: { id } });
   refresh();
   return OK("Article eliminat.");
+}
+
+export async function deleteCarregaVendesAction(carregaId: string): Promise<Result> {
+  const userId = await getEditor();
+  if (!userId) return ERR("Sense permisos.");
+  const { eliminarCarregaFitxer } = await import("@/lib/carrega-fitxer");
+  const r = await eliminarCarregaFitxer(carregaId);
+  refresh();
+  return r.ok ? OK(r.missatge) : ERR(r.missatge);
+}
+
+export async function updateNotesCarregaVendesAction(
+  carregaId: string,
+  notes: string
+): Promise<Result> {
+  const userId = await getEditor();
+  if (!userId) return ERR("Sense permisos.");
+  const { actualitzarNotesCarrega } = await import("@/lib/carrega-fitxer");
+  const r = await actualitzarNotesCarrega(carregaId, notes);
+  refresh();
+  return r.ok ? OK(r.missatge) : ERR(r.missatge);
 }

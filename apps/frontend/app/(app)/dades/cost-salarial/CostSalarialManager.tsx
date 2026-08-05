@@ -1,10 +1,13 @@
 "use client";
 
+import { DadesFilterBar, coincideixCerca } from "@/components/dades/DadesFilterBar";
+import { DadesEmpty, DadesNewBtn, dadesUi as ui } from "@/components/dades/DadesPanel";
+import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
-import { Check, Pencil, Plus, Trash2, Upload, X } from "lucide-react";
+import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import {
   type CostSalarialInput,
   deleteCostSalarialAction,
@@ -88,6 +91,9 @@ export function CostSalarialManager({
   const [departament, setDepartament] = useState<"SALA" | "CUINA">("SALA");
   const [nums, setNums] = useState({ ...EMPTY_NUMS });
   const [notes, setNotes] = useState("");
+  const [query, setQuery] = useState("");
+  /** Per defecte només afegeix mesos/línies noves (fitxer acumulatiu). */
+  const [actualitzarExistents, setActualitzarExistents] = useState(false);
 
   const notify = (r: Result) => {
     setFeedback(r);
@@ -121,6 +127,7 @@ export function CostSalarialManager({
     if (!file) return;
     const fd = new FormData();
     fd.set("fitxer", file);
+    fd.set("mode", actualitzarExistents ? "actualitzar" : "nomes_nous");
     startTransition(async () => {
       const r = await uploadCostSalarialAction(fd);
       notify(r);
@@ -183,6 +190,12 @@ export function CostSalarialManager({
     r.indemnitzacions +
     r.foraCentre;
 
+  const registresFiltrats = useMemo(() => {
+    return registres.filter((r) =>
+      coincideixCerca(`${r.centreLabel} ${r.departament} ${r.periodNom} ${r.notes ?? ""}`, query)
+    );
+  }, [registres, query]);
+
   return (
     <>
       {feedback && (
@@ -200,73 +213,78 @@ export function CostSalarialManager({
       )}
 
       {canEdit && (
-        <div className={styles.uploadCard}>
-          <div>
-            <h3 className={styles.uploadTitle}>Pujar Excel</h3>
-            <p className={styles.uploadHint}>
-              Format: Data, Nom Restaurant, Departament (Sala/Cuina) i partides. Només afegeix o
-              actualitza línies existents (mes + restaurant + departament).
-            </p>
-          </div>
-          <label className={styles.uploadBtn}>
-            <Upload size={16} />
-            {isPending ? "Processant…" : "Seleccionar fitxer"}
+        <>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.xlsm"
+            hidden
+            disabled={isPending}
+            onChange={(e) => pujar(e.target.files?.[0] ?? null)}
+          />
+          <label className={styles.importMode}>
             <input
-              ref={fileRef}
-              type="file"
-              accept=".xlsx,.xls,.xlsm"
-              hidden
+              type="checkbox"
+              checked={actualitzarExistents}
+              onChange={(e) => setActualitzarExistents(e.target.checked)}
               disabled={isPending}
-              onChange={(e) => pujar(e.target.files?.[0] ?? null)}
             />
+            <span>
+              En pujar amb +: actualitzar també línies ja carregades (per defecte només afegeix el
+              mes nou)
+            </span>
           </label>
-        </div>
+          <FloatingAddButton
+            label="Pujar Excel de cost salarial"
+            disabled={isPending}
+            onClick={() => fileRef.current?.click()}
+          />
+        </>
       )}
 
-      <div className={styles.filters}>
-        <div className={styles.field}>
-          <label className={styles.fieldLabel}>Any</label>
-          <select
-            className={styles.input}
-            value={filtreAny ?? ""}
-            onChange={(e) => aplicarFiltre(e.target.value, filtreMes ? String(filtreMes) : "")}
-          >
-            <option value="">Tots</option>
-            {anys.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className={styles.field}>
-          <label className={styles.fieldLabel}>Mes</label>
-          <select
-            className={styles.input}
-            value={filtreMes ?? ""}
-            onChange={(e) => aplicarFiltre(filtreAny ? String(filtreAny) : "", e.target.value)}
-          >
-            <option value="">Tots</option>
-            {MESOS_LLARGS.map((m, i) => (
-              <option key={m} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <DadesFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Cerca restaurant, departament, període…"
+        onClear={() => {
+          setQuery("");
+          aplicarFiltre("", "");
+        }}
+        filters={[
+          {
+            id: "any",
+            value: filtreAny ? String(filtreAny) : "",
+            onChange: (v) => aplicarFiltre(v, filtreMes ? String(filtreMes) : ""),
+            options: anys.map((y) => ({ value: String(y), label: String(y) })),
+            allLabel: "Tots els anys",
+            "aria-label": "Filtra per any",
+          },
+          {
+            id: "mes",
+            value: filtreMes ? String(filtreMes) : "",
+            onChange: (v) => aplicarFiltre(filtreAny ? String(filtreAny) : "", v),
+            options: MESOS_LLARGS.map((m, i) => ({
+              value: String(i + 1),
+              label: m,
+            })),
+            allLabel: "Tots els mesos",
+            "aria-label": "Filtra per mes",
+          },
+        ]}
+        summary={
+          query.trim() ? `${registresFiltrats.length} de ${registres.length} registres` : undefined
+        }
+      />
 
       {canEdit && !obert && (
-        <button
-          type="button"
-          className={styles.newBtn}
+        <DadesNewBtn
           onClick={() => {
             reset();
             setObert(true);
           }}
         >
           <Plus size={16} /> Nou registre
-        </button>
+        </DadesNewBtn>
       )}
 
       {obert && (
@@ -274,8 +292,11 @@ export function CostSalarialManager({
           <h3 className={styles.formTitle}>{editId ? "Editar registre" : "Nou registre"}</h3>
           <div className={styles.formGrid}>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Any</label>
+              <label className={styles.fieldLabel} htmlFor="cost-salarial-any">
+                Any
+              </label>
               <input
+                id="cost-salarial-any"
                 className={styles.input}
                 type="number"
                 value={any}
@@ -283,8 +304,11 @@ export function CostSalarialManager({
               />
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Mes</label>
+              <label className={styles.fieldLabel} htmlFor="cost-salarial-mes">
+                Mes
+              </label>
               <select
+                id="cost-salarial-mes"
                 className={styles.input}
                 value={mes}
                 onChange={(e) => setMes(Number(e.target.value))}
@@ -297,8 +321,11 @@ export function CostSalarialManager({
               </select>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Restaurant</label>
+              <label className={styles.fieldLabel} htmlFor="cost-salarial-restaurant">
+                Restaurant
+              </label>
               <select
+                id="cost-salarial-restaurant"
                 className={styles.input}
                 value={centreId}
                 onChange={(e) => setCentreId(e.target.value)}
@@ -312,8 +339,11 @@ export function CostSalarialManager({
               </select>
             </div>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Departament</label>
+              <label className={styles.fieldLabel} htmlFor="cost-salarial-departament">
+                Departament
+              </label>
               <select
+                id="cost-salarial-departament"
                 className={styles.input}
                 value={departament}
                 onChange={(e) => setDepartament(e.target.value as "SALA" | "CUINA")}
@@ -336,8 +366,11 @@ export function CostSalarialManager({
               ] as const
             ).map(([key, label]) => (
               <div key={key} className={styles.field}>
-                <label className={styles.fieldLabel}>{label}</label>
+                <label className={styles.fieldLabel} htmlFor={`cost-salarial-${key}`}>
+                  {label}
+                </label>
                 <input
+                  id={`cost-salarial-${key}`}
                   className={styles.input}
                   inputMode="decimal"
                   value={String(nums[key]).replace(".", ",")}
@@ -347,8 +380,11 @@ export function CostSalarialManager({
             ))}
 
             <div className={cn(styles.field, styles.full)}>
-              <label className={styles.fieldLabel}>Notes</label>
+              <label className={styles.fieldLabel} htmlFor="cost-salarial-notes">
+                Notes
+              </label>
               <input
+                id="cost-salarial-notes"
                 className={styles.input}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
@@ -368,45 +404,46 @@ export function CostSalarialManager({
       )}
 
       {registres.length === 0 ? (
-        <div className={styles.empty}>
-          <p className={styles.emptyTitle}>Sense registres</p>
-          <p className={styles.emptyText}>
-            Puja l&apos;Excel de cost salarial o crea un registre manualment.
-          </p>
-        </div>
+        <DadesEmpty
+          boxed
+          title="Sense registres"
+          text="Puja l&apos;Excel de cost salarial o crea un registre manualment."
+        />
+      ) : registresFiltrats.length === 0 ? (
+        <DadesEmpty boxed title="Cap resultat" text="Prova a canviar la cerca o els filtres." />
       ) : (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
+        <div className={ui.tableWrap}>
+          <table className={ui.table}>
             <thead>
               <tr>
                 <th>Període</th>
                 <th>Restaurant</th>
                 <th>Dept.</th>
-                <th className={styles.right}>Total</th>
-                <th className={styles.right}>Salari</th>
-                <th className={styles.right}>Incentius</th>
-                <th className={styles.right}>H. extres</th>
-                <th className={styles.right}>Altres</th>
+                <th className={ui.right}>Total</th>
+                <th className={ui.right}>Salari</th>
+                <th className={ui.right}>Incentius</th>
+                <th className={ui.right}>H. extres</th>
+                <th className={ui.right}>Altres</th>
                 {canEdit && <th />}
               </tr>
             </thead>
             <tbody>
-              {registres.map((r) => (
+              {registresFiltrats.map((r) => (
                 <tr key={r.id}>
-                  <td className={styles.nowrap}>{r.periodNom}</td>
+                  <td className={ui.nowrap}>{r.periodNom}</td>
                   <td>{r.centreLabel}</td>
                   <td>{r.departament === "SALA" ? "Sala" : "Cuina"}</td>
-                  <td className={styles.right}>{formatNum(totalRegistre(r))}</td>
-                  <td className={styles.right}>{formatNum(r.totalSalari)}</td>
-                  <td className={styles.right}>
+                  <td className={ui.right}>{formatNum(totalRegistre(r))}</td>
+                  <td className={ui.right}>{formatNum(r.totalSalari)}</td>
+                  <td className={ui.right}>
                     {formatNum(r.incentiusMensual + r.incentiuTrimestral)}
                   </td>
-                  <td className={styles.right}>{formatNum(r.horesExtres)}</td>
-                  <td className={styles.right}>
+                  <td className={ui.right}>{formatNum(r.horesExtres)}</td>
+                  <td className={ui.right}>
                     {formatNum(r.altres + r.baixes + r.indemnitzacions + r.foraCentre)}
                   </td>
                   {canEdit && (
-                    <td className={styles.nowrap}>
+                    <td className={ui.nowrap}>
                       <button
                         type="button"
                         className={styles.iconBtn}

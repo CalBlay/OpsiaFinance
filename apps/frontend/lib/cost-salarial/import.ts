@@ -1,3 +1,5 @@
+import { crearCarregaFitxer } from "@/lib/carrega-fitxer";
+import { indexaCentrePerNom, normalitzaNomRestaurant } from "@/lib/cost-salarial/restaurant-noms";
 import { db } from "@/lib/db";
 import {
   type CostSalarialLiniaParsed,
@@ -5,34 +7,14 @@ import {
 } from "@/lib/excel-parsers/cost-salarial-restaurants";
 import { MESOS_LLARGS } from "@/lib/periodes";
 
+export {
+  normalitzaNomRestaurant,
+  clauRestaurant,
+  ALIASES_RESTAURANT,
+  RESTAURANTS_FITXER_COST_SALARIAL,
+} from "@/lib/cost-salarial/restaurant-noms";
+
 const CODI_LN_RESTAURANTS = "LN00001";
-
-/** Aliases Excel → nom curt del centre (sense prefix RESTAURANT). */
-const ALIASES_RESTAURANT: Record<string, string> = {
-  origens: "origens",
-  nautic: "nautic",
-  "masia esplugues": "masia esplugues",
-  "camp nou": "camp nou",
-  "camp nou cal blay": "camp nou",
-  "tarraco arena": "tarraco arena",
-  mirador: "mirador",
-  "juno house": "juno house",
-  plural: "plural",
-  soliver: "soliver",
-  greenvita: "greenvita",
-  "green vita": "greenvita",
-};
-
-export function normalitzaNomRestaurant(nom: string): string {
-  const s = nom
-    .normalize("NFD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/^restaurant\s+/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return ALIASES_RESTAURANT[s] ?? s;
-}
 
 export function costTotalLinia(l: {
   totalSalari: number;
@@ -76,7 +58,7 @@ async function carregaCentresRestaurants() {
 
   const byNom = new Map<string, { id: string; codi: string; nom: string }>();
   for (const c of ln.centres) {
-    byNom.set(normalitzaNomRestaurant(c.nom), c);
+    indexaCentrePerNom(byNom, c);
   }
   return { lnId: ln.id, byNom };
 }
@@ -95,13 +77,19 @@ export interface ImportCostSalarialResult {
   missatge: string;
   creades: number;
   actualitzades: number;
+  ignorades: number;
   errors: string[];
+  carregaId?: string;
 }
+
+export type ModeImportCostSalarial = "nomes_nous" | "actualitzar";
 
 export async function upsertLiniesCostSalarial(
   linies: CostSalarialLiniaParsed[],
-  errorsPrev: string[] = []
+  errorsPrev: string[] = [],
+  opts?: { carregaId?: string; mode?: ModeImportCostSalarial }
 ): Promise<ImportCostSalarialResult> {
+  const mode = opts?.mode ?? "nomes_nous";
   const errors = [...errorsPrev];
   const { byNom } = await carregaCentresRestaurants();
   if (byNom.size === 0) {
@@ -110,24 +98,61 @@ export async function upsertLiniesCostSalarial(
       missatge: "No s'han trobat centres de la LN Restaurants (LN00001).",
       creades: 0,
       actualitzades: 0,
+      ignorades: 0,
       errors,
     };
   }
 
+  // Claus ja a BD: any-mes-centreId-departament (una sola query).
+  const existents = await db.costSalarialRestaurant.findMany({
+    select: {
+      id: true,
+      centreId: true,
+      departament: true,
+      period: { select: { any: true, mes: true } },
+    },
+  });
+  const perClau = new Map(
+    existents.map(
+      (e) => [`${e.period.any}-${e.period.mes}-${e.centreId}-${e.departament}`, e.id] as const
+    )
+  );
+  const clausEnAquestFitxer = new Set<string>();
+
   let creades = 0;
   let actualitzades = 0;
+  let ignorades = 0;
 
   for (const l of linies) {
-    const clau = normalitzaNomRestaurant(l.nomRestaurant);
-    const centre = byNom.get(clau);
+    const clauNom = normalitzaNomRestaurant(l.nomRestaurant);
+    const centre = byNom.get(clauNom);
     if (!centre) {
+      const disponibles = [
+        ...new Set([...byNom.values()].map((c) => c.nom.replace(/^Restaurant\s+/i, ""))),
+      ].sort((a, b) => a.localeCompare(b, "ca"));
       errors.push(
-        `Fila ${l.filaExcel}: restaurant «${l.nomRestaurant}» no trobat als centres (clau «${clau}»).`
+        `Fila ${l.filaExcel}: restaurant «${l.nomRestaurant}» no trobat (clau «${clauNom}»). Centres LN: ${disponibles.join(", ")}.`
       );
       continue;
     }
 
     const periodId = await resolPeriodId(l.any, l.mes);
+    const clau = `${l.any}-${l.mes}-${centre.id}-${l.departament}`;
+    if (clausEnAquestFitxer.has(clau)) {
+      errors.push(
+        `Fila ${l.filaExcel}: línia duplicada al fitxer (${l.any}-${l.mes}, ${l.nomRestaurant}, ${l.departament}).`
+      );
+      continue;
+    }
+    clausEnAquestFitxer.add(clau);
+
+    const existentId = perClau.get(clau);
+
+    if (existentId && mode === "nomes_nous") {
+      ignorades++;
+      continue;
+    }
+
     const data = {
       totalSalari: l.totalSalari,
       incentiusMensual: l.incentiusMensual,
@@ -137,22 +162,12 @@ export async function upsertLiniesCostSalarial(
       baixes: l.baixes,
       indemnitzacions: l.indemnitzacions,
       foraCentre: l.foraCentre,
+      ...(opts?.carregaId ? { carregaId: opts.carregaId } : {}),
     };
 
-    const existent = await db.costSalarialRestaurant.findUnique({
-      where: {
-        periodId_centreId_departament: {
-          periodId,
-          centreId: centre.id,
-          departament: l.departament,
-        },
-      },
-      select: { id: true },
-    });
-
-    if (existent) {
+    if (existentId) {
       await db.costSalarialRestaurant.update({
-        where: { id: existent.id },
+        where: { id: existentId },
         data,
       });
       actualitzades++;
@@ -171,27 +186,55 @@ export async function upsertLiniesCostSalarial(
 
   const processades = creades + actualitzades;
   if (processades === 0) {
+    if (ignorades > 0) {
+      return {
+        ok: true,
+        missatge: `Cap línia nova: ${ignorades} ja eren a la base de dades (fitxer acumulatiu). Afegeix el mes nou a l'Excel o activa «Actualitzar existents».`,
+        creades,
+        actualitzades,
+        ignorades,
+        errors,
+        carregaId: opts?.carregaId,
+      };
+    }
     return {
       ok: false,
       missatge: "Cap línia importada.",
       creades,
       actualitzades,
+      ignorades,
       errors,
+      carregaId: opts?.carregaId,
     };
   }
 
+  const parts = [
+    creades ? `${creades} noves` : null,
+    actualitzades ? `${actualitzades} actualitzades` : null,
+    ignorades ? `${ignorades} ja existien (ignorades)` : null,
+  ].filter(Boolean);
+
   return {
     ok: true,
-    missatge: `Importades ${creades} noves i actualitzades ${actualitzades}.${errors.length ? ` ${errors.length} avisos.` : ""}`,
+    missatge: `Importació: ${parts.join(" · ")}.${errors.length ? ` ${errors.length} avisos.` : ""}`,
     creades,
     actualitzades,
+    ignorades,
     errors,
+    carregaId: opts?.carregaId,
   };
 }
 
 export async function importarCostSalarialDesDeBuffer(
-  buffer: Buffer
+  buffer: Buffer,
+  opts: {
+    nomFitxer: string;
+    mida?: number;
+    creatPer: string;
+    mode?: ModeImportCostSalarial;
+  }
 ): Promise<ImportCostSalarialResult> {
+  const mode = opts.mode ?? "nomes_nous";
   const parsed = parseCostSalarialRestaurantsBuffer(buffer);
   if (!parsed.linies.length && parsed.errors.length) {
     return {
@@ -199,8 +242,38 @@ export async function importarCostSalarialDesDeBuffer(
       missatge: "No s'ha pogut processar l'Excel.",
       creades: 0,
       actualitzades: 0,
+      ignorades: 0,
       errors: parsed.errors,
     };
   }
-  return upsertLiniesCostSalarial(parsed.linies, parsed.errors);
+
+  const periodes = [...new Set(parsed.linies.map((l) => `${MESOS_LLARGS[l.mes - 1]} ${l.any}`))];
+  const restaurants = new Set(parsed.linies.map((l) => l.nomRestaurant));
+  const periodId =
+    parsed.linies.length === 1
+      ? await resolPeriodId(parsed.linies[0].any, parsed.linies[0].mes)
+      : parsed.linies.every((l) => l.any === parsed.linies[0].any && l.mes === parsed.linies[0].mes)
+        ? await resolPeriodId(parsed.linies[0].any, parsed.linies[0].mes)
+        : null;
+
+  const modeLabel = mode === "nomes_nous" ? "només noves" : "amb actualització";
+  const carregaId = await crearCarregaFitxer({
+    tipus: "COST_SALARIAL",
+    nomFitxer: opts.nomFitxer,
+    mida: opts.mida ?? buffer.length,
+    periodId,
+    resum: `${restaurants.size} restaurant${restaurants.size !== 1 ? "s" : ""} · ${periodes.join(", ")} · ${modeLabel}`,
+    creatPer: opts.creatPer,
+  });
+
+  const result = await upsertLiniesCostSalarial(parsed.linies, parsed.errors, {
+    carregaId,
+    mode,
+  });
+  // Si no s'ha creat ni actualitzat res, esborra l'entrada d'historial buida.
+  if (result.creades + result.actualitzades === 0) {
+    await db.carregaFitxer.delete({ where: { id: carregaId } }).catch(() => undefined);
+    return { ...result, carregaId: undefined };
+  }
+  return result;
 }

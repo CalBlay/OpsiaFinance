@@ -1,12 +1,26 @@
 import { esSubtotalPresentacio, recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import { aplicarConsolidacio } from "@/lib/consolidacio/service";
+import { etiquetaCentre, etiquetaLiniaNegoci, ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { db } from "@/lib/db";
+import { FDLC_LN_CODI } from "@/lib/fdlc/constants";
+import {
+  CENTRE_CODI_MIRALL_SERVEIS_FDLC,
+  CODI_LN_MIRALL_SERVEIS_FDLC,
+  FDLC_NODE_SERVEIS_RESTAURANT,
+  aplicarReclassificacioMirallConsolidat,
+  esCentreMirallServeisFdlc,
+  getImportMirallServeisFdlcRang,
+  getImportsMirallServeisFdlcPerMes,
+} from "@/lib/fdlc/mirall-vendes-centre";
 import {
   GRUP_EMPRESA_DEFAULT,
   type GrupEmpresa,
   etiquetaGrupEmpresa,
   filtraLiniesPerGrup,
+  grupAplicaConsolidacioIntra,
+  grupPermetVistaGestio,
 } from "@/lib/grups-empresa";
+import { NODE_VENDES } from "@/lib/kpi-definitions";
 import { esColumnaTotalLnRedundant, lnInformePerAgregacio } from "@/lib/linia-informe";
 import { MESOS_CURTS, MESOS_LLARGS, type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import type { Prisma } from "@prisma/client";
@@ -28,8 +42,9 @@ async function consolidarSiEmpresaAsync(
   mode: "columnes-ln" | "temporal",
   grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<ConceptePivot[]> {
-  // La consolidació intra-empresa només aplica a Cal Blay, no a FDLC.
-  if (scope !== "empresa" || grup !== "calblay") return concepts;
+  if (scope !== "empresa") return concepts;
+  const { grupAplicaConsolidacioIntra } = await import("@/lib/grups-empresa");
+  if (!grupAplicaConsolidacioIntra(grup)) return concepts;
   return aplicarConsolidacio(concepts, "CALBLAY_INTRA", mode);
 }
 
@@ -88,7 +103,44 @@ export async function getAnysAmbDades(): Promise<number[]> {
   return periods.map((p) => p.any);
 }
 
-/** Línies de negoci amb els seus centres (per als selectors), ordre alfabètic. */
+/** Darrer mes (any+mes) amb dades de resultat del grup seleccionat.
+ *  Cal Blay / FDLC: últim mes d'aquell àmbit; Consolidat: el més recent de tots. */
+export async function getDarrerPeriodAmbDades(grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT): Promise<{
+  any: number;
+  mes: number;
+} | null> {
+  const filtreDades: Prisma.DadaResultatWhereInput =
+    grup === "fdlc"
+      ? {
+          OR: [
+            { liniaNegoci: { codi: FDLC_LN_CODI } },
+            { importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } } },
+          ],
+        }
+      : grup === "calblay"
+        ? {
+            AND: [
+              {
+                OR: [{ liniaNegociId: null }, { liniaNegoci: { codi: { not: FDLC_LN_CODI } } }],
+              },
+              {
+                NOT: {
+                  importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } },
+                },
+              },
+            ],
+          }
+        : {};
+
+  const dada = await db.dadaResultat.findFirst({
+    where: filtreDades,
+    select: { period: { select: { any: true, mes: true } } },
+    orderBy: [{ period: { any: "desc" } }, { period: { mes: "desc" } }],
+  });
+  return dada?.period ?? null;
+}
+
+/** Línies de negoci amb els seus centres (per als selectors), ordre per codi. */
 export async function getArbreSeleccio() {
   const rows = await db.liniaNegoci.findMany({
     where: { isActive: true },
@@ -102,14 +154,12 @@ export async function getArbreSeleccio() {
       },
     },
   });
-  const alpha = (a: string, b: string) =>
-    a.localeCompare(b, "ca", { sensitivity: "base", numeric: true });
-  return rows
-    .map((ln) => ({
+  return ordenaPerCodi(
+    rows.map((ln) => ({
       ...ln,
-      centres: [...ln.centres].sort((a, b) => alpha(a.nom, b.nom) || alpha(a.codi, b.codi)),
+      centres: ordenaPerCodi(ln.centres),
     }))
-    .sort((a, b) => alpha(a.nom, b.nom) || alpha(a.codi, b.codi));
+  );
 }
 
 /* ─── Consulta: C.Explotació d'un centre, anual per mesos ─────────────────────── */
@@ -161,6 +211,22 @@ export async function getCompteExplotacioCentre(
     if (mesIdx >= 0 && mesIdx < 12) arr[mesIdx] += Number(d.import_);
   }
 
+  // FDLC 70500002 → VENDES a CCR00008 (només aquesta vista; no toca agregacions Cal Blay)
+  let mirallTeDades = false;
+  if (centre && esCentreMirallServeisFdlc(centre.codi)) {
+    const mirall = await getImportsMirallServeisFdlcPerMes(any);
+    const vendesId = concepts.find((c) => c.node === NODE_VENDES)?.id;
+    if (vendesId) {
+      const arr = perConcepte.get(vendesId);
+      if (arr) {
+        for (let i = 0; i < 12; i++) {
+          if (mirall[i] !== 0) mirallTeDades = true;
+          arr[i] += mirall[i];
+        }
+      }
+    }
+  }
+
   const rows: ConceptePivot[] = concepts.map((c) => {
     const valors = perConcepte.get(c.id) ?? new Array(12).fill(0);
     return {
@@ -187,7 +253,7 @@ export async function getCompteExplotacioCentre(
     centre,
     any,
     concepts: conceptsOut,
-    buit: dades.length === 0 && ajustos.length === 0,
+    buit: dades.length === 0 && ajustos.length === 0 && !mirallTeDades,
   };
 }
 
@@ -503,7 +569,7 @@ export async function getComparativaEmpresa(
 
   let conceptRows = buildRows(concepts, perConcepte);
 
-  if (vista === "gestio" && grup === "calblay") {
+  if (vista === "gestio" && grupPermetVistaGestio(grup)) {
     const { aplicarGestioRepartiment, carregarDeltasGestioAgregats } = await import(
       "@/lib/repartiment/gestio-consultes"
     );
@@ -530,6 +596,13 @@ export async function getComparativaEmpresa(
     conceptRows = aplicarGestioRepartiment(concepts, conceptRows, lnIds, deltaByLnNode);
   }
 
+  // Consolidat · Gestió: Prestació serveis FDLC → Vendes LN00001 (mirall CCR00008).
+  // En Directe es deixa tal com ve de SAP (Prestació a FDLC, sense sumar a Restaurants).
+  if (grup === "consolidat" && vista === "gestio") {
+    const mirall = await getImportMirallServeisFdlcRang(any, rang);
+    conceptRows = aplicarReclassificacioMirallConsolidat(conceptRows, linies, mirall);
+  }
+
   const dadesGrup = dades.filter((d) => {
     if (esColumnaTotalLnRedundant(d)) return false;
     const lnId = lnInformePerAgregacio(d);
@@ -542,7 +615,7 @@ export async function getComparativaEmpresa(
 
   // Columnes LN = mateix criteri que Evolució/Per línia (sense consolidar).
   // La consolidació només afecta el total d'empresa (evita doble còmput inter-LN).
-  if (grup === "calblay") {
+  if (grupAplicaConsolidacioIntra(grup)) {
     const consolidat = await aplicarConsolidacio(conceptRows, "CALBLAY_INTRA", "columnes-ln");
     const totalPerNode = new Map(consolidat.map((r) => [r.node, r.total]));
     conceptRows = conceptRows.map((r) => ({
@@ -611,7 +684,7 @@ export async function getEvolucioMensual(
     const rows = pivotMensualDesDeMoviments(concepts, [...dades, ...ajustosAll]);
     return {
       scope,
-      titol: ln ? `${ln.codi} · ${ln.nom}` : "Línia de negoci",
+      titol: ln ? etiquetaLiniaNegoci(ln) : "Línia de negoci",
       any,
       concepts: rows,
       buit: dades.length === 0 && ajustosAll.length === 0,
@@ -661,7 +734,7 @@ async function resolveAmbitTemporal(
     });
     return {
       mode: "linia",
-      titol: ln ? `${ln.codi} · ${ln.nom}` : "Línia de negoci",
+      titol: ln ? etiquetaLiniaNegoci(ln) : "Línia de negoci",
       liniaNegociId: id,
     };
   }
@@ -669,7 +742,7 @@ async function resolveAmbitTemporal(
     const c = await db.centre.findUnique({ where: { id }, select: { codi: true, nom: true } });
     return {
       mode: "centre",
-      titol: c ? `${c.codi} · ${c.nom}` : "Centre",
+      titol: c ? etiquetaCentre(c) : "Centre",
       centreId: id,
     };
   }
@@ -778,9 +851,10 @@ export interface ComparativaMensualAnys {
 export async function getComparativaMensualEntreAnys(
   scope: AmbitTemporal,
   id: string | null,
-  anys: number[]
+  anys: number[],
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<ComparativaMensualAnys> {
-  const ambit = await resolveAmbitTemporal(scope, id);
+  const ambit = await resolveAmbitTemporal(scope, id, grup);
   const anysOrdenats = [...anys].sort((a, b) => a - b);
   const { concepts, moviments, titol, buit } = await carregarMovimentsAmbit(ambit, {
     any: { in: anysOrdenats },
@@ -806,7 +880,7 @@ export async function getComparativaMensualEntreAnys(
   const anysAmbDades: number[] = [];
   for (const year of anysOrdenats) {
     const rows = buildRows(concepts, perAnyConcepte.get(year) ?? new Map<string, number[]>());
-    perAny[year] = await consolidarSiEmpresaAsync(scope, rows, "temporal");
+    perAny[year] = await consolidarSiEmpresaAsync(scope, rows, "temporal", grup);
     if (perAny[year].some((r) => r.total !== 0)) anysAmbDades.push(year);
   }
 
@@ -830,9 +904,10 @@ export async function getComparativaTemporal(
     anys: number[];
     any?: number;
     mes?: number;
-  }
+  },
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<ComparativaTemporal> {
-  const ambit = await resolveAmbitTemporal(scope, id);
+  const ambit = await resolveAmbitTemporal(scope, id, grup);
   const { granularitat, anys, any, mes } = opts;
 
   // ─── Mensual: 12 columnes = mesos d'un any concret ───────────────────────────
@@ -845,7 +920,7 @@ export async function getComparativaTemporal(
       titol,
       granularitat,
       columnes,
-      concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal"),
+      concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal", grup),
       buit,
       periodeDesc: `Mes a mes · ${any}`,
     };
@@ -880,7 +955,7 @@ export async function getComparativaTemporal(
       titol,
       granularitat,
       columnes,
-      concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal"),
+      concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal", grup),
       buit,
       periodeDesc: `${MESOS_LLARGS[mes - 1]} · comparació entre anys`,
     };
@@ -913,7 +988,7 @@ export async function getComparativaTemporal(
     titol,
     granularitat: "anual",
     columnes,
-    concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal"),
+    concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal", grup),
     buit,
     periodeDesc: "Acumulat anual per exercici",
   };
@@ -922,7 +997,7 @@ export async function getComparativaTemporal(
 /* ─── Drill-down: detall d'una cel·la del compte ─────────────────────────────── */
 
 export interface DetallCellaItem {
-  origen: "dada" | "ajust";
+  origen: "dada" | "ajust" | "repartiment" | "mirall";
   import_: number;
   centreCodi: string | null;
   centreNom: string | null;
@@ -939,6 +1014,8 @@ export interface DetallCellaResult {
   items: DetallCellaItem[];
   totalDades: number;
   totalAjustos: number;
+  totalRepartiment: number;
+  totalMirall: number;
   total: number;
 }
 
@@ -951,6 +1028,10 @@ export interface DetallCellaParams {
   liniaNegociId?: string;
   /** IDs de LN permesos al grup (Cal Blay o FDLC). Si s'ometen no es filtra per grup. */
   lnIdsGrup?: string[];
+  /** Si és gestió, inclou imputacions de repartiment confirmat. */
+  vista?: "directe" | "gestio";
+  /** Àmbit d'empresa (calblay / fdlc / consolidat). */
+  grup?: GrupEmpresa;
 }
 
 export async function getDetallCella(params: DetallCellaParams): Promise<DetallCellaResult> {
@@ -965,6 +1046,8 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
       items: [],
       totalDades: 0,
       totalAjustos: 0,
+      totalRepartiment: 0,
+      totalMirall: 0,
       total: 0,
     };
   }
@@ -1067,6 +1150,212 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     })),
   ];
 
+  let totalRepartiment = 0;
+  let totalMirall = 0;
+
+  // Vista Gestió: afegir imputacions de repartiment (totals → línia de detall).
+  // No s'apliquen a nivell centre (van a la columna Repart. / total LN).
+  if (params.vista === "gestio" && !params.centreId) {
+    const { nodeTotalDesDeDetall } = await import("@/lib/repartiment/nodes");
+    const { getDeltasGestioPerLn } = await import("@/lib/repartiment/service");
+
+    // Només a la línia de detall (p.ex. SOUS ← delta del total 17),
+    // perquè el subtotal ja incorpora el delta via suma dels fills.
+    const nodeDelta = nodeTotalDesDeDetall(concepte.node);
+
+    if (nodeDelta != null) {
+      const periods = await db.period.findMany({
+        where: periodWhere,
+        select: { id: true, any: true, mes: true },
+        orderBy: { mes: "asc" },
+      });
+      const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));
+
+      const lnFilter = params.liniaNegociId ? new Set([params.liniaNegociId]) : lnIdsGrupSet;
+
+      const lnIdsNeeded = new Set<string>();
+      for (const perLn of deltasPerPeriode.values()) {
+        for (const lnId of perLn.keys()) {
+          if (!lnFilter || lnFilter.has(lnId)) lnIdsNeeded.add(lnId);
+        }
+      }
+
+      const linies =
+        lnIdsNeeded.size > 0
+          ? await db.liniaNegoci.findMany({
+              where: { id: { in: [...lnIdsNeeded] } },
+              select: { id: true, codi: true, nom: true },
+            })
+          : [];
+      const lnById = new Map(linies.map((l) => [l.id, l]));
+
+      const normesByKey = new Map<string, string>();
+      if (periods.length && lnIdsNeeded.size) {
+        const moviments = await db.movimentRepartiment.findMany({
+          where: {
+            concepteNode: nodeDelta,
+            liniaNegociDestiId: { in: [...lnIdsNeeded] },
+            execucio: {
+              estat: "CONFIRMAT",
+              periodId: { in: periods.map((p) => p.id) },
+            },
+          },
+          select: {
+            importCalculat: true,
+            liniaNegociDestiId: true,
+            execucio: { select: { periodId: true } },
+            norma: { select: { nom: true } },
+          },
+        });
+        for (const m of moviments) {
+          normesByKey.set(
+            `${m.execucio.periodId}:${m.liniaNegociDestiId}`,
+            m.norma?.nom ?? "Imputació repartiment"
+          );
+        }
+      }
+
+      for (const period of periods) {
+        const perLn = deltasPerPeriode.get(period.id);
+        if (!perLn) continue;
+        for (const [lnId, nodes] of perLn) {
+          if (lnFilter && !lnFilter.has(lnId)) continue;
+          const delta = nodes.get(nodeDelta) ?? 0;
+          if (delta === 0) continue;
+          const ln = lnById.get(lnId);
+          totalRepartiment += delta;
+          items.push({
+            origen: "repartiment",
+            import_: delta,
+            centreCodi: null,
+            centreNom: null,
+            liniaCodi: ln?.codi ?? null,
+            liniaNom: ln?.nom ?? null,
+            mes: period.mes,
+            any: period.any,
+            motiu: normesByKey.get(`${period.id}:${lnId}`) ?? "Imputació repartiment",
+          });
+        }
+      }
+    }
+  }
+
+  // Consolidat · Gestió: Prestació FDLC → Vendes LN00001 (CCR00008) al detall.
+  if (params.grup === "consolidat" && params.vista === "gestio" && !params.centreId) {
+    const ln = params.liniaNegociId
+      ? await db.liniaNegoci.findUnique({
+          where: { id: params.liniaNegociId },
+          select: { codi: true, nom: true },
+        })
+      : null;
+    const lnCodi = ln?.codi ?? null;
+
+    const esVendesRestaurants =
+      concepte.node === NODE_VENDES && (lnCodi === null || lnCodi === CODI_LN_MIRALL_SERVEIS_FDLC);
+    const esPrestacioFdlc =
+      concepte.node === FDLC_NODE_SERVEIS_RESTAURANT &&
+      (lnCodi === null || lnCodi === FDLC_LN_CODI);
+
+    if (esVendesRestaurants || esPrestacioFdlc) {
+      const mirallMesos = await getImportsMirallServeisFdlcPerMes(params.any);
+      const mesosFiltres = params.mes
+        ? [params.mes]
+        : (() => {
+            const rang = params.rang;
+            return rang
+              ? Array.from({ length: rang.fins - rang.des + 1 }, (_, i) => rang.des + i)
+              : Array.from({ length: 12 }, (_, i) => i + 1);
+          })();
+
+      const centreMirall = await db.centre.findFirst({
+        where: { codi: CENTRE_CODI_MIRALL_SERVEIS_FDLC, isActive: true },
+        select: {
+          codi: true,
+          nom: true,
+          liniaNegoci: { select: { codi: true, nom: true } },
+        },
+      });
+      const lnDesti = esVendesRestaurants
+        ? lnCodi
+          ? ln
+          : await db.liniaNegoci.findFirst({
+              where: { codi: CODI_LN_MIRALL_SERVEIS_FDLC },
+              select: { codi: true, nom: true },
+            })
+        : lnCodi
+          ? ln
+          : await db.liniaNegoci.findFirst({
+              where: { codi: FDLC_LN_CODI },
+              select: { codi: true, nom: true },
+            });
+
+      const signe = esVendesRestaurants ? 1 : -1;
+      const motiu = esVendesRestaurants
+        ? "Gestió consolidat · serveis restaurant FDLC → LN00001"
+        : "Reclassificat a Vendes LN00001 (gestió consolidat)";
+
+      for (const mes of mesosFiltres) {
+        const imp = mirallMesos[mes - 1] ?? 0;
+        if (imp === 0) continue;
+        const valor = Math.round(imp * signe * 100) / 100;
+        totalMirall += valor;
+        items.push({
+          origen: "mirall",
+          import_: valor,
+          centreCodi: centreMirall?.codi ?? CENTRE_CODI_MIRALL_SERVEIS_FDLC,
+          centreNom: centreMirall?.nom ?? "RESTAURANT FONT DE LA CANYA",
+          liniaCodi:
+            lnDesti?.codi ?? (esVendesRestaurants ? CODI_LN_MIRALL_SERVEIS_FDLC : FDLC_LN_CODI),
+          liniaNom: lnDesti?.nom ?? null,
+          mes,
+          any: params.any,
+          motiu,
+        });
+      }
+    }
+  }
+
+  // Centre CCR00008: mirall operatiu a VENDES (C.Explotació del centre).
+  if (params.centreId && concepte.node === NODE_VENDES) {
+    const centre = await db.centre.findUnique({
+      where: { id: params.centreId },
+      select: {
+        codi: true,
+        nom: true,
+        liniaNegoci: { select: { codi: true, nom: true } },
+      },
+    });
+    if (centre && esCentreMirallServeisFdlc(centre.codi)) {
+      const mirallMesos = await getImportsMirallServeisFdlcPerMes(params.any);
+      const mesosFiltres = params.mes
+        ? [params.mes]
+        : (() => {
+            const rang = params.rang;
+            return rang
+              ? Array.from({ length: rang.fins - rang.des + 1 }, (_, i) => rang.des + i)
+              : Array.from({ length: 12 }, (_, i) => i + 1);
+          })();
+
+      for (const mes of mesosFiltres) {
+        const imp = mirallMesos[mes - 1] ?? 0;
+        if (imp === 0) continue;
+        const valor = Math.round(imp * 100) / 100;
+        totalMirall += valor;
+        items.push({
+          origen: "mirall",
+          import_: valor,
+          centreCodi: centre.codi,
+          centreNom: centre.nom,
+          liniaCodi: centre.liniaNegoci.codi,
+          liniaNom: centre.liniaNegoci.nom,
+          mes,
+          any: params.any,
+          motiu: "Mirall · serveis restaurant FDLC",
+        });
+      }
+    }
+  }
+
   const totalDades = dades.reduce((s, d) => s + Number(d.import_), 0);
   const totalAjustos = ajustos.reduce((s, a) => s + Number(a.import_), 0);
 
@@ -1076,6 +1365,8 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     items,
     totalDades: Math.round(totalDades * 100) / 100,
     totalAjustos: Math.round(totalAjustos * 100) / 100,
-    total: Math.round((totalDades + totalAjustos) * 100) / 100,
+    totalRepartiment: Math.round(totalRepartiment * 100) / 100,
+    totalMirall: Math.round(totalMirall * 100) / 100,
+    total: Math.round((totalDades + totalAjustos + totalRepartiment + totalMirall) * 100) / 100,
   };
 }

@@ -1,0 +1,48 @@
+.wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--opsia-space-2);
+  justify-self: start;
+}
+
+.label {
+  font-size: var(--opsia-font-size-xs, 0.75rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--opsia-ink-soft);
+  white-space: nowrap;
+}
+
+.select {
+  min-width: 8.5rem;
+  height: 2rem;
+  padding: 0 0.6rem;
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-bg-card);
+  color: var(--opsia-ink-strong);
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.select:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.select:focus-visible {
+  outline: 2px solid var(--opsia-accent-primary);
+  outline-offset: 1px;
+}
+
+@media (max-width: 640px) {
+  .label {
+    display: none;
+  }
+
+  .select {
+    min-width: 6.5rem;
+  }
+}

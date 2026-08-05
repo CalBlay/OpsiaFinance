@@ -5,6 +5,7 @@ import type { PivotColumn } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import { type KpiComite, PresentacioComite } from "@/components/consultes/PresentacioComite";
 import styles from "@/components/consultes/report.module.css";
+import { auth } from "@/lib/auth";
 import {
   MESOS_CURTS,
   MESOS_LLARGS,
@@ -19,7 +20,8 @@ import {
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
-import { etiquetaGrupEmpresa, parseGrupEmpresa } from "@/lib/grups-empresa";
+import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import { etiquetaGrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import {
   NODE_COMPRES,
   NODE_COST_GESTIO,
@@ -32,14 +34,22 @@ import {
 import { aplicarGestioEvolucioEmpresa } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { formatNum } from "@/lib/utils";
+import { ajustarImportConsultaAction } from "../actions";
 import { EmpresaSelectors } from "./EmpresaSelectors";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Consulta d'empresa — OpsiaFinance" };
+export const metadata = { title: "Resultats d'empresa — OpsiaFinance" };
 
-function pctSobreIngressos(cost: number, ingressos: number): string | undefined {
+function pctSobreIngressos(
+  valor: number,
+  ingressos: number,
+  opts?: { signed?: boolean }
+): string | undefined {
   if (!ingressos) return undefined;
-  return `${formatNum((Math.abs(cost) / Math.abs(ingressos)) * 100, 1)}% s/ ingressos`;
+  const pct = opts?.signed
+    ? (valor / Math.abs(ingressos)) * 100
+    : (Math.abs(valor) / Math.abs(ingressos)) * 100;
+  return `${formatNum(pct, 1)}% s/ ingressos`;
 }
 
 export default async function ConsultaEmpresaPage({
@@ -55,15 +65,19 @@ export default async function ConsultaEmpresaPage({
   }>;
 }) {
   const sp = await searchParams;
-  const grup = parseGrupEmpresa(sp.grup);
-  const anys = await getAnysAmbDades();
+  const [session, grup, anys] = await Promise.all([
+    auth(),
+    getGrupEmpresaActual(),
+    getAnysAmbDades(),
+  ]);
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
   const rang = parseRangMesosFromSearchParams(sp);
   const vista: VistaCompte =
-    grup === "fdlc" ? "directe" : sp.vista === "gestio" ? "gestio" : "directe";
+    grupPermetVistaGestio(grup) && sp.vista === "gestio" ? "gestio" : "directe";
   const acumulatAnual = esAnyComplet(rang);
   const unMes = esUnMes(rang);
   const esPresentacioCalblay = grup === "calblay";
+  const canEdit = session?.user?.role === "ADMIN" && vista === "directe";
 
   const comp = await getComparativaEmpresa(anyActual, rang, vista, grup);
   const fdlcLnId = grup === "fdlc" ? (comp.linies[0]?.id ?? null) : null;
@@ -73,7 +87,7 @@ export default async function ConsultaEmpresaPage({
       ? getEvolucioMensual("empresa", null, anyActual, "fdlc")
       : Promise.resolve(null),
     esPresentacioCalblay ? getEvolucioMensual("empresa", null, anyActual) : Promise.resolve(null),
-    vista === "gestio" && grup === "calblay"
+    vista === "gestio" && grupPermetVistaGestio(grup)
       ? getInfoGestioConsulta(anyActual, rang)
       : Promise.resolve(null),
   ]);
@@ -134,7 +148,7 @@ export default async function ConsultaEmpresaPage({
     chartTickAngle = 0;
   } else {
     columns = comp.linies.map((l) => ({ key: l.id, label: l.codi, sublabel: l.nom }));
-    totalLabel = "Empresa";
+    totalLabel = grup === "consolidat" ? "Consolidat" : "Empresa";
     chartCategories = comp.linies.map(etiquetaGrafic);
     chartSeries = [
       { name: "Vendes", type: "bar", color: "#0ea5e9", data: findRow(NODE_VENDES)?.valors ?? [] },
@@ -154,13 +168,25 @@ export default async function ConsultaEmpresaPage({
   const drilldownColMap: DrilldownColumnMap = {};
   const lnIdsGrup = comp.linies.map((l) => l.id);
   if (grup === "fdlc" && acumulatAnual) {
-    // Columnes = mesos; mateix filtre de grup que la taula (sense LN individual).
-    for (let i = 0; i < 12; i++) drilldownColMap[String(i)] = { mes: i + 1 };
+    // Columnes = mesos; mateix filtre de grup que la taula.
+    for (let i = 0; i < 12; i++) {
+      drilldownColMap[String(i)] = { mes: i + 1, liniaNegociId: fdlcLnId ?? undefined };
+    }
   } else if (grup === "fdlc" && !acumulatAnual) {
-    drilldownColMap.fdlc = { rang, liniaNegociId: fdlcLnId ?? undefined };
+    drilldownColMap.fdlc = {
+      rang,
+      mes: unMes ? rang.des : undefined,
+      liniaNegociId: fdlcLnId ?? undefined,
+    };
   } else {
     // Columnes = línies de negoci (key = lnId)
-    for (const l of comp.linies) drilldownColMap[l.id] = { rang, liniaNegociId: l.id };
+    for (const l of comp.linies) {
+      drilldownColMap[l.id] = {
+        rang,
+        mes: unMes ? rang.des : undefined,
+        liniaNegociId: l.id,
+      };
+    }
   }
 
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
@@ -201,7 +227,7 @@ export default async function ConsultaEmpresaPage({
     {
       label: "EBITDA",
       import_: ebitdaTotal,
-      hint: pctSobreIngressos(ebitdaTotal, ingressosTotal),
+      hint: pctSobreIngressos(ebitdaTotal, ingressosTotal, { signed: true }),
       accent: "ebitda",
     },
   ];
@@ -211,8 +237,10 @@ export default async function ConsultaEmpresaPage({
       ? "Compte d'explotació FDLC — vista general amb desglossament mensual (columnes = mesos)."
       : grup === "fdlc"
         ? `Compte d'explotació FDLC — ${periodeLabel}.`
-        : vista === "gestio"
-          ? "Cada columna és una LN (mateix criteri que Evolució/Per línia). El total Empresa elimina dobles còmputs interns (consolidació)."
+        : grup === "consolidat"
+          ? vista === "gestio"
+            ? "Consolidat · Gestió: repartiment LN Cal Blay i Prestació FDLC (restaurant) reclassificada a Vendes LN00001. El total elimina dobles còmputs."
+            : "Consolidat · Directe: dades SAP per LN (Prestació FDLC queda a FDLC). El total elimina dobles còmputs interns."
           : "Cada columna és una LN (mateix criteri que Evolució/Per línia). El total Empresa elimina dobles còmputs interns (consolidació).";
 
   const chartTitle =
@@ -220,7 +248,9 @@ export default async function ConsultaEmpresaPage({
       ? "Evolució mensual · Vendes i EBITDA"
       : grup === "fdlc"
         ? `${periodeLabel} · Vendes i EBITDA`
-        : undefined;
+        : grup === "consolidat"
+          ? "Vendes i EBITDA per línia · Consolidat"
+          : undefined;
 
   return (
     <div className={styles.page}>
@@ -236,9 +266,13 @@ export default async function ConsultaEmpresaPage({
               ? acumulatAnual
                 ? `Empresa FDLC — general (acumulat ${anyActual}) · evolució per mesos`
                 : `Empresa FDLC — ${periodeLabel}`
-              : vista === "gestio"
-                ? `Gestió: mateix total que Directe, costos repartits entre LN — ${periodePresentacio}`
-                : `Directe: costos tal com venen (sovint concentrats a Central) — ${periodePresentacio}`}
+              : grup === "consolidat"
+                ? vista === "gestio"
+                  ? `Cal Blay + FDLC · gestió (repartiment LN Cal Blay + Prestació FDLC→LN00001) — ${periodePresentacio}`
+                  : `Cal Blay + FDLC · directe (SAP sense reclassificar Prestació) — ${periodePresentacio}`
+                : vista === "gestio"
+                  ? `Gestió: mateix total que Directe, costos repartits entre LN — ${periodePresentacio}`
+                  : `Directe: costos tal com venen (sovint concentrats a Central) — ${periodePresentacio}`}
           </p>
         </div>
         <EmpresaSelectors
@@ -290,6 +324,7 @@ export default async function ConsultaEmpresaPage({
             </>
           ) : (
             <>
+              {grup === "consolidat" && <GestioAvis vista={vista} info={infoGestio} />}
               <KpiInformeCardsFallback kpis={kpis} periodeLabel={periodeLabel} />
               <div className={styles.chartCard}>
                 {chartTitle && <h3 className={styles.chartTitle}>{chartTitle}</h3>}
@@ -303,17 +338,27 @@ export default async function ConsultaEmpresaPage({
             </>
           )}
 
-          <DetallCompteCollapsible caption={tableCaption} defaultOpen={false}>
+          <DetallCompteCollapsible
+            caption={
+              canEdit
+                ? `${tableCaption} Clic a una casella per veure el detall i crear un ajust.`
+                : tableCaption
+            }
+            defaultOpen={false}
+          >
             <PivotTableDrilldown
               columns={columns}
               rows={pivotRows}
               totalLabel={totalLabel}
               firstColLabel="Concepte"
+              canEdit={canEdit}
+              editConfig={canEdit ? { onSave: ajustarImportConsultaAction } : undefined}
               drilldown={{
                 any: anyActual,
                 colMap: drilldownColMap,
-                // Sempre passar el grup de LN de la vista (Cal Blay o FDLC) per excloure l'altra empresa.
                 lnIdsGrup,
+                vista,
+                grup,
               }}
             />
           </DetallCompteCollapsible>

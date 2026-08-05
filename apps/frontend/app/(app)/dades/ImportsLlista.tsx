@@ -1,17 +1,11 @@
 "use client";
 
+import { DadesFilterBar } from "@/components/dades/DadesFilterBar";
+import { DadesEmpty, DadesPanel, dadesUi as ui } from "@/components/dades/DadesPanel";
 import { EstatImportBadge } from "@/components/ui/Badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/Table";
 import { type ImportCercaItem, extreureFacetes, filtrarImports } from "@/lib/import-search";
 import type { EstatImport } from "@/types";
-import { FileSpreadsheet, Search, X } from "lucide-react";
+import { FileSpreadsheet } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ImportRowActions } from "./ImportRowActions";
@@ -41,145 +35,105 @@ export function ImportsLlista({ imports }: { imports: ImportCercaItem[] }) {
 
   const teFiltres = !!(query.trim() || lnCodi || any || estat);
 
-  function netejar() {
-    setQuery("");
-    setLnCodi("");
-    setAny("");
-    setEstat("");
+  if (!imports.length) {
+    return (
+      <DadesPanel title="Historial de fitxers">
+        <DadesEmpty text="Encara no hi ha importacions. Usa el botó + per pujar el primer Excel." />
+      </DadesPanel>
+    );
   }
 
   return (
-    <>
-      <div className={styles.cercaWrap}>
-        <div className={styles.cercaInputWrap}>
-          <Search size={16} className={styles.cercaIcon} />
-          <input
-            type="search"
-            className={styles.cercaInput}
-            placeholder="Cerca per fitxer, LN, període, estat… (p.ex. 01_2025 LN00001 gener confirmat)"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          {teFiltres && (
-            <button
-              type="button"
-              className={styles.cercaClear}
-              onClick={netejar}
-              aria-label="Netejar cerca"
-            >
-              <X size={16} />
-            </button>
-          )}
-        </div>
-
-        <div className={styles.filtresRow}>
-          <select
-            className={styles.filtreSelect}
-            value={lnCodi}
-            onChange={(e) => setLnCodi(e.target.value)}
-          >
-            <option value="">Totes les LN</option>
-            {facetes.lns.map((ln) => (
-              <option key={ln.codi} value={ln.codi}>
-                {ln.codi} · {ln.nom}
-              </option>
-            ))}
-          </select>
-          <select
-            className={styles.filtreSelect}
-            value={any}
-            onChange={(e) => setAny(e.target.value)}
-          >
-            <option value="">Tots els anys</option>
-            {facetes.anys.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-          <select
-            className={styles.filtreSelect}
-            value={estat}
-            onChange={(e) => setEstat(e.target.value)}
-          >
-            <option value="">Tots els estats</option>
-            {facetes.estats.map((e) => (
-              <option key={e} value={e}>
-                {ESTAT_LABELS[e]}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <p className={styles.cercaResum}>
-          {teFiltres
-            ? `${filtrats.length} de ${imports.length} importacions`
-            : `${imports.length} importació${imports.length !== 1 ? "ns" : ""}`}
-        </p>
-      </div>
+    <DadesPanel
+      title="Historial de fitxers"
+      meta={
+        teFiltres
+          ? `${filtrats.length} de ${imports.length}`
+          : `${imports.length} càrrega${imports.length !== 1 ? "s" : ""}`
+      }
+    >
+      <DadesFilterBar
+        query={query}
+        onQueryChange={setQuery}
+        placeholder="Cerca per fitxer, LN, període, estat… (p.ex. 01_2025 LN00001 gener confirmat)"
+        filters={[
+          {
+            id: "ln",
+            value: lnCodi,
+            onChange: setLnCodi,
+            options: facetes.lns.map((ln) => ({
+              value: ln.codi,
+              label: `${ln.codi} · ${ln.nom}`,
+            })),
+            allLabel: "Totes les LN",
+            "aria-label": "Filtra per línia de negoci",
+          },
+          {
+            id: "any",
+            value: any,
+            onChange: setAny,
+            options: facetes.anys.map((a) => ({ value: String(a), label: String(a) })),
+            allLabel: "Tots els anys",
+            "aria-label": "Filtra per any",
+          },
+          {
+            id: "estat",
+            value: estat,
+            onChange: setEstat,
+            options: facetes.estats.map((e) => ({ value: e, label: ESTAT_LABELS[e] })),
+            allLabel: "Tots els estats",
+            "aria-label": "Filtra per estat",
+          },
+        ]}
+      />
 
       {filtrats.length === 0 ? (
-        <div className={styles.empty}>
-          <Search size={36} strokeWidth={1.2} className={styles.emptyIcon} />
-          <p className={styles.emptyTitle}>Cap resultat</p>
-          <p className={styles.emptyText}>
-            Prova amb altres termes: nom de fitxer (
-            <span className="font-mono text-xs">01_2025_00</span>), codi LN (
-            <span className="font-mono text-xs">LN00001</span> o{" "}
-            <span className="font-mono text-xs">01</span>), mes (
-            <span className="font-mono text-xs">gener</span>) o estat (
-            <span className="font-mono text-xs">confirmat</span>).
-          </p>
-        </div>
+        <DadesEmpty
+          title="Cap resultat"
+          text="Prova amb altres termes: nom de fitxer, codi LN, mes o estat."
+          boxed
+        />
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Fitxer</TableHead>
-              <TableHead>Línia de negoci</TableHead>
-              <TableHead>Tipus d'informe</TableHead>
-              <TableHead>Període</TableHead>
-              <TableHead>Estat</TableHead>
-              <TableHead>Data càrrega</TableHead>
-              <TableHead>Pujat per</TableHead>
-              <TableHead />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtrats.map((imp) => (
-              <TableRow key={imp.id}>
-                <TableCell>
-                  <Link href={`/dades/${imp.id}`} className={styles.fileLink}>
-                    <FileSpreadsheet size={15} className={styles.fileIcon} />
-                    <span className={styles.fileName}>{imp.nomFitxer}</span>
-                  </Link>
-                </TableCell>
-                <TableCell className={styles.meta}>
-                  {imp.lnCodi ? (
-                    <span title={imp.lnNom ?? undefined}>{imp.lnCodi}</span>
-                  ) : (
-                    <span className={styles.noData}>—</span>
-                  )}
-                </TableCell>
-                <TableCell className={styles.meta}>
-                  {imp.formatNom ?? <span className={styles.noData}>—</span>}
-                </TableCell>
-                <TableCell className={styles.meta}>
-                  {imp.periodNom ?? <span className={styles.noData}>—</span>}
-                </TableCell>
-                <TableCell>
-                  <EstatImportBadge estat={imp.estat} />
-                </TableCell>
-                <TableCell className={styles.meta}>{imp.dataCarrega}</TableCell>
-                <TableCell className={styles.meta}>{imp.autor}</TableCell>
-                <TableCell>
-                  <ImportRowActions importId={imp.id} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className={ui.tableWrap}>
+          <table className={ui.table}>
+            <thead>
+              <tr>
+                <th>Fitxer</th>
+                <th>LN</th>
+                <th>Format</th>
+                <th>Període</th>
+                <th>Estat</th>
+                <th>Autor</th>
+                <th>Data</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {filtrats.map((imp) => (
+                <tr key={imp.id}>
+                  <td>
+                    <Link href={`/dades/${imp.id}`} className={styles.fileLink}>
+                      <FileSpreadsheet size={14} className={styles.fileIcon} />
+                      <span className={ui.fileName}>{imp.nomFitxer}</span>
+                    </Link>
+                  </td>
+                  <td className={ui.muted}>{imp.lnCodi ?? "—"}</td>
+                  <td className={ui.muted}>{imp.formatNom ?? "—"}</td>
+                  <td className={ui.muted}>{imp.periodNom ?? "—"}</td>
+                  <td>
+                    <EstatImportBadge estat={imp.estat} />
+                  </td>
+                  <td className={ui.muted}>{imp.autor}</td>
+                  <td className={ui.nowrap}>{imp.dataCarrega}</td>
+                  <td className={ui.actions}>
+                    <ImportRowActions importId={imp.id} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
-    </>
+    </DadesPanel>
   );
 }
