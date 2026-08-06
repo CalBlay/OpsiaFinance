@@ -1,7 +1,8 @@
 "use client";
 
 import { DadesFilterBar } from "@/components/dades/DadesFilterBar";
-import { DadesEmpty, DadesNewBtn, DadesPanel, dadesUi as ui } from "@/components/dades/DadesPanel";
+import { DadesEmpty, DadesPanel, dadesUi as ui } from "@/components/dades/DadesPanel";
+import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
 import { Check, Copy, Pencil, Plus, Trash2, X } from "lucide-react";
@@ -256,14 +257,13 @@ export function AjustosManager({
       )}
 
       {canEdit && !obert && (
-        <DadesNewBtn
+        <FloatingAddButton
+          label="Nou ajust"
           onClick={() => {
             reset();
             setObert(true);
           }}
-        >
-          <Plus size={16} /> Nou ajust
-        </DadesNewBtn>
+        />
       )}
 
       {canEdit && obert && (
@@ -451,7 +451,7 @@ export function AjustosManager({
 
       {ajustos.length === 0 ? (
         <DadesPanel title="Registre d'ajustos">
-          <DadesEmpty text="Encara no hi ha cap ajust. Crea'n un amb «Nou ajust»." />
+          <DadesEmpty text="Encara no hi ha cap ajust. Crea'n un amb el botó +." />
         </DadesPanel>
       ) : (
         <DadesPanel

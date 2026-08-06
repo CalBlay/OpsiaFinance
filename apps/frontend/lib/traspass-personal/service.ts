@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { inferDepartamentSalarial } from "@/lib/traspass-personal/departament";
 import { parseExcelMapeigCentres } from "@/lib/traspass-personal/importar-mapeig";
 import {
   type MapeigCentre,
@@ -37,6 +38,27 @@ export async function getTarifaHoraTraspass(): Promise<number> {
   return cfg ? Number(cfg.tarifaHora) : 18;
 }
 
+/**
+ * Omple departament als mapeigs existents inferint-lo del text
+ * (només quan el text ho deixa clar). Font de veritat: columna persistida.
+ */
+export async function backfillDepartamentsMapeig(): Promise<number> {
+  const rows = await db.mapeigTextCentreTreball.findMany({
+    select: { id: true, text: true, departament: true },
+  });
+  let updated = 0;
+  for (const r of rows) {
+    const inferred = inferDepartamentSalarial(r.text);
+    if (!inferred || inferred === r.departament) continue;
+    await db.mapeigTextCentreTreball.update({
+      where: { id: r.id },
+      data: { departament: inferred },
+    });
+    updated++;
+  }
+  return updated;
+}
+
 async function carregarMapeigs(): Promise<MapeigCentre[]> {
   const raw = await db.mapeigTextCentreTreball.findMany({
     where: { isActive: true },
@@ -49,6 +71,7 @@ async function carregarMapeigs(): Promise<MapeigCentre[]> {
     centreId: m.centre.id,
     centreCodi: m.centre.codi,
     centreNom: m.centre.nom,
+    departament: m.departament,
   }));
 }
 
@@ -71,9 +94,24 @@ export async function calcularExecucioTraspassPersonal(
   tarifaHora: number;
 }> {
   const tarifaHora = await getTarifaHoraTraspass();
+  await backfillDepartamentsMapeig();
   const mapeigs = await carregarMapeigs();
   const { files } = parseExcelHoresTreball(buffer);
   const resultat = calcularTraspassosPersonal(files, mapeigs, tarifaHora);
+
+  const existent = await db.execucioTraspassPersonal.findUnique({
+    where: { periodId },
+    select: { id: true, estat: true, foraCentreSnapshotJson: true },
+  });
+  if (existent?.estat === "CONFIRMAT") {
+    const { parseForaCentreSnapshot, restaurarForaCentreDesDeSnapshot } = await import(
+      "./fora-centre"
+    );
+    await restaurarForaCentreDesDeSnapshot(
+      periodId,
+      parseForaCentreSnapshot(existent.foraCentreSnapshotJson)
+    );
+  }
 
   const execucio = await db.execucioTraspassPersonal.upsert({
     where: { periodId },
@@ -84,6 +122,7 @@ export async function calcularExecucioTraspassPersonal(
       calculatAt: new Date(),
       confirmatAt: null,
       confirmatPer: null,
+      foraCentreSnapshotJson: null,
       alertesJson: resultat.alertes.length ? JSON.stringify(resultat.alertes) : null,
     },
     create: {
@@ -103,6 +142,8 @@ export async function calcularExecucioTraspassPersonal(
         execucioId: execucio.id,
         centreOrigenId: m.centreOrigenId,
         centreDestiId: m.centreDestiId,
+        departament: m.departament,
+        minuts: m.minuts,
         hores: m.hores,
         tarifaHora: m.tarifaHora,
         import_: m.import_,
@@ -173,13 +214,30 @@ export async function processarFitxerHoresTreball(
 export async function confirmarExecucioTraspassPersonal(
   execucioId: string,
   userId: string
-): Promise<void> {
+): Promise<{ foraCentreSnapshot: import("./fora-centre").ForaCentreSnapshot }> {
   const execucio = await db.execucioTraspassPersonal.findUnique({
     where: { id: execucioId },
-    include: { moviments: true },
+    include: {
+      moviments: {
+        include: { centreDesti: { select: { codi: true, nom: true } } },
+      },
+    },
   });
   if (!execucio) throw new Error("Execució no trobada.");
-  if (execucio.estat === "CONFIRMAT") return;
+  if (execucio.estat === "CONFIRMAT") {
+    const { parseForaCentreSnapshot } = await import("./fora-centre");
+    return {
+      foraCentreSnapshot: parseForaCentreSnapshot(execucio.foraCentreSnapshotJson) ?? {
+        canvis: [],
+      },
+    };
+  }
+
+  const { aplicarForaCentreDesDeTraspass } = await import("./fora-centre");
+  const foraCentreSnapshot = await aplicarForaCentreDesDeTraspass(
+    execucio.periodId,
+    execucio.moviments
+  );
 
   await db.execucioTraspassPersonal.update({
     where: { id: execucioId },
@@ -187,13 +245,12 @@ export async function confirmarExecucioTraspassPersonal(
       estat: "CONFIRMAT",
       confirmatAt: new Date(),
       confirmatPer: userId,
+      foraCentreSnapshotJson: JSON.stringify(foraCentreSnapshot),
     },
   });
 
   // Important: el repartiment Central → LN s'ha de recalcular amb els traspassos
   // d'hores confirmats per evitar doble comptatge a la vista Gestió.
-  // Ho fem automàticament perquè quan l'usuari confirmi els traspassos, la vista
-  // "Gestió (tractat)" sigui consistent.
   const { calcularExecucioRepartiment, confirmarExecucioRepartiment } = await import(
     "@/lib/repartiment/service"
   );
@@ -201,6 +258,37 @@ export async function confirmarExecucioTraspassPersonal(
   if (execRepart) {
     await confirmarExecucioRepartiment(execRepart.id, userId);
   }
+
+  return { foraCentreSnapshot };
+}
+
+/** Torna a esborrany i restaura foraCentre als valors anteriors a la confirmació. */
+export async function tornarEsborranyExecucioTraspassPersonal(execucioId: string): Promise<void> {
+  const execucio = await db.execucioTraspassPersonal.findUnique({
+    where: { id: execucioId },
+    select: { id: true, periodId: true, estat: true, foraCentreSnapshotJson: true },
+  });
+  if (!execucio) throw new Error("Execució no trobada.");
+
+  if (execucio.estat === "CONFIRMAT") {
+    const { parseForaCentreSnapshot, restaurarForaCentreDesDeSnapshot } = await import(
+      "./fora-centre"
+    );
+    await restaurarForaCentreDesDeSnapshot(
+      execucio.periodId,
+      parseForaCentreSnapshot(execucio.foraCentreSnapshotJson)
+    );
+  }
+
+  await db.execucioTraspassPersonal.update({
+    where: { id: execucioId },
+    data: {
+      estat: "BORRADOR",
+      confirmatAt: null,
+      confirmatPer: null,
+      // Mantinim l'snapshot per historial visual fins a una nova confirmació
+    },
+  });
 }
 
 export async function getExecucioTraspassPerPeriode(periodId: string) {
@@ -209,7 +297,11 @@ export async function getExecucioTraspassPerPeriode(periodId: string) {
     include: {
       period: { select: { id: true, nom: true, any: true, mes: true } },
       moviments: {
-        orderBy: [{ centreOrigen: { nom: "asc" } }, { centreDesti: { nom: "asc" } }],
+        orderBy: [
+          { centreOrigen: { nom: "asc" } },
+          { centreDesti: { nom: "asc" } },
+          { departament: "asc" },
+        ],
         include: {
           centreOrigen: { select: { id: true, codi: true, nom: true } },
           centreDesti: { select: { id: true, codi: true, nom: true } },
@@ -239,7 +331,7 @@ async function resoldreCentrePerCodi(
   return candidats[0];
 }
 
-/** Importa o actualitza el mapeig des d'un Excel (col. A=text, B=codi, C=nom). */
+/** Importa o actualitza el mapeig (A=text, B=codi, C=nom, D=SALA|CUINA opcional). */
 export async function importarMapeigCentresDesDeBuffer(
   buffer: Buffer,
   substituirTot = false
@@ -258,6 +350,12 @@ export async function importarMapeigCentresDesDeBuffer(
 
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
+    if (!f.departament) {
+      errors.push(
+        `Fila ${i + 1}: no s'ha pogut determinar SALA/CUINA per «${f.text}» (col. D o text).`
+      );
+      continue;
+    }
     const centre = await resoldreCentrePerCodi(f.codiCentre, f.nomCentre);
     if (!centre) {
       errors.push(`Fila ${i + 1}: codi «${f.codiCentre}» no trobat a dimensions.`);
@@ -266,8 +364,17 @@ export async function importarMapeigCentresDesDeBuffer(
 
     await db.mapeigTextCentreTreball.upsert({
       where: { text: f.text },
-      update: { centreId: centre.id, isActive: true },
-      create: { text: f.text, centreId: centre.id, ordre: i },
+      update: {
+        centreId: centre.id,
+        departament: f.departament,
+        isActive: true,
+      },
+      create: {
+        text: f.text,
+        centreId: centre.id,
+        departament: f.departament,
+        ordre: i,
+      },
     });
     importats++;
   }

@@ -1,3 +1,5 @@
+"use client";
+
 import dynamic from "next/dynamic";
 
 /** Charts recharts: code-split fora del JS inicial de les pàgines RSC. */

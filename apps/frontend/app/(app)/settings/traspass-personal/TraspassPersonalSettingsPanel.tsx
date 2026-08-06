@@ -13,7 +13,12 @@ import {
 import styles from "./page.module.css";
 
 type CentreOpt = { id: string; codi: string; nom: string };
-type Mapeig = { id: string; text: string; centre: CentreOpt };
+type Dept = "SALA" | "CUINA";
+type Mapeig = { id: string; text: string; departament: Dept; centre: CentreOpt };
+
+function labelDept(d: Dept) {
+  return d === "CUINA" ? "Cuina" : "Sala";
+}
 
 export function TraspassPersonalSettingsPanel({
   tarifaHora,
@@ -32,7 +37,12 @@ export function TraspassPersonalSettingsPanel({
   const [editId, setEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editCentreId, setEditCentreId] = useState("");
-  const [newRow, setNewRow] = useState({ text: "", centreId: "" });
+  const [editDept, setEditDept] = useState<Dept>("SALA");
+  const [newRow, setNewRow] = useState<{ text: string; centreId: string; departament: Dept }>({
+    text: "",
+    centreId: "",
+    departament: "SALA",
+  });
   const [substituirTot, setSubstituirTot] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
@@ -61,6 +71,7 @@ export function TraspassPersonalSettingsPanel({
     setEditId(row.id);
     setEditText(row.text);
     setEditCentreId(row.centre.id);
+    setEditDept(row.departament);
   };
 
   return (
@@ -99,8 +110,8 @@ export function TraspassPersonalSettingsPanel({
         <section className={styles.card}>
           <h2 className={styles.cardTitle}>Importar mapeig des d&apos;Excel</h2>
           <p className={styles.helpText}>
-            Format: columna A = text (Organizaciones o Proyecto), B = codi centre (CCR00009…), C =
-            nom centre (opcional). El mateix mapeig serveix per origen i destí.
+            Format: A = text, B = codi centre, C = nom (opcional), D = SALA|CUINA (opcional; si
+            falta s&apos;infereix del text). El mateix mapeig serveix per origen i destí.
           </p>
           <div className={styles.inlineForm}>
             <input ref={importRef} type="file" accept=".xlsx,.xls" className={styles.fileInput} />
@@ -120,16 +131,17 @@ export function TraspassPersonalSettingsPanel({
       )}
 
       <section className={styles.card}>
-        <h2 className={styles.cardTitle}>Mapeig text → centre</h2>
+        <h2 className={styles.cardTitle}>Mapeig text → centre + departament</h2>
         <p className={styles.helpText}>
-          Cada text de l&apos;excel d&apos;hores (tant «Organizaciones» com «Proyecto») es resol
-          contra aquesta taula.
+          Cada text de l&apos;excel d&apos;hores es resol contra aquesta taula. El departament
+          (Sala/Cuina) és la font de veritat per traspassos, fora centre i consultes.
         </p>
         <table className={styles.table}>
           <thead>
             <tr>
               <th>Text</th>
               <th>Centre</th>
+              <th>Departament</th>
               {canEdit && <th />}
             </tr>
           </thead>
@@ -157,12 +169,27 @@ export function TraspassPersonalSettingsPanel({
                       ))}
                     </select>
                   </td>
+                  <td>
+                    <select
+                      className={styles.select}
+                      value={editDept}
+                      onChange={(e) => setEditDept(e.target.value as Dept)}
+                    >
+                      <option value="SALA">Sala</option>
+                      <option value="CUINA">Cuina</option>
+                    </select>
+                  </td>
                   <td className={styles.rowActions}>
                     <button
                       type="button"
                       onClick={() =>
                         startTransition(async () => {
-                          const r = await updateMapeigAction(row.id, editText, editCentreId);
+                          const r = await updateMapeigAction(
+                            row.id,
+                            editText,
+                            editCentreId,
+                            editDept
+                          );
                           notify(r);
                           if (r.ok) setEditId(null);
                         })
@@ -182,6 +209,7 @@ export function TraspassPersonalSettingsPanel({
                   <td>
                     {row.centre.codi} · {row.centre.nom}
                   </td>
+                  <td>{labelDept(row.departament)}</td>
                   {canEdit && (
                     <td className={styles.rowActions}>
                       <button type="button" onClick={() => startEdit(row)} disabled={pending}>
@@ -226,14 +254,28 @@ export function TraspassPersonalSettingsPanel({
                   </select>
                 </td>
                 <td>
+                  <select
+                    className={styles.select}
+                    value={newRow.departament}
+                    onChange={(e) => setNewRow({ ...newRow, departament: e.target.value as Dept })}
+                  >
+                    <option value="SALA">Sala</option>
+                    <option value="CUINA">Cuina</option>
+                  </select>
+                </td>
+                <td>
                   <Button
                     size="sm"
                     disabled={pending || !newRow.text || !newRow.centreId}
                     onClick={() =>
                       startTransition(async () => {
-                        const r = await createMapeigAction(newRow.text, newRow.centreId);
+                        const r = await createMapeigAction(
+                          newRow.text,
+                          newRow.centreId,
+                          newRow.departament
+                        );
                         notify(r);
-                        if (r.ok) setNewRow({ text: "", centreId: "" });
+                        if (r.ok) setNewRow({ text: "", centreId: "", departament: "SALA" });
                       })
                     }
                   >

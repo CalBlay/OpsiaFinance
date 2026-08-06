@@ -1,11 +1,14 @@
 "use client";
 
+import { DadesFilterBar, coincideixCerca } from "@/components/dades/DadesFilterBar";
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { Button } from "@/components/ui/Button";
+import { traspassMovimentsToExportInforme } from "@/lib/export/dades";
 import { formatNum } from "@/lib/utils";
 import { Check, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   confirmarTraspassPersonalAction,
   deleteExecucioTraspassPersonalAction,
@@ -17,9 +20,11 @@ import styles from "./page.module.css";
 
 type Moviment = {
   id: string;
+  minuts: number;
   hores: number;
   tarifaHora: number;
   import_: number;
+  departament: "SALA" | "CUINA";
   centreOrigen: { codi: string; nom: string };
   centreDesti: { codi: string; nom: string };
 };
@@ -30,6 +35,17 @@ type Alerta = {
   organizaciones: string;
   proyecto: string;
   motiu: string;
+};
+
+type ForaCentreSnapshot = {
+  canvis: {
+    centreId: string;
+    centreCodi: string;
+    centreNom: string;
+    departament: "SALA" | "CUINA";
+    abans: number;
+    despres: number;
+  }[];
 };
 
 export function TraspassExecucioPanel({
@@ -46,24 +62,92 @@ export function TraspassExecucioPanel({
     nomFitxer: string | null;
     moviments: Moviment[];
     alertes: Alerta[];
+    foraCentreSnapshot: ForaCentreSnapshot | null;
   } | null;
   canEdit: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [editId, setEditId] = useState<string | null>(null);
+  const [editMinuts, setEditMinuts] = useState("");
   const [editHores, setEditHores] = useState("");
   const [editTarifa, setEditTarifa] = useState("");
   const [editImport, setEditImport] = useState("");
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [filtreDept, setFiltreDept] = useState("");
+  const [filtreOrigen, setFiltreOrigen] = useState("");
+  const [filtreDesti, setFiltreDesti] = useState("");
   const editable = canEdit && execucio?.estat === "BORRADOR";
 
+  const moviments = execucio?.moviments ?? [];
+
+  const origenOpts = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of moviments) {
+      map.set(m.centreOrigen.codi, `${m.centreOrigen.codi} · ${m.centreOrigen.nom}`);
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([value, label]) => ({ value, label }));
+  }, [moviments]);
+
+  const destiOpts = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of moviments) {
+      map.set(m.centreDesti.codi, `${m.centreDesti.codi} · ${m.centreDesti.nom}`);
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([value, label]) => ({ value, label }));
+  }, [moviments]);
+
+  const movimentsFiltrats = useMemo(() => {
+    return moviments.filter((m) => {
+      if (filtreDept && m.departament !== filtreDept) return false;
+      if (filtreOrigen && m.centreOrigen.codi !== filtreOrigen) return false;
+      if (filtreDesti && m.centreDesti.codi !== filtreDesti) return false;
+      return coincideixCerca(
+        `${m.centreOrigen.codi} ${m.centreOrigen.nom} ${m.centreDesti.codi} ${m.centreDesti.nom} ${m.departament}`,
+        query
+      );
+    });
+  }, [moviments, query, filtreDept, filtreOrigen, filtreDesti]);
+
+  const informe =
+    execucio && movimentsFiltrats.length
+      ? traspassMovimentsToExportInforme(movimentsFiltrats, {
+          periodNom,
+          estat: execucio.estat === "CONFIRMAT" ? "Confirmat" : "Esborrany",
+          nomFitxer: execucio.nomFitxer,
+        })
+      : null;
+
   const startEdit = (m: Moviment) => {
+    if (!editable) {
+      setFeedback("Per editar, primer fes «Tornar a esborrany».");
+      setTimeout(() => setFeedback(null), 5000);
+      return;
+    }
     setEditId(m.id);
+    setEditMinuts(String(m.minuts ?? Math.round((m.hores || 0) * 60)).replace(".", ","));
     setEditHores(String(m.hores).replace(".", ","));
     setEditTarifa(String(m.tarifaHora).replace(".", ","));
     setEditImport(String(m.import_).replace(".", ","));
   };
 
   const parseNum = (raw: string) => Number(raw.replace(/\s/g, "").replace(",", "."));
+
+  const onChangeMinuts = (raw: string) => {
+    setEditMinuts(raw);
+    const minuts = parseNum(raw);
+    if (!Number.isFinite(minuts) || minuts < 0) return;
+    const hores = Math.round((minuts / 60) * 100) / 100;
+    const tarifa = parseNum(editTarifa);
+    setEditHores(String(hores).replace(".", ","));
+    if (Number.isFinite(tarifa) && tarifa >= 0) {
+      setEditImport(String(Math.round(hores * tarifa * 100) / 100).replace(".", ","));
+    }
+  };
 
   return (
     <DadesPageShell
@@ -86,6 +170,7 @@ export function TraspassExecucioPanel({
       }
       actions={
         <>
+          <ExportInformeButton informe={informe} />
           <Button asChild variant="outline" size="sm">
             <Link href="/dades/traspass-personal/resum">Resum anual</Link>
           </Button>
@@ -141,127 +226,257 @@ export function TraspassExecucioPanel({
       ) : (
         <>
           <section className={styles.card}>
-            <h2 className={styles.cardTitle}>Moviments agregats per centre</h2>
+            <h2 className={styles.cardTitle}>Moviments agregats per centre i departament</h2>
+            {feedback && <p className={styles.helpText}>{feedback}</p>}
+            {canEdit && execucio.estat === "CONFIRMAT" && (
+              <p className={styles.helpText}>
+                Estat confirmat: per editar o recalcular, fes «Tornar a esborrany» i torna a pujar
+                l&apos;Excel d&apos;hores (editar una cel·la no recalcula el fitxer).
+              </p>
+            )}
+            {canEdit && execucio.estat === "BORRADOR" && (
+              <p className={styles.helpText}>
+                Per aplicar el mapeig nou: torna a pujar l&apos;Excel des de{" "}
+                <Link href="/dades/traspass-personal">Traspassos personal</Link> (botó +). Això
+                substitueix tots els moviments del mes.
+              </p>
+            )}
             {execucio.moviments.length === 0 ? (
               <p className={styles.muted}>Cap traspass entre centres diferents.</p>
             ) : (
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>Origen</th>
-                    <th>Destí</th>
-                    <th className={styles.num}>Hores</th>
-                    <th className={styles.num}>Tarifa</th>
-                    <th className={styles.num}>Total</th>
-                    {canEdit && <th />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {execucio.moviments.map((m) => (
-                    <tr key={m.id}>
-                      <td>
-                        {m.centreOrigen.codi} · {m.centreOrigen.nom}
-                      </td>
-                      <td>
-                        {m.centreDesti.codi} · {m.centreDesti.nom}
-                      </td>
-                      {editId === m.id ? (
-                        <>
-                          <td className={styles.num}>
-                            <input
-                              className={styles.inlineInput}
-                              value={editHores}
-                              onChange={(e) => setEditHores(e.target.value)}
-                            />
+              <>
+                <DadesFilterBar
+                  query={query}
+                  onQueryChange={setQuery}
+                  placeholder="Cerca origen, destí, departament…"
+                  filters={[
+                    {
+                      id: "dept",
+                      value: filtreDept,
+                      onChange: setFiltreDept,
+                      allLabel: "Tots els departaments",
+                      "aria-label": "Filtrar per departament",
+                      options: [
+                        { value: "SALA", label: "Sala" },
+                        { value: "CUINA", label: "Cuina" },
+                      ],
+                    },
+                    {
+                      id: "origen",
+                      value: filtreOrigen,
+                      onChange: setFiltreOrigen,
+                      allLabel: "Tots els orígens",
+                      "aria-label": "Filtrar per origen",
+                      options: origenOpts,
+                    },
+                    {
+                      id: "desti",
+                      value: filtreDesti,
+                      onChange: setFiltreDesti,
+                      allLabel: "Tots els destins",
+                      "aria-label": "Filtrar per destí",
+                      options: destiOpts,
+                    },
+                  ]}
+                  summary={
+                    movimentsFiltrats.length === moviments.length
+                      ? `${moviments.length} moviment${moviments.length !== 1 ? "s" : ""}`
+                      : `${movimentsFiltrats.length} de ${moviments.length} moviments`
+                  }
+                />
+                {movimentsFiltrats.length === 0 ? (
+                  <p className={styles.muted}>Cap moviment amb aquests filtres.</p>
+                ) : (
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        <th>Origen</th>
+                        <th>Destí</th>
+                        <th>Dept.</th>
+                        <th className={styles.num}>Minuts</th>
+                        <th className={styles.num}>Hores</th>
+                        <th className={styles.num}>Tarifa</th>
+                        <th className={styles.num}>Total</th>
+                        {canEdit && <th />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {movimentsFiltrats.map((m) => (
+                        <tr key={m.id}>
+                          <td>
+                            {m.centreOrigen.codi} · {m.centreOrigen.nom}
                           </td>
-                          <td className={styles.num}>
-                            <input
-                              className={styles.inlineInput}
-                              value={editTarifa}
-                              onChange={(e) => setEditTarifa(e.target.value)}
-                            />
+                          <td>
+                            {m.centreDesti.codi} · {m.centreDesti.nom}
                           </td>
-                          <td className={styles.num}>
-                            <input
-                              className={styles.inlineInput}
-                              value={editImport}
-                              onChange={(e) => setEditImport(e.target.value)}
-                            />
-                          </td>
-                          <td className={styles.rowActions}>
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() =>
-                                startTransition(async () => {
-                                  await updateMovimentTraspassAction(m.id, {
-                                    hores: parseNum(editHores),
-                                    tarifaHora: parseNum(editTarifa),
-                                    import_: parseNum(editImport),
-                                  });
-                                  setEditId(null);
-                                  window.location.reload();
-                                })
-                              }
-                            >
-                              <Check size={16} />
-                            </button>
-                            <button
-                              type="button"
-                              disabled={pending}
-                              onClick={() => setEditId(null)}
-                            >
-                              <X size={16} />
-                            </button>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className={styles.num}>{formatNum(m.hores)}</td>
-                          <td className={styles.num}>{formatNum(m.tarifaHora)} €</td>
-                          <td className={styles.num}>{formatNum(m.import_)} €</td>
-                          {canEdit && (
-                            <td className={styles.rowActions}>
-                              <button
-                                type="button"
-                                disabled={!editable || pending}
-                                onClick={() => startEdit(m)}
-                              >
-                                <Pencil size={16} />
-                              </button>
-                              <button
-                                type="button"
-                                disabled={!editable || pending}
-                                onClick={() => {
-                                  if (!confirm("Eliminar aquest moviment?")) return;
-                                  startTransition(async () => {
-                                    await deleteMovimentTraspassAction(m.id);
-                                    window.location.reload();
-                                  });
-                                }}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </td>
+                          <td>{m.departament === "CUINA" ? "Cuina" : "Sala"}</td>
+                          {editId === m.id ? (
+                            <>
+                              <td className={styles.num}>
+                                <input
+                                  className={styles.inlineInput}
+                                  value={editMinuts}
+                                  onChange={(e) => onChangeMinuts(e.target.value)}
+                                />
+                              </td>
+                              <td className={styles.num}>
+                                <input
+                                  className={styles.inlineInput}
+                                  value={editHores}
+                                  onChange={(e) => setEditHores(e.target.value)}
+                                />
+                              </td>
+                              <td className={styles.num}>
+                                <input
+                                  className={styles.inlineInput}
+                                  value={editTarifa}
+                                  onChange={(e) => setEditTarifa(e.target.value)}
+                                />
+                              </td>
+                              <td className={styles.num}>
+                                <input
+                                  className={styles.inlineInput}
+                                  value={editImport}
+                                  onChange={(e) => setEditImport(e.target.value)}
+                                />
+                              </td>
+                              <td className={styles.rowActions}>
+                                <button
+                                  type="button"
+                                  disabled={pending}
+                                  onClick={() =>
+                                    startTransition(async () => {
+                                      await updateMovimentTraspassAction(m.id, {
+                                        minuts: parseNum(editMinuts),
+                                        hores: parseNum(editHores),
+                                        tarifaHora: parseNum(editTarifa),
+                                        import_: parseNum(editImport),
+                                      });
+                                      setEditId(null);
+                                      window.location.reload();
+                                    })
+                                  }
+                                >
+                                  <Check size={16} />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={pending}
+                                  onClick={() => setEditId(null)}
+                                >
+                                  <X size={16} />
+                                </button>
+                              </td>
+                            </>
+                          ) : (
+                            <>
+                              <td className={styles.num}>{formatNum(m.minuts)}</td>
+                              <td className={styles.num}>{formatNum(m.hores)}</td>
+                              <td className={styles.num}>{formatNum(m.tarifaHora)} €</td>
+                              <td className={styles.num}>{formatNum(m.import_)} €</td>
+                              {canEdit && (
+                                <td className={styles.rowActions}>
+                                  <button
+                                    type="button"
+                                    disabled={pending}
+                                    title={
+                                      editable ? "Editar moviment" : "Torna a esborrany per editar"
+                                    }
+                                    onClick={() => startEdit(m)}
+                                  >
+                                    <Pencil size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    disabled={!editable || pending}
+                                    title={
+                                      editable
+                                        ? "Eliminar moviment"
+                                        : "Torna a esborrany per eliminar"
+                                    }
+                                    onClick={() => {
+                                      if (!editable) {
+                                        setFeedback(
+                                          "Per eliminar, primer fes «Tornar a esborrany»."
+                                        );
+                                        setTimeout(() => setFeedback(null), 5000);
+                                        return;
+                                      }
+                                      if (!confirm("Eliminar aquest moviment?")) return;
+                                      startTransition(async () => {
+                                        await deleteMovimentTraspassAction(m.id);
+                                        window.location.reload();
+                                      });
+                                    }}
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                </td>
+                              )}
+                            </>
                           )}
-                        </>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </>
             )}
           </section>
 
+          {execucio.estat === "CONFIRMAT" &&
+            execucio.foraCentreSnapshot &&
+            execucio.foraCentreSnapshot.canvis.length > 0 && (
+              <section className={styles.card}>
+                <h2 className={styles.cardTitle}>Fora centre · substitució (antic → nou)</h2>
+                <p className={styles.helpText}>
+                  En confirmar, s&apos;ha substituït el camp Fora centre del cost salarial
+                  restaurants (només destinataris LN restaurants). Es mostra el valor anterior i el
+                  nou calculat des dels traspassos.
+                </p>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Restaurant</th>
+                      <th>Dept.</th>
+                      <th className={styles.num}>Abans</th>
+                      <th className={styles.num}>Nou</th>
+                      <th className={styles.num}>Δ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {execucio.foraCentreSnapshot.canvis.map((c) => {
+                      const delta = c.despres - c.abans;
+                      return (
+                        <tr key={`${c.centreId}-${c.departament}`}>
+                          <td>
+                            {c.centreCodi} · {c.centreNom}
+                          </td>
+                          <td>{c.departament === "CUINA" ? "Cuina" : "Sala"}</td>
+                          <td className={styles.num}>{formatNum(c.abans)} €</td>
+                          <td className={styles.num}>{formatNum(c.despres)} €</td>
+                          <td className={styles.num}>
+                            {delta > 0 ? "+" : ""}
+                            {formatNum(delta)} €
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </section>
+            )}
+
           {execucio.alertes.length > 0 && (
             <section className={styles.card}>
-              <h2 className={styles.cardTitle}>Alertes ({execucio.alertes.length})</h2>
+              <h2 className={styles.cardTitle}>Alertes / diagnòstic ({execucio.alertes.length})</h2>
               <p className={styles.helpText}>
-                Files sense mapeig. Afegeix-los a{" "}
+                Files sense mapeig, o agregats molt grans amb exemples de files Excel (per detectar
+                mapeigs erronis). Afegeix textos a{" "}
                 <Link href="/settings/traspass-personal">
                   Configuració → Traspassos de personal
-                </Link>{" "}
-                o importa l&apos;excel de mapeig.
+                </Link>
+                .
               </p>
               <table className={styles.table}>
                 <thead>

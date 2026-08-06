@@ -25,8 +25,8 @@ export const GRUPS_REPARTIMENT = [
   },
   {
     codi: "GRUP_PERSONAL_CENTRAL",
-    nom: "Personal Central (Empresa + Casaments + Precuinats)",
-    membres: ["LN00002", "LN00003", "LN00004"],
+    nom: "Personal Central comercial (Empresa + Casaments)",
+    membres: ["LN00002", "LN00003"],
   },
 ] as const;
 
@@ -140,11 +140,10 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 450,
     },
     {
-      nom: "Precuinats · personal SAP + pool Central proporcional",
+      nom: "Precuinats · personal SAP + suport Central per centres",
       tipus: "REPARTIMENT_PROPORCIONAL",
       destCodi: "LN00004",
       concepteNode: NODE_COST_SALARIAL,
-      grupCodi: "GRUP_PERSONAL_CENTRAL",
       ordre: 451,
     },
     {

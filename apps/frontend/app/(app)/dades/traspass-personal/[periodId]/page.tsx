@@ -22,9 +22,11 @@ export default async function TraspassPersonalDetallPage({
         nomFitxer: execucioRaw.nomFitxer,
         moviments: execucioRaw.moviments.map((m) => ({
           id: m.id,
+          minuts: Number((m as { minuts?: unknown }).minuts ?? Math.round(Number(m.hores) * 60)),
           hores: Number(m.hores),
           tarifaHora: Number(m.tarifaHora),
           import_: Number(m.import_),
+          departament: m.departament as "SALA" | "CUINA",
           centreOrigen: m.centreOrigen,
           centreDesti: m.centreDesti,
         })),
@@ -37,6 +39,18 @@ export default async function TraspassPersonalDetallPage({
               motiu: string;
             }[])
           : [],
+        foraCentreSnapshot: execucioRaw.foraCentreSnapshotJson
+          ? (JSON.parse(execucioRaw.foraCentreSnapshotJson) as {
+              canvis: {
+                centreId: string;
+                centreCodi: string;
+                centreNom: string;
+                departament: "SALA" | "CUINA";
+                abans: number;
+                despres: number;
+              }[];
+            })
+          : null,
       }
     : null;
 

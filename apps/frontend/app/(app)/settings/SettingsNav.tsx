@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { ArrowLeftRight, GitBranch, Layers, ListTree, Scale, Users } from "lucide-react";
+import { ArrowLeftRight, GitBranch, Layers, ListTree, Scale, UserCog, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./layout.module.css";
@@ -33,6 +33,13 @@ const SETTINGS_TABS = [
     href: "/settings/traspass-personal",
     label: "Traspassos personal",
     icon: ArrowLeftRight,
+    exact: false,
+    adminOnly: false,
+  },
+  {
+    href: "/settings/cost-personal-centre",
+    label: "Cost personal",
+    icon: UserCog,
     exact: false,
     adminOnly: false,
   },

@@ -1,4 +1,6 @@
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
+import { quadreToExportInforme } from "@/lib/export/restaurants";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { grupFiltraRestaurantsNomesMirall } from "@/lib/grups-empresa";
 import {
@@ -31,23 +33,26 @@ export default async function QuadreMandoPage({
   const mes = Number.isFinite(mesRaw) && mesRaw >= 0 && mesRaw <= 12 ? mesRaw : 0;
 
   const data = await getQuadreMandoRestaurants(anyActual, mes, nomesMirall);
+  const title = nomesMirall
+    ? "Quadre de comandament · Font de la Canya"
+    : "Quadre de comandament · restaurants";
+  const informe = data.buit ? null : quadreToExportInforme(data, { title });
 
   return (
     <div className={styles.page}>
       <div className={styles.headerRow}>
         <div>
-          <h1 className={styles.title}>
-            {nomesMirall
-              ? "Quadre de comandament · Font de la Canya"
-              : "Quadre de comandament · restaurants"}
-          </h1>
+          <h1 className={styles.title}>{title}</h1>
           <p className={styles.subtitle}>
             {nomesMirall
               ? "FDLC només opera el mirall CCR00008 (Font de la Canya): vendes TPV, personal i compte."
               : "Visió multiubicació: vendes TPV, personal (Excel), cost de compres i EBITDA (compte) en una sola lectura. Objectiu cost operatiu ≤ 60%."}
           </p>
         </div>
-        <QuadreSelectors anys={anys} any={anyActual} mes={mes} />
+        <div className={styles.headerActions}>
+          <QuadreSelectors anys={anys} any={anyActual} mes={mes} />
+          <ExportInformeButton informe={informe} />
+        </div>
       </div>
 
       {data.buit ? (

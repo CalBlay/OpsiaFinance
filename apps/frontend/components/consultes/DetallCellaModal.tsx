@@ -4,7 +4,7 @@ import type { DetallCellaParams, DetallCellaResult } from "@/lib/consultes";
 import { etiquetaCentre, etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
-import { cn, formatNum } from "@/lib/utils";
+import { cn, formatNumSigned } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
@@ -94,6 +94,21 @@ export function DetallCellaModal({
         : `${MESOS_LLARGS[context.rang.des - 1]} – ${MESOS_LLARGS[context.rang.fins - 1]} ${context.any}`
       : `Acumulat ${context.any}`;
 
+  let traspassSortida = 0;
+  let traspassEntrada = 0;
+  if (data) {
+    for (const i of data.items) {
+      if (i.origen !== "traspass") continue;
+      if (i.import_ > 0) traspassSortida += i.import_;
+      else if (i.import_ < 0) traspassEntrada += i.import_;
+    }
+    traspassSortida = Math.round(traspassSortida * 100) / 100;
+    traspassEntrada = Math.round(traspassEntrada * 100) / 100;
+  }
+  const teTraspass =
+    traspassSortida !== 0 || traspassEntrada !== 0 || (data?.totalTraspass ?? 0) !== 0;
+  const tePayroll = !!data?.payrollSubstitueix || (data?.totalPayroll ?? 0) !== 0;
+
   function desarAjust() {
     if (!potEditar || !mesEditable) return;
     const nou = parseImportInput(draft);
@@ -174,30 +189,65 @@ export function DetallCellaModal({
             <>
               <div className={styles.summary}>
                 <span>
-                  Dades SAP: <strong>{formatNum(data.totalDades, 2)} €</strong>
+                  {tePayroll ? "SAP (substituït)" : "Dades SAP"}:{" "}
+                  <strong>{formatNumSigned(data.totalDades, 2)}&nbsp;€</strong>
                 </span>
+                {tePayroll && (
+                  <span>
+                    Payroll:{" "}
+                    <strong className={styles.payroll}>
+                      {formatNumSigned(data.totalPayroll, 2)}&nbsp;€
+                    </strong>
+                  </span>
+                )}
                 {data.totalAjustos !== 0 && (
                   <span>
                     Ajustos:{" "}
-                    <strong className={styles.ajust}>{formatNum(data.totalAjustos, 2)} €</strong>
+                    <strong className={styles.ajust}>
+                      {formatNumSigned(data.totalAjustos, 2)}&nbsp;€
+                    </strong>
                   </span>
                 )}
                 {data.totalRepartiment !== 0 && (
                   <span>
-                    Repartiment:{" "}
+                    ESTRUCTURA:{" "}
                     <strong className={styles.repartiment}>
-                      {formatNum(data.totalRepartiment, 2)} €
+                      {formatNumSigned(data.totalRepartiment, 2)}&nbsp;€
                     </strong>
                   </span>
                 )}
                 {data.totalMirall !== 0 && (
                   <span>
                     Mirall:{" "}
-                    <strong className={styles.mirall}>{formatNum(data.totalMirall, 2)} €</strong>
+                    <strong className={styles.mirall}>
+                      {formatNumSigned(data.totalMirall, 2)}&nbsp;€
+                    </strong>
                   </span>
                 )}
+                {teTraspass && (
+                  <>
+                    <span>
+                      Sortides:{" "}
+                      <strong className={cn(styles.traspass, styles.pos)}>
+                        {formatNumSigned(traspassSortida, 2)}&nbsp;€
+                      </strong>
+                    </span>
+                    <span>
+                      Entrades:{" "}
+                      <strong className={cn(styles.traspass, styles.neg)}>
+                        {formatNumSigned(traspassEntrada, 2)}&nbsp;€
+                      </strong>
+                    </span>
+                    <span>
+                      Traspass net:{" "}
+                      <strong className={styles.traspass}>
+                        {formatNumSigned(data.totalTraspass, 2)}&nbsp;€
+                      </strong>
+                    </span>
+                  </>
+                )}
                 <span>
-                  Total: <strong>{formatNum(data.total, 2)} €</strong>
+                  Total: <strong>{formatNumSigned(data.total, 2)}&nbsp;€</strong>
                 </span>
               </div>
 
@@ -227,7 +277,11 @@ export function DetallCellaModal({
                                 ? styles.repartimentRow
                                 : item.origen === "mirall"
                                   ? styles.mirallRow
-                                  : undefined
+                                  : item.origen === "traspass"
+                                    ? styles.traspassRow
+                                    : item.origen === "payroll"
+                                      ? styles.payrollRow
+                                      : undefined
                           }
                         >
                           <td>
@@ -240,7 +294,11 @@ export function DetallCellaModal({
                                     ? styles.badgeRepartiment
                                     : item.origen === "mirall"
                                       ? styles.badgeMirall
-                                      : styles.badgeDada
+                                      : item.origen === "traspass"
+                                        ? styles.badgeTraspass
+                                        : item.origen === "payroll"
+                                          ? styles.badgePayroll
+                                          : styles.badgeDada
                               )}
                             >
                               {item.origen === "dada"
@@ -248,8 +306,12 @@ export function DetallCellaModal({
                                 : item.origen === "ajust"
                                   ? "Ajust"
                                   : item.origen === "repartiment"
-                                    ? "Repart."
-                                    : "Mirall"}
+                                    ? "ESTRUCTURA"
+                                    : item.origen === "traspass"
+                                      ? "Traspass"
+                                      : item.origen === "payroll"
+                                        ? "Payroll"
+                                        : "Mirall"}
                             </span>
                           </td>
                           <td className={styles.nowrap}>{MESOS_LLARGS[item.mes - 1]}</td>
@@ -270,10 +332,11 @@ export function DetallCellaModal({
                             className={cn(
                               styles.right,
                               styles.nowrap,
+                              item.import_ > 0 && styles.pos,
                               item.import_ < 0 && styles.neg
                             )}
                           >
-                            {formatNum(item.import_, 2)} €
+                            {formatNumSigned(item.import_, 2)} €
                           </td>
                           <td className={styles.motiu}>{item.motiu ?? ""}</td>
                         </tr>

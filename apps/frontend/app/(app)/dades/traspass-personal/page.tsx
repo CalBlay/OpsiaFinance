@@ -1,7 +1,9 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { periodesToExportInforme } from "@/lib/export/dades";
 import Link from "next/link";
 import { PeriodLinkList, UploadHoresForm } from "./TraspassPersonalPanel";
 import styles from "./page.module.css";
@@ -47,6 +49,17 @@ export default async function TraspassPersonalLlistaPage() {
     execucioTraspassPersonal: p.execucioTraspassPersonal,
   }));
 
+  const exportItems = items.map((p) => ({
+    nom: p.nom,
+    any: p.any,
+    mes: p.mes,
+    estat: p.execucioTraspassPersonal?.estat ?? null,
+    fitxer:
+      p.execucioTraspassPersonal?.nomFitxer ??
+      p.execucioTraspassPersonal?.importacio?.nomFitxer ??
+      null,
+  }));
+
   return (
     <DadesPageShell
       title={tab.title}
@@ -57,6 +70,19 @@ export default async function TraspassPersonalLlistaPage() {
             Veure resum per mes i LN →
           </Link>
         </>
+      }
+      actions={
+        <ExportInformeButton
+          informe={
+            exportItems.length
+              ? periodesToExportInforme(exportItems, {
+                  title: tab.title,
+                  filename: "dades-traspass-personal",
+                  withFitxer: true,
+                })
+              : null
+          }
+        />
       }
     >
       <PeriodLinkList periods={items} canEdit={canEdit} />

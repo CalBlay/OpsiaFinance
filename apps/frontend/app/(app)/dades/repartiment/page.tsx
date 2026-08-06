@@ -1,6 +1,8 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { db } from "@/lib/db";
+import { periodesToExportInforme } from "@/lib/export/dades";
 import { RepartimentLlista } from "./RepartimentLlista";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +26,22 @@ export default async function RepartimentLlistaPage() {
   }));
 
   return (
-    <DadesPageShell title={tab.title} description={tab.description}>
+    <DadesPageShell
+      title={tab.title}
+      description={tab.description}
+      actions={
+        <ExportInformeButton
+          informe={
+            items.length
+              ? periodesToExportInforme(items, {
+                  title: tab.title,
+                  filename: "dades-repartiment",
+                })
+              : null
+          }
+        />
+      }
+    >
       <RepartimentLlista periods={items} />
     </DadesPageShell>
   );

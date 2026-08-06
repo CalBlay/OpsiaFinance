@@ -1,10 +1,16 @@
 import { db } from "@/lib/db";
 import { formatDateShort } from "@/lib/utils";
 
-export type TipusCarregaFitxer = "COST_SALARIAL" | "VENDES_V" | "VENDES_DETALL" | "VENDES_PACK";
+export type TipusCarregaFitxer =
+  | "COST_SALARIAL"
+  | "COST_PERSONAL_CENTRE"
+  | "VENDES_V"
+  | "VENDES_DETALL"
+  | "VENDES_PACK";
 
 export const TIPUS_CARREGA_LABELS: Record<TipusCarregaFitxer, string> = {
   COST_SALARIAL: "Cost salarial",
+  COST_PERSONAL_CENTRE: "Cost personal centre",
   VENDES_V: "Vendes diàries (V)",
   VENDES_DETALL: "Vendes detall",
   VENDES_PACK: "Vendes pack",
@@ -55,6 +61,7 @@ export async function llistaCarreguesFitxer(
       _count: {
         select: {
           costsSalarials: true,
+          costsPersonalsCentre: true,
           vendesDiaries: true,
           vendesArticles: true,
         },
@@ -64,8 +71,8 @@ export async function llistaCarreguesFitxer(
 
   return rows.map((r) => ({
     id: r.id,
-    tipus: r.tipus,
-    tipusLabel: TIPUS_CARREGA_LABELS[r.tipus],
+    tipus: r.tipus as TipusCarregaFitxer,
+    tipusLabel: TIPUS_CARREGA_LABELS[r.tipus as TipusCarregaFitxer] ?? r.tipus,
     nomFitxer: r.nomFitxer,
     mida: r.mida,
     resum: r.resum,
@@ -74,7 +81,11 @@ export async function llistaCarreguesFitxer(
     createdAtLabel: formatDateShort(r.createdAt),
     usuari: r.creatPerUser.name,
     periodLabel: r.period?.nom ?? null,
-    registres: r._count.costsSalarials + r._count.vendesDiaries + r._count.vendesArticles,
+    registres:
+      r._count.costsSalarials +
+      (r._count.costsPersonalsCentre ?? 0) +
+      r._count.vendesDiaries +
+      r._count.vendesArticles,
   }));
 }
 

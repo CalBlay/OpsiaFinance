@@ -1,6 +1,8 @@
 "use client";
 
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
+import { traspassResumToExportInforme } from "@/lib/export/dades";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import type { ResumTraspassPersonal } from "@/lib/traspass-personal/resum";
 import { pivotResumLn } from "@/lib/traspass-personal/resum-pivot";
@@ -12,6 +14,7 @@ import styles from "./page.module.css";
 export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) {
   const router = useRouter();
   const pivotLn = pivotResumLn(resum.perLn);
+  const informe = resum.buit ? null : traspassResumToExportInforme(resum);
 
   return (
     <DadesPageShell
@@ -25,19 +28,22 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
         </>
       }
       actions={
-        <label className={styles.anySelect}>
-          Any{" "}
-          <select
-            value={resum.any}
-            onChange={(e) => router.push(`/dades/traspass-personal/resum?any=${e.target.value}`)}
-          >
-            {(resum.anysDisponibles.length ? resum.anysDisponibles : [resum.any]).map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </label>
+        <>
+          <ExportInformeButton informe={informe} />
+          <label className={styles.anySelect}>
+            Any{" "}
+            <select
+              value={resum.any}
+              onChange={(e) => router.push(`/dades/traspass-personal/resum?any=${e.target.value}`)}
+            >
+              {(resum.anysDisponibles.length ? resum.anysDisponibles : [resum.any]).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </label>
+        </>
       }
     >
       {resum.buit ? (
@@ -61,6 +67,7 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
                     <th>LN origen</th>
                     <th>Destí</th>
                     <th>LN destí</th>
+                    <th className={styles.num}>Minuts</th>
                     <th className={styles.num}>Hores</th>
                     <th className={styles.num}>Total</th>
                   </tr>
@@ -81,6 +88,7 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
                       <td>
                         {r.destiLnCodi} · {r.destiLnNom}
                       </td>
+                      <td className={styles.num}>{formatNum(r.minuts, 2)}</td>
                       <td className={styles.num}>{formatNum(r.hores, 2)}</td>
                       <td className={styles.num}>{formatNum(r.import_, 2)} €</td>
                     </tr>

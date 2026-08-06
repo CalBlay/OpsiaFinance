@@ -3,6 +3,7 @@ import { KpiComparatiuCards } from "@/components/consultes/KpiCards";
 import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
 import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import {
   filtraConceptesPerMesos,
   inferDefaultMesos,
@@ -20,6 +21,7 @@ import {
   getComparativaMensualEntreAnys,
   getComparativaTemporal,
 } from "@/lib/consultes";
+import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
 import {
@@ -347,15 +349,28 @@ export default async function ComparativaPage({
               : "Tria un àmbit per comparar-lo al llarg del temps."}
           </p>
         </div>
-        <ComparativaSelectors
-          arbre={arbre}
-          scope={scope}
-          id={id}
-          granularitat={granularitat}
-          mes={mesActual}
-          mesosSeleccionats={mesosSeleccionats}
-          nomesEmpresa={!potLiniaCentre}
-        />
+        <div className={styles.headerActions}>
+          <ComparativaSelectors
+            arbre={arbre}
+            scope={scope}
+            id={id}
+            granularitat={granularitat}
+            mes={mesActual}
+            mesosSeleccionats={mesosSeleccionats}
+            nomesEmpresa={!potLiniaCentre}
+          />
+          <ExportInformeButton
+            disabled={!!necessitaId || !!buit}
+            filename={slugFilename(`comparativa-${titol ?? scope}-${periodeDesc ?? granularitat}`)}
+            title="Comparativa temporal"
+            subtitle={titol && periodeDesc ? `${titol} — ${periodeDesc}` : undefined}
+            columns={columns}
+            rows={pivotRows}
+            showTotal={granularitat === "mensual"}
+            totalLabel="Període"
+            sheetName="Comparativa"
+          />
+        </div>
       </div>
 
       {necessitaId ? (

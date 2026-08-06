@@ -1,8 +1,10 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import { llistaCarreguesFitxer } from "@/lib/carrega-fitxer";
 import { db } from "@/lib/db";
+import { vendesResumsToExportInforme } from "@/lib/export/dades";
 import { HistorialVendes } from "./HistorialVendes";
 import { VendesRestaurantsManager } from "./VendesRestaurantsManager";
 
@@ -158,6 +160,19 @@ export default async function VendesRestaurantsDadesPage({
         <>
           {tab.description} {meta}.
         </>
+      }
+      actions={
+        <ExportInformeButton
+          informe={
+            resums.length
+              ? vendesResumsToExportInforme(resums, {
+                  any: anyFiltre,
+                  mes: mesFiltre,
+                  title: tab.title,
+                })
+              : null
+          }
+        />
       }
     >
       <HistorialVendes items={carregues} canEdit={canEdit} />

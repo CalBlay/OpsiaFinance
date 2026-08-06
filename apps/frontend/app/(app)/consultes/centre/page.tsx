@@ -4,6 +4,7 @@ import type { PivotColumn } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import {
   MESOS_CURTS,
@@ -12,6 +13,7 @@ import {
   getCompteExplotacioCentre,
 } from "@/lib/consultes";
 import { etiquetaCentre } from "@/lib/consultes-etiquetes";
+import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
 import { NODE_EBITDA, NODE_INGRESSOS, buildKpisInforme } from "@/lib/kpi-definitions";
@@ -104,14 +106,32 @@ export default async function ConsultaCentrePage({
               : "Selecciona un centre per veure el seu compte d'explotació anual, mes a mes."}
           </p>
         </div>
-        <CentreSelectors
-          arbre={arbreCalBlay}
-          anys={anys.length ? anys : [anyActual]}
-          lnId={lnId}
-          centreId={centreId}
-          any={anyActual}
-          vista={vista}
-        />
+        <div className={styles.headerActions}>
+          <CentreSelectors
+            arbre={arbreCalBlay}
+            anys={anys.length ? anys : [anyActual]}
+            lnId={lnId}
+            centreId={centreId}
+            any={anyActual}
+            vista={vista}
+          />
+          <ExportInformeButton
+            disabled={!compte || compte.buit}
+            filename={slugFilename(
+              `compte-centre-${compte?.centre ? etiquetaCentre(compte.centre) : "centre"}-${anyActual}`
+            )}
+            title="Compte d'explotació · per centre"
+            subtitle={
+              compte?.centre
+                ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom} · ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
+                : periodeLabel
+            }
+            columns={columns}
+            rows={compte?.concepts ?? []}
+            totalLabel="Any"
+            sheetName="Centre"
+          />
+        </div>
       </div>
 
       {!lnId ? (

@@ -15,6 +15,7 @@ import {
   LayoutDashboard,
   ShoppingBag,
   TrendingUp,
+  UserRound,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -28,6 +29,7 @@ const RESULTATS_TABS = [
   { href: "/consultes/linia", label: "Per línia", icon: Layers, calBlay: true },
   { href: "/consultes/centre", label: "Per centre", icon: Building2, calBlay: true },
   { href: "/consultes/comparativa", label: "Comparativa temporal", icon: GitCompareArrows },
+  { href: "/consultes/cost-personal", label: "Cost de personal", icon: UserRound },
 ] as const;
 
 const RESTAURANTS_TABS = [

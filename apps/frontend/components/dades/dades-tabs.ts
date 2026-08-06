@@ -5,6 +5,7 @@ import {
   Scale,
   ShoppingBag,
   SlidersHorizontal,
+  UserCog,
   Users,
 } from "lucide-react";
 
@@ -12,6 +13,7 @@ export type DadesTabId =
   | "importacions"
   | "repartiment"
   | "traspass-personal"
+  | "cost-personal-centre"
   | "cost-salarial"
   | "vendes-restaurants"
   | "ajustos";
@@ -32,6 +34,7 @@ export type DadesTab = {
 const OTHER_PREFIXES = [
   "/dades/repartiment",
   "/dades/traspass-personal",
+  "/dades/cost-personal-centre",
   "/dades/cost-salarial",
   "/dades/vendes-restaurants",
   "/dades/ajustos",
@@ -72,6 +75,16 @@ export const DADES_TABS: DadesTab[] = [
       "Importa l’Excel mensual d’hores amb el botó +. Nom del fitxer: «Hores Centres de Treball mm_aaaa.xlsx». Confirma els traspassos; s’apliquen a la vista Gestió (tractat).",
     icon: ArrowLeftRight,
     match: (p) => p.startsWith("/dades/traspass-personal"),
+  },
+  {
+    id: "cost-personal-centre",
+    href: "/dades/cost-personal-centre",
+    label: "Cost personal",
+    title: "Cost personal per centre",
+    description:
+      "Llistat payroll (brut + provisió de pagues extres + SS) per centre. Amb el botó + pots pujar un o més Excel (el període surt del nom, ex. Cost_Personal_07_26.xlsx). Cal mapeig a Configuració; substitueix el bloc personal a Gestió del centre.",
+    icon: UserCog,
+    match: (p) => p.startsWith("/dades/cost-personal-centre"),
   },
   {
     id: "cost-salarial",

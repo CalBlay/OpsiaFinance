@@ -79,6 +79,8 @@ model Centre {
   movimentsTraspassOrigen MovimentTraspassPersonal[] @relation("TraspassOrigen")
   movimentsTraspassDesti  MovimentTraspassPersonal[] @relation("TraspassDesti")
   costsSalarials    CostSalarialRestaurant[]
+  costsPersonalsCentre CostPersonalCentre[]
+  mapeigsCostPersonal MapeigCodiCostPersonal[]
   vendesDiaries     VendaDiariaRestaurant[]
   vendesArticles    VendaArticleRestaurant[]
 
@@ -124,6 +126,7 @@ model Period {
   execucioRepartiment ExecucioRepartiment?
   execucioTraspassPersonal ExecucioTraspassPersonal?
   costsSalarials CostSalarialRestaurant[]
+  costsPersonalsCentre CostPersonalCentre[]
   vendesDiaries  VendaDiariaRestaurant[]
   vendesArticles VendaArticleRestaurant[]
   carreguesFitxer CarregaFitxer[]
@@ -486,23 +489,32 @@ model ConfigTraspassPersonal {
   updatedAt  DateTime @updatedAt
 }
 
-/// Mapeig text (Organizaciones o Proyecto) → centre de cost.
+/// Mapeig text (Organizaciones o Proyecto) → centre de cost + departament.
 model MapeigTextCentreTreball {
   id        String   @id @default(cuid())
   text      String   @unique
   centreId  String
   centre    Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  /// Font de veritat: Sala/Serveis → SALA, Cuina/Cuiner → CUINA.
+  departament DepartamentSalarial @default(SALA)
   ordre     Int      @default(0)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([centreId])
+  @@index([departament])
 }
 
 enum EstatExecucioTraspassPersonal {
   BORRADOR
   CONFIRMAT
+}
+
+/// Reutilitzat per traspassos (Sala/Cuina) i cost salarial restaurants.
+enum DepartamentSalarial {
+  SALA
+  CUINA
 }
 
 /// Execució mensual de traspassos de personal (un per període).
@@ -519,6 +531,8 @@ model ExecucioTraspassPersonal {
   confirmatPer String?
   notes        String?
   alertesJson  String?
+  /// Snapshot JSON dels canvis a foraCentre (abans/després) en confirmar.
+  foraCentreSnapshotJson String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -527,7 +541,7 @@ model ExecucioTraspassPersonal {
   @@index([importacioId])
 }
 
-/// Moviment agregat origen → destí (node 13 — sous i salaris).
+/// Moviment agregat origen → destí × departament (Sala/Cuina).
 model MovimentTraspassPersonal {
   id             String @id @default(cuid())
   execucioId     String
@@ -538,6 +552,11 @@ model MovimentTraspassPersonal {
   centreDestiId  String
   centreDesti    Centre @relation("TraspassDesti", fields: [centreDestiId], references: [id], onDelete: Cascade)
 
+  /// Departament copiat del mapeig d'origen (font de veritat) en calcular.
+  departament  DepartamentSalarial @default(SALA)
+
+  /// Minuts agregats (font Excel); hores = minuts / 60.
+  minuts       Decimal @db.Decimal(18, 2) @default(0)
   hores        Decimal @db.Decimal(18, 2)
   tarifaHora   Decimal @db.Decimal(18, 2)
   import_      Decimal @map("import") @db.Decimal(18, 2)
@@ -546,16 +565,12 @@ model MovimentTraspassPersonal {
   @@index([execucioId])
   @@index([centreOrigenId])
   @@index([centreDestiId])
+  @@index([departament])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODUL: Cost salarial restaurants (font Excel pròpia · Sala / Cuina)
 // ─────────────────────────────────────────────────────────────────────────────
-
-enum DepartamentSalarial {
-  SALA
-  CUINA
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MODUL: Historial de càrregues (Cost salarial / Vendes restaurants)
@@ -563,6 +578,7 @@ enum DepartamentSalarial {
 
 enum TipusCarregaFitxer {
   COST_SALARIAL
+  COST_PERSONAL_CENTRE
   VENDES_V
   VENDES_DETALL
   VENDES_PACK
@@ -583,6 +599,7 @@ model CarregaFitxer {
   createdAt DateTime          @default(now())
 
   costsSalarials CostSalarialRestaurant[]
+  costsPersonalsCentre CostPersonalCentre[]
   vendesDiaries  VendaDiariaRestaurant[]
   vendesArticles VendaArticleRestaurant[]
 
@@ -624,6 +641,63 @@ model CostSalarialRestaurant {
   @@index([centreId])
   @@index([carregaId])
   @@index([centreId, periodId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MODUL: Cost personal per centre (payroll / llistat costos → Gestió)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Mapeig codi del fitxer payroll → centre Opsia (+ Sala/Cuina si restaurant).
+model MapeigCodiCostPersonal {
+  id          String   @id @default(cuid())
+  /// Codi del fitxer (ex. 02001, 0015, 02001001).
+  codi        String   @unique
+  /// Text descriptiu opcional (ex. ADMINISTRACIO EMPRESA).
+  text        String?
+  centreId    String
+  centre      Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  /// Per restaurants: SALA/CUINA. Null = agregat al centre sense dept salarial.
+  departamentSalarial DepartamentSalarial?
+  ordre       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([centreId])
+  @@index([departamentSalarial])
+}
+
+/// Fet de cost personal importat (payroll) per període × centre.
+model CostPersonalCentre {
+  id        String @id @default(cuid())
+
+  periodId  String
+  period    Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  centreId  String
+  centre    Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  departamentSalarial DepartamentSalarial?
+
+  carregaId String?
+  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+
+  /// Text/codi original de la fila (traçabilitat al detall).
+  codiOrigen String?
+  textOrigen String?
+
+  importBrut       Decimal @db.Decimal(18, 2) @default(0)
+  segSocialEmpresa Decimal @db.Decimal(18, 2) @default(0)
+  totalSegSocial   Decimal @db.Decimal(18, 2) @default(0)
+  costPersonal     Decimal @db.Decimal(18, 2) @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([periodId])
+  @@index([centreId])
+  @@index([carregaId])
+  @@index([periodId, centreId])
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

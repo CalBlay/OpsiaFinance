@@ -80,13 +80,24 @@
 
 .summary {
   display: flex;
-  gap: 1.5rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.55rem 1.25rem;
   font-size: 0.85rem;
   color: var(--color-foreground);
   margin-bottom: 1rem;
   padding: 0.6rem 0.8rem;
   background: color-mix(in srgb, var(--color-muted) 50%, transparent);
   border-radius: 0.5rem;
+}
+
+.summary > span {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.summary strong {
+  white-space: nowrap;
 }
 
 .ajust {
@@ -99,6 +110,10 @@
 
 .mirall {
   color: #a16207;
+}
+
+.traspass {
+  color: #1d4ed8;
 }
 
 .tableWrap {
@@ -147,6 +162,10 @@
   color: var(--color-destructive);
 }
 
+.pos {
+  color: #15803d;
+}
+
 .motiu {
   color: var(--color-muted-foreground);
   max-width: 200px;
@@ -163,6 +182,10 @@
 
 .mirallRow {
   background: color-mix(in srgb, #a16207 7%, transparent);
+}
+
+.traspassRow {
+  background: color-mix(in srgb, #1d4ed8 6%, transparent);
 }
 
 .badge {
@@ -193,6 +216,24 @@
 .badgeMirall {
   background: color-mix(in srgb, #a16207 18%, transparent);
   color: #a16207;
+}
+
+.badgeTraspass {
+  background: color-mix(in srgb, #1d4ed8 16%, transparent);
+  color: #1d4ed8;
+}
+
+.payroll {
+  color: #7c3aed;
+}
+
+.payrollRow {
+  background: color-mix(in srgb, #7c3aed 6%, transparent);
+}
+
+.badgePayroll {
+  background: color-mix(in srgb, #7c3aed 16%, transparent);
+  color: #7c3aed;
 }
 
 .editSection {

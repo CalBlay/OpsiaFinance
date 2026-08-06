@@ -5,6 +5,11 @@ import { nodePresentacioGestio } from "@/lib/repartiment/nodes";
 
 export const COL_REPARTIMENT_ID = "__repartiment__";
 
+/** Etiqueta de columna / detall a consultes Gestió (abans «Repart.»). */
+export const COL_REPARTIMENT_CODI = "ESTRUCTURA";
+export const COL_REPARTIMENT_NOM = "ESTRUCTURA";
+export const COL_REPARTIMENT_LABEL_DETALL = "ESTRUCTURA";
+
 /** Suma deltas de diversos períodes en un mapa LN → node → import. */
 export function agregarDeltasPerLn(
   deltasPerPeriode: Map<string, Map<string, Map<number, number>>>
@@ -60,7 +65,7 @@ export function aplicarGestioRepartiment(
 }
 
 /**
- * Vista per LN: centres en directe SAP + columna «Repartiment» amb la imputació de gestió.
+ * Vista per LN: centres en base Gestió + columna «ESTRUCTURA» amb la imputació de gestió.
  */
 export function aplicarGestioRepartimentLn(
   _concepts: ConcepteOrdre[],

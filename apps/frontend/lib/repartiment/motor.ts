@@ -12,6 +12,11 @@ import {
   calcularMovimentsPersonalEspecial,
   esNormaPersonalEspecial,
 } from "@/lib/repartiment/personal-ln";
+import {
+  type SuportPersonalPrecuinats,
+  calcularMovimentPersonalPrecuinats,
+  esNormaPersonalPrecuinats,
+} from "@/lib/repartiment/personal-precuinats";
 import type { NormaRepartiment, TipusNormaRepartiment } from "@prisma/client";
 
 export type { MovimentCalculat };
@@ -79,7 +84,8 @@ export function calcularMoviments(
   pesOverrides: Map<string, number>,
   lnIdByCodi: Map<string, string>,
   grupCompresId: string,
-  grupPersonalId: string
+  grupPersonalId: string,
+  suportPrecuinats: SuportPersonalPrecuinats
 ): MovimentCalculat[] {
   const normesActives = normes.filter((n) => n.actiu).sort((a, b) => a.ordre - b.ordre);
 
@@ -100,6 +106,12 @@ export function calcularMoviments(
 
   const movimentsCentral = calcularMovimentsCentralLn(normesActives, directe, centralLnId);
   const movimentsPersonal = calcularMovimentsPersonalEspecial(normesActives, directe, lnIdByCodi);
+  const movimentsPersonalPrecuinats = calcularMovimentPersonalPrecuinats(
+    normesActives,
+    directe,
+    lnIdByCodi,
+    suportPrecuinats
+  );
   const movimentsGestio = calcularMovimentsGestioEspecial(
     normesActives,
     directe,
@@ -112,13 +124,15 @@ export function calcularMoviments(
     centralLnId,
     lnIdByCodi,
     grupPersonalId,
-    pesMap
+    pesMap,
+    suportPrecuinats
   );
 
   const moviments: MovimentCalculat[] = [
     ...movimentsCompres,
     ...movimentsCentral,
     ...movimentsPersonal,
+    ...movimentsPersonalPrecuinats,
     ...movimentsGestio,
     ...movimentsPersonalGrup,
   ];
@@ -137,6 +151,7 @@ export function calcularMoviments(
   for (const norma of normesActives) {
     if (esNormaCompresExterna(norma)) continue;
     if (esNormaPersonalEspecial(norma, lnIdByCodi)) continue;
+    if (esNormaPersonalPrecuinats(norma, lnIdByCodi)) continue;
     if (esNormaGestioEspecial(norma, lnIdByCodi)) continue;
     if (esNormaPersonalGrupCentral(norma, grupPersonalId)) continue;
 
@@ -207,7 +222,8 @@ export function calcularMoviments(
   }
 
   for (const [, grupNormes] of propPerGrupNode) {
-    const ref = grupNormes[0]!;
+    const ref = grupNormes[0];
+    if (!ref) continue;
     if (esNormaPersonalGrupCentral(ref, grupPersonalId)) continue;
 
     const node = ref.concepteNode;

@@ -5,6 +5,7 @@ import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown"
 import type { KpiComite } from "@/components/consultes/PresentacioComite";
 import { EvolucioChart, PresentacioComite } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import {
   MESOS_CURTS,
@@ -20,6 +21,8 @@ import {
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
+import { aplicarBaseGestioPersonalEvolucioEmpresa } from "@/lib/cost-personal-centre/gestio-consultes";
+import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { etiquetaGrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import {
@@ -94,10 +97,9 @@ export default async function ConsultaEmpresaPage({
 
   let evEmpresa = evEmpresaRaw;
   if (evEmpresa && vista === "gestio") {
-    evEmpresa = {
-      ...evEmpresa,
-      concepts: await aplicarGestioEvolucioEmpresa(anyActual, evEmpresa.concepts),
-    };
+    let concepts = await aplicarBaseGestioPersonalEvolucioEmpresa(anyActual, evEmpresa.concepts);
+    concepts = await aplicarGestioEvolucioEmpresa(anyActual, concepts);
+    evEmpresa = { ...evEmpresa, concepts };
   }
 
   const findRow = (node: number) => comp.concepts.find((c) => c.node === node);
@@ -275,13 +277,29 @@ export default async function ConsultaEmpresaPage({
                   : `Directe: costos tal com venen (sovint concentrats a Central) — ${periodePresentacio}`}
           </p>
         </div>
-        <EmpresaSelectors
-          anys={anys.length ? anys : [anyActual]}
-          any={anyActual}
-          rang={rang}
-          vista={vista}
-          grup={grup}
-        />
+        <div className={styles.headerActions}>
+          <EmpresaSelectors
+            anys={anys.length ? anys : [anyActual]}
+            any={anyActual}
+            rang={rang}
+            vista={vista}
+            grup={grup}
+          />
+          <ExportInformeButton
+            disabled={comp.buit}
+            filename={slugFilename(`compte-empresa-${nomEmpresa}-${periodeLabel}`)}
+            title={
+              esPresentacioCalblay
+                ? `Resultats · ${nomEmpresa}`
+                : `Compte d'explotació · ${nomEmpresa}`
+            }
+            subtitle={`${periodePresentacio} · ${vista === "gestio" ? "Gestió" : "Directe"}`}
+            columns={columns}
+            rows={pivotRows}
+            totalLabel={totalLabel}
+            sheetName="Compte"
+          />
+        </div>
       </div>
 
       {comp.buit ? (

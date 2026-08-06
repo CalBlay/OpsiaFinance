@@ -2,6 +2,10 @@ import { vendesLn } from "@/lib/repartiment/bases-vendes";
 import type { MovimentCalculat } from "@/lib/repartiment/compres-pool";
 import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
 import { personalImputatLn } from "@/lib/repartiment/personal-ln";
+import {
+  CODI_LN_PRECUINATS,
+  type SuportPersonalPrecuinats,
+} from "@/lib/repartiment/personal-precuinats";
 import type { NormaRepartiment } from "@prisma/client";
 
 export const CODI_GRUP_PERSONAL_CENTRAL = "GRUP_PERSONAL_CENTRAL";
@@ -50,13 +54,15 @@ function imputatPersonalRestaurants(
 
 /**
  * Pool personal Central després de restar imputacions ja assignades:
- *   SAP LN00000 − (fix Restaurants + imputat Green Vita + imputat Foodlovers + imputat Agenda)
+ *   Gestió personal LN00000 − (fix Restaurants + imputat Green Vita/Foodlovers + Agenda
+ *   + suport específic Precuinats)
  */
 export function poolPersonalCentralDistribuible(
   directe: Map<string, Map<number, number>>,
   centralLnId: string,
   normes: NormaRepartiment[],
-  lnIdByCodi: Map<string, string>
+  lnIdByCodi: Map<string, string>,
+  suportPrecuinats?: SuportPersonalPrecuinats
 ): { pool: number; detallRestes: string[] } {
   const centralSap = directeLn(directe, centralLnId, NODE_COST_SALARIAL);
   const detallRestes: string[] = [];
@@ -82,12 +88,17 @@ export function poolPersonalCentralDistribuible(
     detallRestes.push(`LN00000 Agenda ${agenda.toFixed(2)}`);
   }
 
+  if (suportPrecuinats && suportPrecuinats.import !== 0) {
+    restes += suportPrecuinats.import;
+    detallRestes.push(`LN00004 suport ${suportPrecuinats.import.toFixed(2)}`);
+  }
+
   const pool = centralSap - restes;
   return { pool, detallRestes };
 }
 
 /**
- * Personal Precuinats / Empresa / Casaments (GRUP_PERSONAL_CENTRAL):
+ * Personal Empresa / Casaments (GRUP_PERSONAL_CENTRAL):
  *   objectiu = SAP propi + pes(vendes) × pool del punt anterior
  */
 export function calcularMovimentsPersonalGrupCentral(
@@ -96,14 +107,17 @@ export function calcularMovimentsPersonalGrupCentral(
   centralLnId: string,
   lnIdByCodi: Map<string, string>,
   grupPersonalId: string,
-  pesMap: Map<string, number>
+  pesMap: Map<string, number>,
+  suportPrecuinats: SuportPersonalPrecuinats
 ): MovimentCalculat[] {
+  const lnPrecuinatsId = lnIdByCodi.get(CODI_LN_PRECUINATS);
   const normesGrup = normes.filter(
     (n) =>
       n.actiu &&
       n.grupId === grupPersonalId &&
       n.concepteNode === NODE_COST_SALARIAL &&
-      n.tipus === "REPARTIMENT_PROPORCIONAL"
+      n.tipus === "REPARTIMENT_PROPORCIONAL" &&
+      n.liniaNegociDestiId !== lnPrecuinatsId
   );
   if (!normesGrup.length) return [];
 
@@ -111,15 +125,24 @@ export function calcularMovimentsPersonalGrupCentral(
     directe,
     centralLnId,
     normes,
-    lnIdByCodi
+    lnIdByCodi,
+    suportPrecuinats
   );
 
   const moviments: MovimentCalculat[] = [];
+  const vendesPerNorma = normesGrup.map((norma) => ({
+    norma,
+    vendes: norma.liniaNegociDestiId ? Math.max(0, vendesLn(directe, norma.liniaNegociDestiId)) : 0,
+  }));
+  const totalVendesComercials = vendesPerNorma.reduce((sum, item) => sum + item.vendes, 0);
 
-  for (const norma of normesGrup.sort((a, b) => a.ordre - b.ordre)) {
+  for (const { norma, vendes } of vendesPerNorma.sort((a, b) => a.norma.ordre - b.norma.ordre)) {
     if (!norma.liniaNegociDestiId || !norma.grupId) continue;
 
-    const pes = pesMap.get(`${norma.grupId}:${norma.liniaNegociDestiId}`) ?? 0;
+    const pes =
+      totalVendesComercials > 0
+        ? vendes / totalVendesComercials
+        : (pesMap.get(`${norma.grupId}:${norma.liniaNegociDestiId}`) ?? 0);
     const sapPropi = directeLn(directe, norma.liniaNegociDestiId, NODE_COST_SALARIAL);
     const quotaPool = pool * pes;
     const objectiu = sapPropi + quotaPool;

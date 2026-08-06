@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { CODI_LN_CENTRAL } from "@/lib/repartiment/nodes";
+import { CODI_LN_CENTRAL, NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
 import {
   GRUPS_REPARTIMENT,
   type NormaSeed,
@@ -23,16 +23,61 @@ export async function syncGrupsRepartiment(): Promise<void> {
     });
     const grup = await db.repartimentGrup.findUnique({ where: { codi: g.codi } });
     if (!grup) continue;
+    const membresActius: string[] = [];
     let ordre = 0;
     for (const codiLn of g.membres) {
       const lnId = lnByCodi.get(codiLn);
       if (!lnId) continue;
+      membresActius.push(lnId);
       await db.repartimentGrupMembre.upsert({
         where: { grupId_liniaNegociId: { grupId: grup.id, liniaNegociId: lnId } },
         update: { ordre: ordre++ },
         create: { grupId: grup.id, liniaNegociId: lnId, ordre: ordre++ },
       });
     }
+    await db.repartimentGrupMembre.deleteMany({
+      where: {
+        grupId: grup.id,
+        liniaNegociId: { notIn: membresActius },
+      },
+    });
+  }
+}
+
+/** Converteix la regla històrica de Precuinats en el marcador del suport per centres. */
+export async function syncNormaPersonalPrecuinats(): Promise<void> {
+  const lnPrecuinats = await db.liniaNegoci.findUnique({
+    where: { codi: "LN00004" },
+    select: { id: true },
+  });
+  if (!lnPrecuinats) return;
+
+  const normes = await db.normaRepartiment.findMany({
+    where: {
+      liniaNegociDestiId: lnPrecuinats.id,
+      concepteNode: NODE_COST_SALARIAL,
+      tipus: "REPARTIMENT_PROPORCIONAL",
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  const principal = normes[0];
+  if (!principal) return;
+
+  await db.normaRepartiment.update({
+    where: { id: principal.id },
+    data: {
+      nom: "Precuinats · personal SAP + suport Central per centres",
+      grupId: null,
+      ordre: 451,
+      actiu: true,
+    },
+  });
+  if (normes.length > 1) {
+    await db.normaRepartiment.updateMany({
+      where: { id: { in: normes.slice(1).map((norma) => norma.id) } },
+      data: { actiu: false },
+    });
   }
 }
 
@@ -131,7 +176,13 @@ export async function reiniciarAmbNormesSeed(): Promise<{ ok: boolean; missatge:
   if (!reset.ok) return reset;
 
   const lnByCodi = await getLnByCodi();
-  const centralId = lnByCodi.get(CODI_LN_CENTRAL)!;
+  const centralId = lnByCodi.get(CODI_LN_CENTRAL);
+  if (!centralId) {
+    return {
+      ok: false,
+      missatge: "Cal tenir LN00000 a l'arbre de dimensions abans de carregar el seed.",
+    };
+  }
   const creats = await crearNormes(normesConfirmades(), lnByCodi, centralId);
 
   return {

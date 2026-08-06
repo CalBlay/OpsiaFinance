@@ -1,0 +1,36 @@
+.crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+  margin-top: 0.55rem;
+  font-size: 0.8rem;
+}
+
+.crumbItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.crumbSep {
+  margin: 0 0.25rem;
+  color: var(--color-muted-foreground);
+  opacity: 0.5;
+}
+
+.crumbLink {
+  color: var(--color-foreground);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.crumbLink:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.crumbCurrent {
+  font-weight: 750;
+  color: var(--color-foreground);
+}

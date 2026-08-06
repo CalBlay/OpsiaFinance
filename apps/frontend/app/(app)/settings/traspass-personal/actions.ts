@@ -2,10 +2,12 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { inferDepartamentSalarial } from "@/lib/traspass-personal/departament";
 import {
   ensureConfigTraspassPersonal,
   importarMapeigCentresDesDeBuffer,
 } from "@/lib/traspass-personal/service";
+import type { DepartamentSalarial } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string };
@@ -23,6 +25,11 @@ function refresh() {
   revalidatePath("/dades/traspass-personal");
 }
 
+function parseDept(raw: string): DepartamentSalarial | null {
+  if (raw === "SALA" || raw === "CUINA") return raw;
+  return null;
+}
+
 export async function updateTarifaHoraAction(tarifaHora: number): Promise<Result> {
   if (!(await requireEditor())) return ERR("No tens permisos.");
   if (!Number.isFinite(tarifaHora) || tarifaHora <= 0) return ERR("Tarifa no vàlida.");
@@ -35,13 +42,21 @@ export async function updateTarifaHoraAction(tarifaHora: number): Promise<Result
   return OK("Tarifa actualitzada.");
 }
 
-export async function createMapeigAction(text: string, centreId: string): Promise<Result> {
+export async function createMapeigAction(
+  text: string,
+  centreId: string,
+  departament: string
+): Promise<Result> {
   if (!(await requireEditor())) return ERR("No tens permisos.");
   const t = text.trim();
   if (!t) return ERR("El text és obligatori.");
   if (!centreId) return ERR("Selecciona un centre.");
+  const dept = parseDept(departament) ?? inferDepartamentSalarial(t);
+  if (!dept) return ERR("Indica SALA o CUINA (no s'ha pogut inferir del text).");
   try {
-    await db.mapeigTextCentreTreball.create({ data: { text: t, centreId } });
+    await db.mapeigTextCentreTreball.create({
+      data: { text: t, centreId, departament: dept },
+    });
     refresh();
     return OK("Mapeig afegit.");
   } catch {
@@ -52,15 +67,18 @@ export async function createMapeigAction(text: string, centreId: string): Promis
 export async function updateMapeigAction(
   id: string,
   text: string,
-  centreId: string
+  centreId: string,
+  departament: string
 ): Promise<Result> {
   if (!(await requireEditor())) return ERR("No tens permisos.");
   const t = text.trim();
   if (!t || !centreId) return ERR("Omple tots els camps.");
+  const dept = parseDept(departament);
+  if (!dept) return ERR("Departament no vàlid.");
   try {
     await db.mapeigTextCentreTreball.update({
       where: { id },
-      data: { text: t, centreId },
+      data: { text: t, centreId, departament: dept },
     });
     refresh();
     return OK("Mapeig actualitzat.");

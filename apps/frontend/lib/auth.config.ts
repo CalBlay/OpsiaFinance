@@ -1,9 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@/types";
 
-// Carrega augmentació de User.role / JWT.role (Auth.js v5).
-import "@/types/next-auth";
-
 /*
  * Configuració base d'autenticació — EDGE SAFE.
  * No importa res de Node.js (pg, bcrypt, db...).

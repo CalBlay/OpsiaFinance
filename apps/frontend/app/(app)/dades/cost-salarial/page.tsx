@@ -1,9 +1,11 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import { llistaCarreguesFitxer } from "@/lib/carrega-fitxer";
 import { getCentresRestaurants } from "@/lib/cost-salarial/consultes";
 import { db } from "@/lib/db";
+import { costRegistresToExportInforme } from "@/lib/export/dades";
 import { CostSalarialManager } from "./CostSalarialManager";
 import { HistorialCostSalarial } from "./HistorialCostSalarial";
 
@@ -102,6 +104,19 @@ export default async function CostSalarialDadesPage({
         <>
           {tab.description} {meta}.
         </>
+      }
+      actions={
+        <ExportInformeButton
+          informe={
+            registresPlain.length
+              ? costRegistresToExportInforme(registresPlain, {
+                  any: anyFiltre,
+                  mes: mesFiltre,
+                  title: tab.title,
+                })
+              : null
+          }
+        />
       }
     >
       <HistorialCostSalarial items={carregues} canEdit={canEdit} />

@@ -1,11 +1,11 @@
 "use client";
 
 import { DadesFilterBar, coincideixCerca } from "@/components/dades/DadesFilterBar";
-import { DadesEmpty, DadesNewBtn, dadesUi as ui } from "@/components/dades/DadesPanel";
+import { DadesEmpty, dadesUi as ui } from "@/components/dades/DadesPanel";
 import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNum } from "@/lib/utils";
-import { Check, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Pencil, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import {
@@ -242,6 +242,17 @@ export function CostSalarialManager({
         </>
       )}
 
+      {canEdit && !obert && (
+        <FloatingAddButton
+          label="Nou registre manual"
+          onClick={() => {
+            reset();
+            setObert(true);
+          }}
+          className="bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+4.25rem)]"
+        />
+      )}
+
       <DadesFilterBar
         query={query}
         onQueryChange={setQuery}
@@ -275,17 +286,6 @@ export function CostSalarialManager({
           query.trim() ? `${registresFiltrats.length} de ${registres.length} registres` : undefined
         }
       />
-
-      {canEdit && !obert && (
-        <DadesNewBtn
-          onClick={() => {
-            reset();
-            setObert(true);
-          }}
-        >
-          <Plus size={16} /> Nou registre
-        </DadesNewBtn>
-      )}
 
       {obert && (
         <div className={styles.form}>

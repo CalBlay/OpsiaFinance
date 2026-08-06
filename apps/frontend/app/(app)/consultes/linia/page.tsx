@@ -5,6 +5,7 @@ import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import { EvolucioChart, VendesPieChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import {
   MESOS_CURTS,
@@ -20,6 +21,8 @@ import {
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic, indicesCentresOperatius, segmentsVendes } from "@/lib/consultes-grafics";
+import { aplicarBaseGestioPersonalEvolucioLn } from "@/lib/cost-personal-centre/gestio-consultes";
+import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import {
   esLiniaFdlc,
@@ -100,10 +103,10 @@ export default async function ConsultaLiniaPage({
 
   let ev = evRaw;
   if (ev && vista === "gestio" && lnId) {
-    ev = {
-      ...ev,
-      concepts: await aplicarGestioEvolucioLn(lnId, anyActual, ev.concepts),
-    };
+    // Personal = base Gestió (payroll+traspass); després repartiment.
+    let concepts = await aplicarBaseGestioPersonalEvolucioLn(lnId, anyActual, ev.concepts);
+    concepts = await aplicarGestioEvolucioLn(lnId, anyActual, concepts);
+    ev = { ...ev, concepts };
   }
 
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
@@ -172,14 +175,32 @@ export default async function ConsultaLiniaPage({
               : "Selecciona una línia de negoci per veure el total del període."}
           </p>
         </div>
-        <LiniaSelectors
-          linies={linies}
-          anys={anys.length ? anys : [anyActual]}
-          lnId={lnId}
-          any={anyActual}
-          rang={rang}
-          vista={vista}
-        />
+        <div className={styles.headerActions}>
+          <LiniaSelectors
+            linies={linies}
+            anys={anys.length ? anys : [anyActual]}
+            lnId={lnId}
+            any={anyActual}
+            rang={rang}
+            vista={vista}
+          />
+          <ExportInformeButton
+            disabled={buit}
+            filename={slugFilename(
+              `compte-linia-${comp?.liniaNegoci ? etiquetaLiniaNegoci(comp.liniaNegoci) : (ev?.titol ?? "linia")}-${periodeLabel}`
+            )}
+            title="Compte d'explotació · per línia de negoci"
+            subtitle={
+              comp?.liniaNegoci || ev
+                ? `${comp?.liniaNegoci ? etiquetaLiniaNegoci(comp.liniaNegoci) : (ev?.titol ?? "")} — ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
+                : periodeLabel
+            }
+            columns={columnsMes}
+            rows={rowsMes}
+            totalLabel="Període"
+            sheetName="Línia"
+          />
+        </div>
       </div>
 
       {!lnId ? (

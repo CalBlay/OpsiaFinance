@@ -1,11 +1,14 @@
 import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
 import type { FilaHoresTreball } from "@/lib/traspass-personal/parser";
+import type { DepartamentSalarial } from "@prisma/client";
 
 export interface MapeigCentre {
   text: string;
   centreId: string;
   centreCodi: string;
   centreNom: string;
+  /** Font de veritat des del mapeig persistit. */
+  departament: DepartamentSalarial;
 }
 
 export interface AlertaTraspass {
@@ -23,6 +26,8 @@ export interface MovimentTraspassCalculat {
   origenNom: string;
   destiCodi: string;
   destiNom: string;
+  departament: DepartamentSalarial;
+  minuts: number;
   hores: number;
   tarifaHora: number;
   import_: number;
@@ -39,30 +44,56 @@ export interface ResultatMotorTraspass {
 function normalitzarTextHores(text: string): string {
   return text
     .trim()
-    .replace(/^\d+\s+/, "") // prefix numèric de l'export (col. C)
+    .replace(/^\d+\s+/, "")
     .replace(/\s+/g, " ");
 }
 
-function lookup(
+function normalitzarClau(text: string): string {
+  return normalitzarTextHores(text).normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
+
+/** «Events cuina central, Event» → «Events cuina central». */
+function partPrincipal(text: string): string {
+  const t = normalitzarTextHores(text);
+  const idx = t.indexOf(",");
+  return idx >= 0 ? t.slice(0, idx).trim() : t;
+}
+
+/**
+ * Només match exacte (text sencer o part abans de la coma).
+ * Sense endsWith/includes: eviten agregats inflats (Cuina Central → Admin, etc.).
+ */
+export function lookupMapeigCentre(
   text: string,
-  map: Map<string, MapeigCentre>,
-  mapeigs: MapeigCentre[]
+  map: Map<string, MapeigCentre>
 ): MapeigCentre | null {
   const t = text.trim();
-  const direct = map.get(t);
-  if (direct) return direct;
+  if (!t) return null;
 
-  const sensePrefix = normalitzarTextHores(t);
-  const perPrefix = map.get(sensePrefix);
-  if (perPrefix) return perPrefix;
-
-  const lower = sensePrefix.toLowerCase();
-  for (const m of mapeigs) {
-    const mk = m.text.trim().toLowerCase();
-    if (mk === lower) return m;
-    if (sensePrefix.endsWith(m.text) || m.text.endsWith(sensePrefix)) return m;
+  const candidats = [t, normalitzarTextHores(t), partPrincipal(t)];
+  for (const c of candidats) {
+    if (!c) continue;
+    const hit = map.get(c) ?? map.get(normalitzarClau(c));
+    if (hit) return hit;
   }
   return null;
+}
+
+function indexarMapeigs(mapeigs: MapeigCentre[]): Map<string, MapeigCentre> {
+  const map = new Map<string, MapeigCentre>();
+  for (const m of mapeigs) {
+    const raw = m.text.trim();
+    if (!raw) continue;
+    // Indexa text complet i part principal (abans de coma), mai fragments curts de rol.
+    const claus = new Set([raw, normalitzarTextHores(raw), normalitzarClau(raw)]);
+    const principal = partPrincipal(raw);
+    if (principal && principal.length >= 4) {
+      claus.add(principal);
+      claus.add(normalitzarClau(principal));
+    }
+    for (const k of claus) map.set(k, m);
+  }
+  return map;
 }
 
 export function calcularTraspassosPersonal(
@@ -70,20 +101,26 @@ export function calcularTraspassosPersonal(
   mapeigs: MapeigCentre[],
   tarifaHora: number
 ): ResultatMotorTraspass {
-  const map = new Map<string, MapeigCentre>();
-  for (const m of mapeigs) {
-    map.set(m.text.trim(), m);
-    map.set(normalitzarTextHores(m.text), m);
-  }
+  const map = indexarMapeigs(mapeigs);
 
   const alertes: AlertaTraspass[] = [];
-  const agregat = new Map<string, { origen: MapeigCentre; desti: MapeigCentre; minuts: number }>();
+  const agregat = new Map<
+    string,
+    {
+      origen: MapeigCentre;
+      desti: MapeigCentre;
+      departament: DepartamentSalarial;
+      minuts: number;
+      files: number;
+      exemples: { organizaciones: string; proyecto: string; minutos: number }[];
+    }
+  >();
   let filesIgnoradesMateixCentre = 0;
 
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
-    const origen = lookup(f.organizaciones, map, mapeigs);
-    const desti = lookup(f.proyecto, map, mapeigs);
+    const origen = lookupMapeigCentre(f.organizaciones, map);
+    const desti = lookupMapeigCentre(f.proyecto, map);
 
     if (!origen) {
       alertes.push({
@@ -110,17 +147,40 @@ export function calcularTraspassosPersonal(
       continue;
     }
 
-    const key = `${origen.centreId}→${desti.centreId}`;
+    const departament = origen.departament;
+    const key = `${origen.centreId}→${desti.centreId}|${departament}`;
     const prev = agregat.get(key);
     if (prev) {
       prev.minuts += f.minutos;
+      prev.files++;
+      if (prev.exemples.length < 5) {
+        prev.exemples.push({
+          organizaciones: f.organizaciones,
+          proyecto: f.proyecto,
+          minutos: f.minutos,
+        });
+      }
     } else {
-      agregat.set(key, { origen, desti, minuts: f.minutos });
+      agregat.set(key, {
+        origen,
+        desti,
+        departament,
+        minuts: f.minutos,
+        files: 1,
+        exemples: [
+          {
+            organizaciones: f.organizaciones,
+            proyecto: f.proyecto,
+            minutos: f.minutos,
+          },
+        ],
+      });
     }
   }
 
   const moviments: MovimentTraspassCalculat[] = [...agregat.values()].map((a) => {
-    const hores = Math.round((a.minuts / 60) * 100) / 100;
+    const minuts = Math.round(a.minuts * 100) / 100;
+    const hores = Math.round((minuts / 60) * 100) / 100;
     const import_ = Math.round(hores * tarifaHora * 100) / 100;
     return {
       centreOrigenId: a.origen.centreId,
@@ -129,17 +189,35 @@ export function calcularTraspassosPersonal(
       origenNom: a.origen.centreNom,
       destiCodi: a.desti.centreCodi,
       destiNom: a.desti.centreNom,
+      departament: a.departament,
+      minuts,
       hores,
       tarifaHora,
       import_,
-      // Traspàs de cost salarial al node del compte (Personal = node 17).
-      // Això evita que el KPI "Personal" quedi desalineat quan només es toca el detall.
       concepteNode: NODE_COST_SALARIAL,
     };
   });
 
+  // Diagnòstic: si un agregat és molt gran, deixa exemples a alertes (per revisar mapeig).
+  for (const a of agregat.values()) {
+    if (a.minuts < 5000) continue;
+    const ex = a.exemples
+      .map((e) => `«${e.organizaciones}»→«${e.proyecto}» (${e.minutos} min)`)
+      .join("; ");
+    alertes.push({
+      fila: 0,
+      empleado: "—",
+      organizaciones: a.origen.centreCodi,
+      proyecto: a.desti.centreCodi,
+      motiu: `Agregat gran (${a.files} files, ${Math.round(a.minuts)} min, ${a.departament}). Exemples: ${ex}`,
+    });
+  }
+
   moviments.sort(
-    (a, b) => a.origenNom.localeCompare(b.origenNom) || a.destiNom.localeCompare(b.destiNom)
+    (a, b) =>
+      a.origenNom.localeCompare(b.origenNom) ||
+      a.destiNom.localeCompare(b.destiNom) ||
+      a.departament.localeCompare(b.departament)
   );
 
   return {

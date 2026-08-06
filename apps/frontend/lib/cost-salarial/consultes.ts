@@ -279,6 +279,12 @@ export async function getInformeRestaurant(
     else sumaPartides(cuinaP, f);
   }
 
+  // Fora centre: si hi ha traspass confirmat al període, substitueix l'Excel.
+  const { resoldreForaCentreRestaurant } = await import("@/lib/cost-salarial/fora-centre-detall");
+  const fora = await resoldreForaCentreRestaurant(centreId, any, mes);
+  salaP.foraCentre = fora.totals.SALA;
+  cuinaP.foraCentre = fora.totals.CUINA;
+
   const salaTotal = totalDePartides(salaP);
   const cuinaTotal = totalDePartides(cuinaP);
   const costTotal = salaTotal + cuinaTotal;
@@ -361,7 +367,12 @@ export async function getComparativaRestaurants(
   }
 
   const centreIds = [...perCentre.keys()];
-  const vendesMap = await getVendesPerCentres(centreIds, any, mes);
+  const { resoldreForaCentreRestaurant } = await import("@/lib/cost-salarial/fora-centre-detall");
+  const [vendesMap, ...foraPerCentre] = await Promise.all([
+    getVendesPerCentres(centreIds, any, mes),
+    ...centreIds.map((id) => resoldreForaCentreRestaurant(id, any, mes)),
+  ]);
+  const foraByCentre = new Map(centreIds.map((id, i) => [id, foraPerCentre[i]]));
 
   const filesOut: FilaComparativaRestaurant[] = [];
   const totalsPartides = emptyPartides();
@@ -370,6 +381,11 @@ export async function getComparativaRestaurants(
   let totalVendes = 0;
 
   for (const entry of perCentre.values()) {
+    const fora = foraByCentre.get(entry.centre.id);
+    if (fora) {
+      entry.sala.foraCentre = fora.totals.SALA;
+      entry.cuina.foraCentre = fora.totals.CUINA;
+    }
     const sala = totalDePartides(entry.sala);
     const cuina = totalDePartides(entry.cuina);
     const costTotal = sala + cuina;

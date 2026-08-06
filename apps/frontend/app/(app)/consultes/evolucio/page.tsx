@@ -5,6 +5,7 @@ import type { PivotColumn } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import {
   type AmbitEvolucio,
@@ -14,6 +15,11 @@ import {
   getArbreSeleccio,
   getEvolucioMensual,
 } from "@/lib/consultes";
+import {
+  aplicarBaseGestioPersonalEvolucioEmpresa,
+  aplicarBaseGestioPersonalEvolucioLn,
+} from "@/lib/cost-personal-centre/gestio-consultes";
+import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import {
   exclouFdlcDeConsultaLinia,
@@ -78,15 +84,13 @@ export default async function EvolucioPage({
   let ev = evRaw;
   if (ev && vista === "gestio") {
     if (scope === "linia" && lnId) {
-      ev = {
-        ...ev,
-        concepts: await aplicarGestioEvolucioLn(lnId, anyActual, ev.concepts),
-      };
+      let concepts = await aplicarBaseGestioPersonalEvolucioLn(lnId, anyActual, ev.concepts);
+      concepts = await aplicarGestioEvolucioLn(lnId, anyActual, concepts);
+      ev = { ...ev, concepts };
     } else if (scope === "empresa") {
-      ev = {
-        ...ev,
-        concepts: await aplicarGestioEvolucioEmpresa(anyActual, ev.concepts),
-      };
+      let concepts = await aplicarBaseGestioPersonalEvolucioEmpresa(anyActual, ev.concepts);
+      concepts = await aplicarGestioEvolucioEmpresa(anyActual, concepts);
+      ev = { ...ev, concepts };
     }
   }
 
@@ -129,16 +133,28 @@ export default async function EvolucioPage({
               : "Tria l'àmbit per veure l'evolució mes a mes."}
           </p>
         </div>
-        <EvolucioSelectors
-          linies={linies}
-          anys={anys.length ? anys : [anyActual]}
-          scope={scope}
-          lnId={lnId}
-          any={anyActual}
-          vista={vista}
-          nomesEmpresa={!potLinia}
-          mostraVistaGestio={grupPermetVistaGestio(grup)}
-        />
+        <div className={styles.headerActions}>
+          <EvolucioSelectors
+            linies={linies}
+            anys={anys.length ? anys : [anyActual]}
+            scope={scope}
+            lnId={lnId}
+            any={anyActual}
+            vista={vista}
+            nomesEmpresa={!potLinia}
+            mostraVistaGestio={grupPermetVistaGestio(grup)}
+          />
+          <ExportInformeButton
+            disabled={!ev || ev.buit}
+            filename={slugFilename(`evolucio-${ev?.titol ?? scope}-${anyActual}`)}
+            title="Evolució mensual"
+            subtitle={ev ? `${ev.titol} — ${anyActual} · ${vistaLabel}` : `Acumulat ${anyActual}`}
+            columns={columns}
+            rows={ev?.concepts ?? []}
+            totalLabel="Any"
+            sheetName="Evolució"
+          />
+        </div>
       </div>
 
       {necessitaLn ? (

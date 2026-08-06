@@ -1,8 +1,10 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { db } from "@/lib/db";
+import { ajustosToExportInforme } from "@/lib/export/dades";
 import { AjustosManager } from "./AjustosManager";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +67,13 @@ export default async function AjustosPage() {
         <>
           {tab.description} {ajustos.length} ajust{ajustos.length !== 1 ? "os" : ""}.
         </>
+      }
+      actions={
+        <ExportInformeButton
+          informe={
+            ajustosPlain.length ? ajustosToExportInforme(ajustosPlain, { title: tab.title }) : null
+          }
+        />
       }
     >
       <AjustosManager arbre={arbre} concepts={concepts} ajustos={ajustosPlain} canEdit={canEdit} />

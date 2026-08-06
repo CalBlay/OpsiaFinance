@@ -1,4 +1,9 @@
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
+import {
+  vendesComparativaToExportInforme,
+  vendesInformeToExportInforme,
+} from "@/lib/export/restaurants";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { grupFiltraRestaurantsNomesMirall } from "@/lib/grups-empresa";
 import {
@@ -97,6 +102,13 @@ export default async function ConsultaVendesRestaurantsPage({
     ((vista === "comparativa" && !!comparativa && !comparativa.buit) ||
       (vista === "restaurant" && !!informe && !informe.buit));
 
+  const exportInforme =
+    vista === "comparativa" && comparativa && !comparativa.buit
+      ? vendesComparativaToExportInforme(comparativa)
+      : vista === "restaurant" && informe && !informe.buit
+        ? vendesInformeToExportInforme(informe)
+        : null;
+
   return (
     <div className={`${styles.page} ${fitBoard ? boardStyles.pageFit : ""}`}>
       <div className={`${styles.headerRow} ${fitBoard ? boardStyles.headerFit : ""}`}>
@@ -110,14 +122,17 @@ export default async function ConsultaVendesRestaurantsPage({
             </p>
           ) : null}
         </div>
-        <VendesSelectors
-          centres={centres}
-          anys={anys}
-          any={anyActual}
-          mes={mes}
-          centreId={centreId}
-          vista={vista}
-        />
+        <div className={styles.headerActions}>
+          <VendesSelectors
+            centres={centres}
+            anys={anys}
+            any={anyActual}
+            mes={mes}
+            centreId={centreId}
+            vista={vista}
+          />
+          <ExportInformeButton informe={exportInforme} />
+        </div>
       </div>
 
       {vista === "comparativa" ? (

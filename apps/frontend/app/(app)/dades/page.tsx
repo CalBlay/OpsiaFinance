@@ -1,7 +1,9 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import { db } from "@/lib/db";
+import { importsToExportInforme } from "@/lib/export/dades";
 import type { ImportCercaItem } from "@/lib/import-search";
 import { formatDateShort } from "@/lib/utils";
 import type { EstatImport } from "@/types";
@@ -48,7 +50,15 @@ export default async function DadesPage() {
   }));
 
   return (
-    <DadesPageShell title={tab.title} description={tab.description}>
+    <DadesPageShell
+      title={tab.title}
+      description={tab.description}
+      actions={
+        <ExportInformeButton
+          informe={items.length ? importsToExportInforme(items, { title: tab.title }) : null}
+        />
+      }
+    >
       <ImportsLlista imports={items} />
       <FloatingAddButton href="/dades/nova" label="Nova importació" />
     </DadesPageShell>

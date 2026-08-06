@@ -1,9 +1,13 @@
+import type { DepartamentSalarial } from "@prisma/client";
 import { type WorkBook, read, utils } from "xlsx";
+import { inferDepartamentSalarial, parseDepartamentSalarialLabel } from "./departament";
 
 export interface FilaMapeigExcel {
   text: string;
   codiCentre: string;
   nomCentre: string;
+  /** Si ve de columna D o s'ha pogut inferir del text. */
+  departament: DepartamentSalarial | null;
 }
 
 export interface ResultatImportMapeig {
@@ -31,7 +35,9 @@ function esCapçalera(row: unknown[]): boolean {
 }
 
 /**
- * Llegeix l'excel de mapeig: columna A = text, B = codi centre, C = nom centre (opcional).
+ * Llegeix l'excel de mapeig:
+ *   A = text, B = codi centre, C = nom centre (opcional),
+ *   D = departament SALA|CUINA (opcional; si falta s'infereix del text).
  */
 export function parseExcelMapeigCentres(buffer: Buffer): ResultatImportMapeig {
   const wb: WorkBook = read(buffer);
@@ -54,7 +60,10 @@ export function parseExcelMapeigCentres(buffer: Buffer): ResultatImportMapeig {
     if (i === 0 && esCapçalera(row)) continue;
     if (!/^CC[A-Z]\d{5}$/i.test(codiCentre) && !/^LN\d{5}$/i.test(codiCentre)) continue;
 
-    files.push({ text, codiCentre, nomCentre });
+    const deptCol = parseDepartamentSalarialLabel(cell(row, 3));
+    const departament = deptCol ?? inferDepartamentSalarial(text);
+
+    files.push({ text, codiCentre, nomCentre, departament });
   }
 
   return { files };

@@ -36,6 +36,13 @@ function trobarIndexExacte(headers: string[], ...candidats: string[]): number {
   return -1;
 }
 
+/** Columna nom de projecte (mai «ID de proyecto» / «ID del proyecto padre»). */
+function trobarIndexProyecto(headers: string[]): number {
+  const exact = trobarIndexExacte(headers, "proyecto");
+  if (exact >= 0) return exact;
+  return headers.findIndex((h) => h.includes("proyecto") && !/\bid\b/.test(h));
+}
+
 function parseNum(v: unknown): number {
   if (v === null || v === undefined || v === "") return 0;
   if (typeof v === "number") return Number.isFinite(v) ? v : 0;
@@ -51,7 +58,7 @@ function detectarCapçalera(matrix: unknown[][]): number {
     const headers = row.map(normalitzarCapçalera);
     const hasEmp = headers.some((h) => h.includes("empleado"));
     const hasOrg = headers.some((h) => h.includes("organizacion"));
-    const hasProy = headers.some((h) => h === "proyecto" || h.includes("proyecto"));
+    const hasProy = headers.some((h) => h === "proyecto");
     const hasMin = headers.some((h) => h.includes("minuto"));
     const s = [hasEmp, hasOrg, hasProy, hasMin].filter(Boolean).length;
     if (s > score) {
@@ -81,8 +88,7 @@ export function parseExcelHoresTreball(buffer: Buffer): ResultatParserHores {
 
   const idxEmp = trobarIndex(headersNorm, "empleado");
   let idxOrg = trobarIndex(headersNorm, "organizacion");
-  let idxProy = trobarIndexExacte(headersNorm, "proyecto");
-  if (idxProy < 0) idxProy = trobarIndex(headersNorm, "proyecto");
+  let idxProy = trobarIndexProyecto(headersNorm);
   let idxMin = trobarIndexExacte(headersNorm, "minutos", "minuto");
   if (idxMin < 0) idxMin = trobarIndex(headersNorm, "minuto");
 
@@ -103,7 +109,9 @@ export function parseExcelHoresTreball(buffer: Buffer): ResultatParserHores {
     const organizaciones = String(row[idxOrg] ?? "").trim();
     const proyecto = String(row[idxProy] ?? "").trim();
     const minutos = parseNum(row[idxMin]);
+    // Ignora IDs numèrics si s'ha llegit la columna equivocada
     if (!organizaciones || !proyecto || minutos <= 0) continue;
+    if (/^\d+$/.test(proyecto)) continue;
 
     files.push({
       empleado: idxEmp >= 0 ? String(row[idxEmp] ?? "").trim() : "",

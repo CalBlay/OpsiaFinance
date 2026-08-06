@@ -3,10 +3,10 @@ import type { MovimentCalculat } from "@/lib/repartiment/compres-pool";
 import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
 import type { NormaRepartiment, TipusNormaRepartiment } from "@prisma/client";
 
-/** LN amb personal agregat (fix + %); inclouSap = suma també el TOTAL COST SALARIAL SAP. */
-const PERSONAL_AGREGAT: Record<string, { inclouSap: boolean }> = {
-  LN00005: { inclouSap: true },
-  LN00006: { inclouSap: true },
+/** LN amb personal agregat (fix + %); inclouBase = suma també el COST SALARIAL de base Gestió. */
+const PERSONAL_AGREGAT: Record<string, { inclouBase: boolean }> = {
+  LN00005: { inclouBase: true },
+  LN00006: { inclouBase: true },
 };
 
 const CODIS_PERSONAL_AGREGAT = new Set(Object.keys(PERSONAL_AGREGAT));
@@ -78,7 +78,7 @@ export function esNormaPersonalEspecial(
 
 /**
  * Personal agregat per LN:
- *   Foodlovers / Green Vita: SAP personal (sous, SS, etc.) + fix + % ingressos
+ *   Foodlovers / Green Vita: base Gestió personal + fix + % ingressos
  */
 export function calcularMovimentsPersonalEspecial(
   normes: NormaRepartiment[],
@@ -92,20 +92,21 @@ export function calcularMovimentsPersonalEspecial(
     if (!lnId) continue;
 
     const normesLn = normesPersonalLn(lnId, normes);
-    if (!normesLn.length) continue;
+    const primeraNorma = normesLn[0];
+    if (!primeraNorma) continue;
 
     const ingressos = vendesLn(directe, lnId);
     const { imputat, parts } = calcularImputatPersonal(normesLn, ingressos);
 
     let objectiu = imputat;
-    if (config.inclouSap) {
-      const sap = directeLn(directe, lnId, NODE_COST_SALARIAL);
-      if (sap !== 0) parts.unshift(`SAP personal ${sap.toFixed(2)}`);
-      objectiu = sap + imputat;
+    if (config.inclouBase) {
+      const basePers = directeLn(directe, lnId, NODE_COST_SALARIAL);
+      if (basePers !== 0) parts.unshift(`Gestió personal ${basePers.toFixed(2)}`);
+      objectiu = basePers + imputat;
     }
 
     moviments.push({
-      normaId: normesLn[0]!.id,
+      normaId: primeraNorma.id,
       liniaNegociDestiId: lnId,
       concepteNode: NODE_COST_SALARIAL,
       importCalculat: objectiu,
@@ -116,7 +117,7 @@ export function calcularMovimentsPersonalEspecial(
   return moviments;
 }
 
-/** Imputació Central (fix + %) sense la part SAP pròpia. */
+/** Imputació Central (fix + %) sense la part de base Gestió pròpia. */
 export function personalImputatLn(
   codi: string,
   lnId: string,

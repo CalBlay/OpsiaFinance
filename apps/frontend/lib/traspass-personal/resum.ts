@@ -11,6 +11,7 @@ export type ResumTraspassCentreFila = {
   destiNom: string;
   destiLnCodi: string;
   destiLnNom: string;
+  minuts: number;
   hores: number;
   import_: number;
 };
@@ -89,6 +90,7 @@ export async function getResumTraspassPersonal(any: number): Promise<ResumTraspa
     destiNom: m.centreDesti.nom,
     destiLnCodi: m.centreDesti.liniaNegoci.codi,
     destiLnNom: m.centreDesti.liniaNegoci.nom,
+    minuts: Number(m.minuts),
     hores: Number(m.hores),
     import_: Number(m.import_),
   }));

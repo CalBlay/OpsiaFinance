@@ -34,7 +34,13 @@ export type TraspassPeriodItem = {
   } | null;
 };
 
-export function UploadHoresForm({ canEdit }: { canEdit: boolean }) {
+export function UploadHoresForm({
+  canEdit,
+  label = "Pujar Excel d'hores",
+}: {
+  canEdit: boolean;
+  label?: string;
+}) {
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; missatge: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,7 +72,7 @@ export function UploadHoresForm({ canEdit }: { canEdit: boolean }) {
         onChange={(e) => pujar(e.target.files?.[0] ?? null)}
       />
       <FloatingAddButton
-        label="Pujar Excel d'hores"
+        label={pending ? "Processant…" : label}
         disabled={pending}
         onClick={() => inputRef.current?.click()}
       />

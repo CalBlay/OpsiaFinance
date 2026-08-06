@@ -59,6 +59,18 @@ export function formatNum(amount: number, decimals = 0): string {
 }
 
 /**
+ * Com formatNum, però sempre amb signe explícit (+ / −) per evitar confusió.
+ * @example formatNumSigned(136.2, 2) → "+136,20"  ·  formatNumSigned(-136.2, 2) → "-136,20"
+ */
+export function formatNumSigned(amount: number, decimals = 0): string {
+  return new Intl.NumberFormat("ca-ES", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    signDisplay: "exceptZero",
+  }).format(amount);
+}
+
+/**
  * Retorna les inicials d'un nom complet (màx. 2 caràcters).
  * @example getInitials("Anna Garcia") → "AG"
  */

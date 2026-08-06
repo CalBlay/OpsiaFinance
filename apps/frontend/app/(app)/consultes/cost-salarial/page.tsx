@@ -1,4 +1,5 @@
 import styles from "@/components/consultes/report.module.css";
+import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { etiquetaCentre } from "@/lib/consultes-etiquetes";
 import {
   PARTIDES_SALARIALS,
@@ -7,6 +8,10 @@ import {
   getComparativaRestaurants,
   getInformeRestaurant,
 } from "@/lib/cost-salarial/consultes";
+import {
+  costComparativaToExportInforme,
+  costInformeToExportInforme,
+} from "@/lib/export/restaurants";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { grupFiltraRestaurantsNomesMirall } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
@@ -14,6 +19,7 @@ import { formatNum } from "@/lib/utils";
 import { CostSalarialPresentacio } from "./CostSalarialPresentacio";
 import { CostSalarialSelectors } from "./CostSalarialSelectors";
 import { DetallNumericCollapsible } from "./DetallNumericCollapsible";
+import { DetallNumericRestaurantTable } from "./DetallNumericRestaurantTable";
 import local from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -79,13 +85,20 @@ export default async function ConsultaCostSalarialPage({
   ]);
 
   // Amb FDLC (només CCR00008), la comparativa multi-centre no té sentit: filtrar files.
-  const _comparativaFiltrada =
+  const comparativaFiltrada =
     comparativa && nomesMirall
       ? {
           ...comparativa,
           files: comparativa.files.filter((f) => centres.some((c) => c.id === f.centre.id)),
         }
       : comparativa;
+
+  const exportInforme =
+    (vista === "comparativa" || !centreId) && comparativaFiltrada && !comparativaFiltrada.buit
+      ? costComparativaToExportInforme(comparativaFiltrada, { periode })
+      : informe && !informe.buit
+        ? costInformeToExportInforme(informe, { periode })
+        : null;
 
   return (
     <div className={styles.page}>
@@ -97,14 +110,17 @@ export default async function ConsultaCostSalarialPage({
             mateixa informació). Detall numèric a sota, opcional.
           </p>
         </div>
-        <CostSalarialSelectors
-          centres={centres}
-          anys={anys}
-          any={anyActual}
-          mes={mes}
-          centreId={centreId}
-          vista={vista}
-        />
+        <div className={styles.headerActions}>
+          <CostSalarialSelectors
+            centres={centres}
+            anys={anys}
+            any={anyActual}
+            mes={mes}
+            centreId={centreId}
+            vista={vista}
+          />
+          <ExportInformeButton informe={exportInforme} />
+        </div>
       </div>
 
       {vista === "comparativa" || !centreId ? (
@@ -241,43 +257,20 @@ export default async function ConsultaCostSalarialPage({
 
           <DetallNumericCollapsible
             title={`Detall numèric · ${informe.centre.etiqueta}`}
-            caption="Partides del cost salarial. El pes % és sobre el total del restaurant."
+            caption="Partides del cost salarial. El pes % és sobre el total del restaurant. Clica Fora centre per veure el detall."
           >
-            <div className={local.tableWrap}>
-              <table className={local.table}>
-                <thead>
-                  <tr>
-                    <th>Partida</th>
-                    <th className={local.right}>Import</th>
-                    <th className={local.right}>Pes %</th>
-                    <th className={local.right}>Sala</th>
-                    <th className={local.right}>Cuina</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {informe.partidesTotals.map((p, i) => (
-                    <tr key={p.key}>
-                      <td>{p.label}</td>
-                      <td className={local.right}>{formatNum(p.import_)}</td>
-                      <td className={local.right}>{pctLabel(p.pct)}</td>
-                      <td className={local.right}>
-                        {formatNum(informe.sala.partides[i]?.import_ ?? 0)}
-                      </td>
-                      <td className={local.right}>
-                        {formatNum(informe.cuina.partides[i]?.import_ ?? 0)}
-                      </td>
-                    </tr>
-                  ))}
-                  <tr className={local.totalRow}>
-                    <td>Total</td>
-                    <td className={local.right}>{formatNum(informe.costTotal)}</td>
-                    <td className={local.right}>100%</td>
-                    <td className={local.right}>{formatNum(informe.sala.total)}</td>
-                    <td className={local.right}>{formatNum(informe.cuina.total)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            <DetallNumericRestaurantTable
+              centreId={informe.centre.id}
+              centreLabel={informe.centre.etiqueta}
+              any={anyActual}
+              mes={mes}
+              partidesTotals={informe.partidesTotals}
+              partidesSala={informe.sala.partides}
+              partidesCuina={informe.cuina.partides}
+              costTotal={informe.costTotal}
+              salaTotal={informe.sala.total}
+              cuinaTotal={informe.cuina.total}
+            />
           </DetallNumericCollapsible>
         </>
       )}

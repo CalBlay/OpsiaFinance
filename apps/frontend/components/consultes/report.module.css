@@ -12,6 +12,13 @@
   margin-bottom: 1.25rem;
 }
 
+.headerActions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
 .title {
   font-size: 1.35rem;
   font-weight: 700;

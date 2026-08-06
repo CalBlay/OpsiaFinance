@@ -249,10 +249,11 @@ export async function getCompteExplotacioCentre(
   // perquè KPIs i files de total reflecteixin ajustos manuals.
   let conceptsOut = recalcularSubtotalsCompte(concepts, rows);
   if (vista === "gestio") {
-    const { aplicarTraspassPersonalEvolucioCentre } = await import(
-      "@/lib/traspass-personal/gestio-consultes"
+    // Base única Gestió personal: SAP+ajust → payroll → traspass (centre×mes).
+    const { aplicarCostPersonalEvolucioCentre } = await import(
+      "@/lib/cost-personal-centre/gestio-consultes"
     );
-    conceptsOut = await aplicarTraspassPersonalEvolucioCentre(centreId, any, conceptsOut);
+    conceptsOut = await aplicarCostPersonalEvolucioCentre(centreId, any, conceptsOut);
   }
 
   return {
@@ -359,20 +360,26 @@ export async function getComparativaLn(
   let rows = buildRows(concepts, perConcepte);
 
   if (vista === "gestio") {
-    const { aplicarDeltasTraspassPersonalCentres, carregarDeltasTraspassPersonalPerCentre } =
-      await import("@/lib/traspass-personal/gestio-consultes");
-    const { aplicarGestioRepartimentLn, carregarDeltasGestioAgregats, COL_REPARTIMENT_ID } =
-      await import("@/lib/repartiment/gestio-consultes");
+    const { aplicarBaseGestioPersonalCentres } = await import(
+      "@/lib/cost-personal-centre/gestio-consultes"
+    );
+    const {
+      aplicarGestioRepartimentLn,
+      carregarDeltasGestioAgregats,
+      COL_REPARTIMENT_ID,
+      COL_REPARTIMENT_CODI,
+      COL_REPARTIMENT_NOM,
+    } = await import("@/lib/repartiment/gestio-consultes");
 
-    const deltaByCentreNode = await carregarDeltasTraspassPersonalPerCentre(any, rang);
+    // Personal = base Gestió (payroll + traspass); estructura (repartiment) a columna a part.
     const centreIds = centres.map((c) => c.id);
-    rows = aplicarDeltasTraspassPersonalCentres(rows, centreIds, deltaByCentreNode);
+    rows = await aplicarBaseGestioPersonalCentres(any, rang, centreIds, rows);
 
     const deltaByLnNode = await carregarDeltasGestioAgregats(any, rang);
     const deltaByNode = deltaByLnNode.get(liniaNegociId) ?? new Map<number, number>();
     centresOut = [
       ...centres,
-      { id: COL_REPARTIMENT_ID, codi: "Repart.", nom: "Imputació repartiment" },
+      { id: COL_REPARTIMENT_ID, codi: COL_REPARTIMENT_CODI, nom: COL_REPARTIMENT_NOM },
     ];
     rows = aplicarGestioRepartimentLn(concepts, rows, deltaByNode);
   }
@@ -587,30 +594,18 @@ export async function getComparativaEmpresa(
   let conceptRows = buildRows(concepts, perConcepte);
 
   if (vista === "gestio" && grupPermetVistaGestio(grup)) {
+    const { aplicarBaseGestioPersonalLinies } = await import(
+      "@/lib/cost-personal-centre/gestio-consultes"
+    );
     const { aplicarGestioRepartiment, carregarDeltasGestioAgregats } = await import(
       "@/lib/repartiment/gestio-consultes"
     );
-    const {
-      agregarDeltasTraspassPerLn,
-      carregarDeltasTraspassPersonalPerCentre,
-      combinarDeltasLn,
-    } = await import("@/lib/traspass-personal/gestio-consultes");
-
-    const centresActius = await db.centre.findMany({
-      where: { isActive: true },
-      select: { id: true, liniaNegociId: true },
-    });
-    const centreToLn = new Map(centresActius.map((c) => [c.id, c.liniaNegociId]));
-
-    const [deltaRepartiment, deltaTraspassCentre] = await Promise.all([
-      carregarDeltasGestioAgregats(any, rang),
-      carregarDeltasTraspassPersonalPerCentre(any, rang),
-    ]);
-    const deltaTraspassLn = agregarDeltasTraspassPerLn(deltaTraspassCentre, centreToLn);
-    const deltaByLnNode = combinarDeltasLn(deltaRepartiment, deltaTraspassLn);
 
     const lnIds = liniesRaw.map((l) => l.id);
-    conceptRows = aplicarGestioRepartiment(concepts, conceptRows, lnIds, deltaByLnNode);
+    // Personal = base Gestió (payroll + traspass). Repartiment només (sense doble traspass).
+    conceptRows = await aplicarBaseGestioPersonalLinies(any, rang, lnIds, conceptRows);
+    const deltaRepartiment = await carregarDeltasGestioAgregats(any, rang);
+    conceptRows = aplicarGestioRepartiment(concepts, conceptRows, lnIds, deltaRepartiment);
   }
 
   // Consolidat · Gestió: Prestació serveis FDLC → Vendes LN00001 (mirall CCR00008).
@@ -1010,7 +1005,7 @@ export async function getComparativaTemporal(
 /* ─── Drill-down: detall d'una cel·la del compte ─────────────────────────────── */
 
 export interface DetallCellaItem {
-  origen: "dada" | "ajust" | "repartiment" | "mirall";
+  origen: "dada" | "ajust" | "repartiment" | "mirall" | "traspass" | "payroll";
   import_: number;
   centreCodi: string | null;
   centreNom: string | null;
@@ -1029,6 +1024,10 @@ export interface DetallCellaResult {
   totalAjustos: number;
   totalRepartiment: number;
   totalMirall: number;
+  totalTraspass: number;
+  totalPayroll: number;
+  /** True si el payroll ha substituït el SAP al total de Gestió. */
+  payrollSubstitueix: boolean;
   total: number;
 }
 
@@ -1061,6 +1060,9 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
       totalAjustos: 0,
       totalRepartiment: 0,
       totalMirall: 0,
+      totalTraspass: 0,
+      totalPayroll: 0,
+      payrollSubstitueix: false,
       total: 0,
     };
   }
@@ -1171,14 +1173,15 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
   let totalMirall = 0;
 
   // Vista Gestió: afegir imputacions de repartiment (totals → línia de detall).
-  // No s'apliquen a nivell centre (van a la columna Repart. / total LN).
+  // No s'apliquen a nivell centre (van a la columna Estructura / total LN).
   if (params.vista === "gestio" && !params.centreId) {
-    const { nodeTotalDesDeDetall } = await import("@/lib/repartiment/nodes");
+    const { NODE_COST_SALARIAL, nodeTotalDesDeDetall } = await import("@/lib/repartiment/nodes");
     const { getDeltasGestioPerLn } = await import("@/lib/repartiment/service");
 
-    // Només a la línia de detall (p.ex. SOUS ← delta del total 17),
-    // perquè el subtotal ja incorpora el delta via suma dels fills.
-    const nodeDelta = nodeTotalDesDeDetall(concepte.node);
+    // SOUS (13) hereta el delta del total 17; el propi total 17 també el mostra al detall.
+    const nodeDelta =
+      nodeTotalDesDeDetall(concepte.node) ??
+      (concepte.node === NODE_COST_SALARIAL ? NODE_COST_SALARIAL : null);
 
     if (nodeDelta != null) {
       const periods = await db.period.findMany({
@@ -1227,7 +1230,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
         for (const m of moviments) {
           normesByKey.set(
             `${m.execucio.periodId}:${m.liniaNegociDestiId}`,
-            m.norma?.nom ?? "Imputació repartiment"
+            m.norma?.nom ?? "ESTRUCTURA"
           );
         }
       }
@@ -1250,7 +1253,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
             liniaNom: ln?.nom ?? null,
             mes: period.mes,
             any: period.any,
-            motiu: normesByKey.get(`${period.id}:${lnId}`) ?? "Imputació repartiment",
+            motiu: normesByKey.get(`${period.id}:${lnId}`) ?? "ESTRUCTURA",
           });
         }
       }
@@ -1376,6 +1379,261 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
   const totalDades = dades.reduce((s, d) => s + Number(d.import_), 0);
   const totalAjustos = ajustos.reduce((s, a) => s + Number(a.import_), 0);
 
+  let totalTraspass = 0;
+  let totalPayroll = 0;
+  let payrollSubstitueix = false;
+
+  // Vista Gestió · centre o LN: payroll substitueix el bloc personal al detall.
+  if (params.vista === "gestio" && (params.centreId || params.liniaNegociId)) {
+    const { campPayrollPerNode, esNodePersonalCompte } = await import(
+      "@/lib/cost-personal-centre/nodes"
+    );
+    if (esNodePersonalCompte(concepte.node)) {
+      const camp = campPayrollPerNode(concepte.node);
+      const periods = await db.period.findMany({
+        where: periodWhere,
+        select: { id: true, any: true, mes: true },
+        orderBy: { mes: "asc" },
+      });
+      if (periods.length && camp) {
+        const fets = await db.costPersonalCentre.findMany({
+          where: {
+            periodId: { in: periods.map((p) => p.id) },
+            ...(params.centreId
+              ? { centreId: params.centreId }
+              : { centre: { liniaNegociId: params.liniaNegociId!, isActive: true } }),
+          },
+          select: {
+            importBrut: true,
+            totalSegSocial: true,
+            costPersonal: true,
+            codiOrigen: true,
+            textOrigen: true,
+            departamentSalarial: true,
+            period: { select: { any: true, mes: true } },
+            centre: {
+              select: {
+                codi: true,
+                nom: true,
+                liniaNegoci: { select: { codi: true, nom: true } },
+              },
+            },
+          },
+        });
+        if (fets.length) {
+          payrollSubstitueix = true;
+          for (const f of fets) {
+            const raw =
+              camp === "zero"
+                ? 0
+                : camp === "importBrut"
+                  ? Number(f.importBrut)
+                  : camp === "totalSegSocial"
+                    ? Number(f.totalSegSocial)
+                    : Number(f.costPersonal);
+            if (Math.abs(raw) < 0.005) continue;
+            const valor = -Math.abs(raw);
+            totalPayroll += valor;
+            const dept =
+              f.departamentSalarial === "CUINA"
+                ? "Cuina"
+                : f.departamentSalarial === "SALA"
+                  ? "Sala"
+                  : null;
+            const origenTxt = [f.codiOrigen, f.textOrigen].filter(Boolean).join(" · ");
+            items.push({
+              origen: "payroll",
+              import_: valor,
+              centreCodi: f.centre.codi,
+              centreNom: f.centre.nom,
+              liniaCodi: f.centre.liniaNegoci?.codi ?? null,
+              liniaNom: f.centre.liniaNegoci?.nom ?? null,
+              mes: f.period.mes,
+              any: f.period.any,
+              motiu: [origenTxt || "Cost personal (payroll)", dept].filter(Boolean).join(" · "),
+            });
+          }
+          // Marca les línies SAP com a substituïdes (seguixen visibles per contrast).
+          for (const it of items) {
+            if (it.origen === "dada" && !it.motiu) {
+              it.motiu = "SAP Directe (substituït a Gestió)";
+            } else if (it.origen === "dada" && it.motiu) {
+              it.motiu = `${it.motiu} · SAP (substituït)`;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Vista Gestió: traspassos de personal (node 17 → presentació a Sous i salaris 13).
+  if (params.vista === "gestio") {
+    const { NODE_COST_SALARIAL, NODE_SOUS_SALARIS, nodeTotalDesDeDetall } = await import(
+      "@/lib/repartiment/nodes"
+    );
+    const nodeDelta =
+      concepte.node === NODE_COST_SALARIAL || concepte.node === NODE_SOUS_SALARIS
+        ? NODE_COST_SALARIAL
+        : nodeTotalDesDeDetall(concepte.node);
+
+    if (nodeDelta === NODE_COST_SALARIAL) {
+      const periods = await db.period.findMany({
+        where: periodWhere,
+        select: { id: true, any: true, mes: true },
+        orderBy: { mes: "asc" },
+      });
+      if (periods.length) {
+        const periodIds = periods.map((p) => p.id);
+        const periodById = new Map(periods.map((p) => [p.id, p]));
+
+        let centreFilter: string[] | null = null;
+        if (params.centreId) {
+          centreFilter = [params.centreId];
+        } else if (params.liniaNegociId) {
+          const centresLn = await db.centre.findMany({
+            where: { liniaNegociId: params.liniaNegociId, isActive: true },
+            select: { id: true },
+          });
+          centreFilter = centresLn.map((c) => c.id);
+        } else if (params.lnIdsGrup?.length) {
+          const centresGrup = await db.centre.findMany({
+            where: { liniaNegociId: { in: params.lnIdsGrup }, isActive: true },
+            select: { id: true },
+          });
+          centreFilter = centresGrup.map((c) => c.id);
+        }
+
+        const moviments = await db.movimentTraspassPersonal.findMany({
+          where: {
+            execucio: { estat: "CONFIRMAT", periodId: { in: periodIds } },
+            ...(centreFilter
+              ? {
+                  OR: [
+                    { centreOrigenId: { in: centreFilter } },
+                    { centreDestiId: { in: centreFilter } },
+                  ],
+                }
+              : {}),
+          },
+          select: {
+            import_: true,
+            departament: true,
+            centreOrigenId: true,
+            centreDestiId: true,
+            centreOrigen: {
+              select: {
+                codi: true,
+                nom: true,
+                liniaNegoci: { select: { codi: true, nom: true } },
+              },
+            },
+            centreDesti: {
+              select: {
+                codi: true,
+                nom: true,
+                liniaNegoci: { select: { codi: true, nom: true } },
+              },
+            },
+            execucio: { select: { periodId: true } },
+          },
+        });
+
+        const centreSet = centreFilter ? new Set(centreFilter) : null;
+
+        for (const m of moviments) {
+          const period = periodById.get(m.execucio.periodId);
+          if (!period) continue;
+          const imp = Number(m.import_);
+          const dept = m.departament === "CUINA" ? "Cuina" : "Sala";
+
+          // Origen: surt cost → delta +. Destí: entra cost → delta −.
+          if (!centreSet || centreSet.has(m.centreOrigenId)) {
+            totalTraspass += imp;
+            items.push({
+              origen: "traspass",
+              import_: imp,
+              centreCodi: m.centreOrigen.codi,
+              centreNom: m.centreOrigen.nom,
+              liniaCodi: m.centreOrigen.liniaNegoci?.codi ?? null,
+              liniaNom: m.centreOrigen.liniaNegoci?.nom ?? null,
+              mes: period.mes,
+              any: period.any,
+              motiu: `Surt cap a ${m.centreDesti.codi} · ${m.centreDesti.nom} (${dept})`,
+            });
+          }
+          if (!centreSet || centreSet.has(m.centreDestiId)) {
+            totalTraspass -= imp;
+            items.push({
+              origen: "traspass",
+              import_: -imp,
+              centreCodi: m.centreDesti.codi,
+              centreNom: m.centreDesti.nom,
+              liniaCodi: m.centreDesti.liniaNegoci?.codi ?? null,
+              liniaNom: m.centreDesti.liniaNegoci?.nom ?? null,
+              mes: period.mes,
+              any: period.any,
+              motiu: `Entra des de ${m.centreOrigen.codi} · ${m.centreOrigen.nom} (${dept})`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  // Vista Gestió · personal: el total = base Gestió (payroll/SAP+traspass per centre×mes)
+  // + repartiment LN. El traspass ja va dins la base → no el sumem una altra vegada.
+  let totalCalc: number;
+  const {
+    esNodePersonalCompte,
+    NODE_SOUS_SALARIS,
+    NODE_INDEMNITZACIONS,
+    NODE_SEGURETAT_SOCIAL,
+    NODE_ALTRES_DESPESES_SOCIALS,
+    NODE_TOTAL_COST_SALARIAL,
+  } = await import("@/lib/cost-personal-centre/nodes");
+  if (
+    params.vista === "gestio" &&
+    esNodePersonalCompte(concepte.node) &&
+    (params.centreId || params.liniaNegociId)
+  ) {
+    const mesFiltre =
+      params.mes ?? (params.rang && params.rang.des === params.rang.fins ? params.rang.des : null);
+    const { carregarBaseGestioPersonal } = await import("@/lib/cost-personal-centre/base-gestio");
+    const base = await carregarBaseGestioPersonal({
+      any: params.any,
+      mes: mesFiltre,
+      centreId: params.centreId,
+      liniaNegociId: params.centreId ? undefined : params.liniaNegociId,
+    });
+    let sumBase = 0;
+    const mesosOk =
+      mesFiltre != null
+        ? new Set([mesFiltre])
+        : params.rang
+          ? new Set(
+              Array.from(
+                { length: params.rang.fins - params.rang.des + 1 },
+                (_, i) => params.rang!.des + i
+              )
+            )
+          : null;
+    for (const perMes of base.values()) {
+      for (const [m, cel] of perMes) {
+        if (mesosOk && !mesosOk.has(m)) continue;
+        if (concepte.node === NODE_SOUS_SALARIS) sumBase += cel.imports.importBrut;
+        else if (concepte.node === NODE_INDEMNITZACIONS) sumBase += cel.imports.indemnitzacions;
+        else if (concepte.node === NODE_SEGURETAT_SOCIAL) sumBase += cel.imports.totalSegSocial;
+        else if (concepte.node === NODE_ALTRES_DESPESES_SOCIALS)
+          sumBase += cel.imports.altresDespesesSocials;
+        else if (concepte.node === NODE_TOTAL_COST_SALARIAL) sumBase += cel.imports.costPersonal;
+      }
+    }
+    totalCalc = sumBase + (params.centreId ? 0 : totalRepartiment);
+  } else {
+    const baseSenseSap = totalAjustos + totalRepartiment + totalMirall + totalTraspass;
+    totalCalc = payrollSubstitueix ? totalPayroll + baseSenseSap : totalDades + baseSenseSap;
+  }
+
   return {
     concepteNode: concepte.node,
     concepteDescripcio: concepte.descripcio,
@@ -1384,6 +1642,9 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     totalAjustos: Math.round(totalAjustos * 100) / 100,
     totalRepartiment: Math.round(totalRepartiment * 100) / 100,
     totalMirall: Math.round(totalMirall * 100) / 100,
-    total: Math.round((totalDades + totalAjustos + totalRepartiment + totalMirall) * 100) / 100,
+    totalTraspass: Math.round(totalTraspass * 100) / 100,
+    totalPayroll: Math.round(totalPayroll * 100) / 100,
+    payrollSubstitueix,
+    total: Math.round(totalCalc * 100) / 100,
   };
 }
