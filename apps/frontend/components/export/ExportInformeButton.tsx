@@ -38,7 +38,7 @@ type FromPartsProps = CommonProps & {
 export type ExportInformeButtonProps = FromInformeProps | FromPartsProps;
 
 function resolveInforme(props: ExportInformeButtonProps): ExportInforme | null {
-  if ("informe" in props) return props.informe;
+  if ("informe" in props) return props.informe ?? null;
   if (!props.columns.length || !props.rows.length) return null;
   return {
     filename: props.filename,
