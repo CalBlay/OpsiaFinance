@@ -8,3 +8,5 @@ coverage
 IEBS/
 *.xlsx
 Finances/
+.vercel
+.env*.local

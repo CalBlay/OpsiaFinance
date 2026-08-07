@@ -6,83 +6,64 @@ datasource db {
   provider = "postgresql"
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Auth / Admin
-// ─────────────────────────────────────────────────────────────────────────────
-
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
-  name         String
-  role         UserRole @default(CONSULTA)
-  isActive     Boolean  @default(true)
-  passwordHash String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  imports Importacio[]
-  ajustos Ajust[]
+  id              String          @id @default(cuid())
+  email           String          @unique
+  name            String
+  role            UserRole        @default(CONSULTA)
+  isActive        Boolean         @default(true)
+  passwordHash    String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  ajustos         Ajust[]
   carreguesFitxer CarregaFitxer[]
+  imports         Importacio[]
 }
-
-enum UserRole {
-  ADMIN
-  EDICIO
-  CONSULTA
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Dimensions de negoci (arbre de 3 nivells)
-//   Dimensió 1: LiniaNegoci  →  Dimensió 2: Centre  →  Dimensió 3: Departament
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Dimensió 1 — Línia de negoci (LN00000, LN00001, …)
 model LiniaNegoci {
-  id        String   @id @default(cuid())
-  codi      String   @unique  // "LN00001"
-  nom       String            // "RESTAURANTS", "EMPRESA"…
-  ordre     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  centres       Centre[]
-  rows          ImportRow[]
-  dadesResultat DadaResultat[]
-  ajustos       Ajust[]
-  importacions  Importacio[]
-  liniesNegociDesti  NormaRepartiment[] @relation("NormaDesti")
-  liniesNegociOrigen NormaRepartiment[] @relation("NormaOrigen")
-  movimentsRepartiment MovimentRepartiment[] @relation("MovimentDesti")
-  pesosRepartiment   PesRepartiment[]
-  grupsRepartiment   RepartimentGrupMembre[]
+  id                   String                  @id @default(cuid())
+  codi                 String                  @unique
+  nom                  String
+  ordre                Int                     @default(0)
+  isActive             Boolean                 @default(true)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  ajustos              Ajust[]
+  centres              Centre[]
+  dadesResultat        DadaResultat[]
+  rows                 ImportRow[]
+  importacions         Importacio[]
+  movimentsRepartiment MovimentRepartiment[]   @relation("MovimentDesti")
+  liniesNegociDesti    NormaRepartiment[]      @relation("NormaDesti")
+  liniesNegociOrigen   NormaRepartiment[]      @relation("NormaOrigen")
+  pesosRepartiment     PesRepartiment[]
+  grupsRepartiment     RepartimentGrupMembre[]
 }
 
 /// Dimensió 2 — Centre de cost (CCR00001, CCC00003, …)
 model Centre {
-  id            String      @id @default(cuid())
-  codi          String      // "CCR00001" — únic dins de la seva LN
-  nom           String
-  ordre         Int         @default(0)
-  isActive      Boolean     @default(true)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-
-  liniaNegociId String
-  liniaNegoci   LiniaNegoci @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
-
-  departaments  Departament[]
-  rows          ImportRow[]
-  dadesResultat DadaResultat[]
-  ajustos       Ajust[]
-  mapeigsTextCentre MapeigTextCentreTreball[]
-  movimentsTraspassOrigen MovimentTraspassPersonal[] @relation("TraspassOrigen")
+  id                      String                     @id @default(cuid())
+  codi                    String
+  nom                     String
+  liniaNegociId           String
+  isActive                Boolean                    @default(true)
+  createdAt               DateTime                   @default(now())
+  ordre                   Int                        @default(0)
+  updatedAt               DateTime                   @updatedAt
+  ajustos                 Ajust[]
+  liniaNegoci             LiniaNegoci                @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
+  costsPersonalsCentre    CostPersonalCentre[]
+  costsSalarials          CostSalarialRestaurant[]
+  dadesResultat           DadaResultat[]
+  departaments            Departament[]
+  rows                    ImportRow[]
+  mapeigsCostPersonal     MapeigCodiCostPersonal[]
+  mapeigsTextCentre       MapeigTextCentreTreball[]
   movimentsTraspassDesti  MovimentTraspassPersonal[] @relation("TraspassDesti")
-  costsSalarials    CostSalarialRestaurant[]
-  costsPersonalsCentre CostPersonalCentre[]
-  mapeigsCostPersonal MapeigCodiCostPersonal[]
-  vendesDiaries     VendaDiariaRestaurant[]
-  vendesArticles    VendaArticleRestaurant[]
+  movimentsTraspassOrigen MovimentTraspassPersonal[] @relation("TraspassOrigen")
+  vendesArticles          VendaArticleRestaurant[]
+  vendesDiaries           VendaDiariaRestaurant[]
 
   @@unique([liniaNegociId, codi])
   @@index([liniaNegociId])
@@ -91,159 +72,100 @@ model Centre {
 /// Dimensió 3 — Departament / àrea interna del centre (DRO0001, DCC0002, …)
 /// Els codis de departament es repeteixen entre centres → únic per centre.
 model Departament {
-  id        String   @id @default(cuid())
-  codi      String   // "DRO0001"
-  nom       String   // "CUINA", "SALA", "NETEJA"…
-  ordre     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
+  id        String      @id @default(cuid())
+  codi      String
+  nom       String
+  ordre     Int         @default(0)
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
   centreId  String
-  centre    Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
-
+  centre    Centre      @relation(fields: [centreId], references: [id], onDelete: Cascade)
   rows      ImportRow[]
 
   @@unique([centreId, codi])
   @@index([centreId])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Temps
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Periode comptable: any + mes
 model Period {
-  id   String @id @default(cuid())
-  any  Int               // 2024
-  mes  Int               // 1–12
-  nom  String            // "Gener 2024"
-
-  imports       Importacio[]
-  rows          ImportRow[]
-  dadesResultat DadaResultat[]
-  ajustos       Ajust[]
-  execucioRepartiment ExecucioRepartiment?
+  id                       String                    @id @default(cuid())
+  any                      Int
+  mes                      Int
+  nom                      String
+  ajustos                  Ajust[]
+  carreguesFitxer          CarregaFitxer[]
+  costsPersonalsCentre     CostPersonalCentre[]
+  costsSalarials           CostSalarialRestaurant[]
+  dadesResultat            DadaResultat[]
+  execucioRepartiment      ExecucioRepartiment?
   execucioTraspassPersonal ExecucioTraspassPersonal?
-  costsSalarials CostSalarialRestaurant[]
-  costsPersonalsCentre CostPersonalCentre[]
-  vendesDiaries  VendaDiariaRestaurant[]
-  vendesArticles VendaArticleRestaurant[]
-  carreguesFitxer CarregaFitxer[]
+  rows                     ImportRow[]
+  imports                  Importacio[]
+  vendesArticles           VendaArticleRestaurant[]
+  vendesDiaries            VendaDiariaRestaurant[]
 
   @@unique([any, mes])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Formats d'informe
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Definició d'un tipus d'informe Excel (configurable)
 model FormatInforme {
-  id          String          @id @default(cuid())
-  nom         String          @unique  // "PyG Mensual per Centres"
-  descripcio  String?
+  id           String       @id @default(cuid())
+  nom          String       @unique
+  descripcio   String?
   tipusInforme TipusInforme
-  isActive    Boolean         @default(true)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  imports     Importacio[]
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  imports      Importacio[]
 }
-
-enum TipusInforme {
-  PYG_MENSUAL_CENTRES     // PyG Mensual por Centros
-  PYG_MENSUAL_LN          // PyG Mensual por Línea de Negocio
-  PYG_EXERCICI_LN         // PyG Ejercicio Lin.Neg.
-  PYG_EXERCICI_CENTRE     // PyG Ejercicio Centro
-  PYG_CENTRES             // PyG por Centros
-  PYG_LN                  // PyG por Línea de Negocio
-  PYG_FDLC                // PyG hotel FDLC (comptes PGC → C.explotació)
-  HORES_CENTRES_TREBALL   // Hores per centre (traspassos de personal)
-  EVALUACIO_NEGOCI        // Informe de Evaluación de Negocios
-  ALTRE                   // Altres formats
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Importacions
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Registre d'un fitxer Excel pujat al sistema
 model Importacio {
-  id              String        @id @default(cuid())
-  nomFitxer       String                        // nom original de l'Excel
-  rutaStorage     String?                       // ruta al storage (futur)
-  mida            Int?                          // mida en bytes
-  estat           EstatImport   @default(PENDENT)
-  notes           String?                       // notes de l'usuari
-
-  // Classificació
-  formatInformeId String?
-  formatInforme   FormatInforme? @relation(fields: [formatInformeId], references: [id])
-  periodId        String?
-  period          Period?        @relation(fields: [periodId], references: [id])
-  liniaNegociId   String?
-  liniaNegoci     LiniaNegoci?   @relation(fields: [liniaNegociId], references: [id])
-
-  // Auditoria
-  creatPer        String
-  creatPerUser    User           @relation(fields: [creatPer], references: [id])
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
-  confirmatAt     DateTime?
-
-  rows            ImportRow[]   @relation("ImportacioRows")
-  dades           DadaResultat[]
+  id                         String                     @id @default(cuid())
+  nomFitxer                  String
+  rutaStorage                String?
+  mida                       Int?
+  estat                      EstatImport                @default(PENDENT)
+  notes                      String?
+  formatInformeId            String?
+  periodId                   String?
+  creatPer                   String
+  createdAt                  DateTime                   @default(now())
+  updatedAt                  DateTime                   @updatedAt
+  confirmatAt                DateTime?
+  liniaNegociId              String?
+  dades                      DadaResultat[]
   execucionsTraspassPersonal ExecucioTraspassPersonal[]
+  rows                       ImportRow[]                @relation("ImportacioRows")
+  creatPerUser               User                       @relation(fields: [creatPer], references: [id])
+  formatInforme              FormatInforme?             @relation(fields: [formatInformeId], references: [id])
+  liniaNegoci                LiniaNegoci?               @relation(fields: [liniaNegociId], references: [id])
+  period                     Period?                    @relation(fields: [periodId], references: [id])
 
   @@index([liniaNegociId])
   @@index([periodId, liniaNegociId, formatInformeId])
 }
 
-enum EstatImport {
-  PENDENT      // pujat, pendent de classificar
-  CLASSIFICAT  // classificat, pendent de revisar
-  REVISAT      // revisat, pendent de confirmar
-  CONFIRMAT    // confirmat i integrat al model financer
-  ERROR        // error durant el processament
-  ARXIVAT      // arxivat / cancel·lat
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Files importades (model financer intern)
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Fila normalitzada del model financer intern
 model ImportRow {
-  id              String  @id @default(cuid())
-
-  // Origen
-  importacioId    String
-  importacio      Importacio @relation("ImportacioRows", fields: [importacioId], references: [id], onDelete: Cascade)
-
-  // Dimensió temps
-  periodId        String
-  period          Period  @relation(fields: [periodId], references: [id])
-
-  // Dimensió negoci
-  liniaNegociId   String?
-  liniaNegoci     LiniaNegoci? @relation(fields: [liniaNegociId], references: [id])
-  centreId        String?
-  centre          Centre?  @relation(fields: [centreId], references: [id])
-  departamentId   String?
-  departament     Departament? @relation(fields: [departamentId], references: [id])
-
-  // Compte comptable
-  codiCompte      String?   // codi del compte (si existeix)
-  nomCompte       String    // nom del compte / concepte
-  familiaCompte   String?   // grup o família (futur)
-
-  // Valor
-  import_         Decimal   @map("import") @db.Decimal(18, 2)
-
-  // Estat de la fila
-  esAjust         Boolean  @default(false)
-  notes           String?
+  id            String       @id @default(cuid())
+  periodId      String
+  liniaNegociId String?
+  centreId      String?
+  codiCompte    String?
+  nomCompte     String
+  familiaCompte String?
+  import_       Decimal      @map("import") @db.Decimal(18, 2)
+  esAjust       Boolean      @default(false)
+  notes         String?
+  importacioId  String
+  departamentId String?
+  centre        Centre?      @relation(fields: [centreId], references: [id])
+  departament   Departament? @relation(fields: [departamentId], references: [id])
+  importacio    Importacio   @relation("ImportacioRows", fields: [importacioId], references: [id], onDelete: Cascade)
+  liniaNegoci   LiniaNegoci? @relation(fields: [liniaNegociId], references: [id])
+  period        Period       @relation(fields: [periodId], references: [id])
 
   @@index([importacioId])
   @@index([periodId])
@@ -252,54 +174,39 @@ model ImportRow {
   @@index([departamentId])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Compte de resultats (model financer canònic — fets + dimensió concepte)
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Estructura estable del compte de resultats (una fila per línia del P&L de SAP).
 /// El `node` és l'identificador estable que SAP genera igual a tots els informes.
 model ConcepteResultat {
-  id         String   @id @default(cuid())
-  node       Int      @unique          // identificador estable de SAP (1..44, 999…)
-  descripcio String                    // "VENDES", "TOTAL INGRESSOS EXPLOT"…
-  esSubtotal Boolean  @default(false)  // true = total/subtotal calculat (sense prefix ".")
-  ordre      Int      @default(0)      // ordre de presentació al compte
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  dades      DadaResultat[]
+  id         String         @id @default(cuid())
+  node       Int            @unique
+  descripcio String
+  esSubtotal Boolean        @default(false)
+  ordre      Int            @default(0)
+  isActive   Boolean        @default(true)
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
   ajustos    Ajust[]
+  dades      DadaResultat[]
 }
 
 /// Fet financer: valor d'un concepte per un centre (o LN) en un període concret.
 /// Cada cel·la amb valor del compte de resultats es desa aquí. Des d'aquests fets
 /// es poden agregar totes les vistes (per centre, per LN, per empresa, mensual, anual…).
 model DadaResultat {
-  id                 String   @id @default(cuid())
-
-  // Origen
+  id                 String           @id @default(cuid())
   importacioId       String
-  importacio         Importacio @relation(fields: [importacioId], references: [id], onDelete: Cascade)
-
-  // Dimensió temps
   periodId           String
-  period             Period   @relation(fields: [periodId], references: [id])
-
-  // Dimensió concepte (estructura del P&L)
   concepteResultatId String
-  concepteResultat   ConcepteResultat @relation(fields: [concepteResultatId], references: [id])
-
-  // Dimensió negoci (centre i/o LN; liniaNegociId es denormalitza per agregar ràpid)
   centreId           String?
-  centre             Centre?      @relation(fields: [centreId], references: [id])
   liniaNegociId      String?
-  liniaNegoci        LiniaNegoci? @relation(fields: [liniaNegociId], references: [id])
-  senseCentre        Boolean  @default(false)  // columna "Sin Centro"
-
-  // Valor
-  import_            Decimal  @map("import") @db.Decimal(18, 2)
-  createdAt          DateTime @default(now())
+  senseCentre        Boolean          @default(false)
+  import_            Decimal          @map("import") @db.Decimal(18, 2)
+  createdAt          DateTime         @default(now())
+  centre             Centre?          @relation(fields: [centreId], references: [id])
+  concepteResultat   ConcepteResultat @relation(fields: [concepteResultatId], references: [id])
+  importacio         Importacio       @relation(fields: [importacioId], references: [id], onDelete: Cascade)
+  liniaNegoci        LiniaNegoci?     @relation(fields: [liniaNegociId], references: [id])
+  period             Period           @relation(fields: [periodId], references: [id])
 
   @@index([importacioId])
   @@index([periodId])
@@ -311,38 +218,24 @@ model DadaResultat {
   @@index([periodId, concepteResultatId])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Ajustos manuals (correccions de gestió amb rastre d'auditoria)
-// ─────────────────────────────────────────────────────────────────────────────
-
 /// Ajust manual sobre el compte de resultats. NO sobreescriu les dades importades:
 /// a les consultes es suma a la dada SAP (dada + ajustos = xifra final).
 model Ajust {
-  id                 String   @id @default(cuid())
-
-  // Dimensió temps
+  id                 String           @id @default(cuid())
   periodId           String
-  period             Period   @relation(fields: [periodId], references: [id])
-
-  // Dimensió concepte
   concepteResultatId String
-  concepteResultat   ConcepteResultat @relation(fields: [concepteResultatId], references: [id])
-
-  // Dimensió negoci (centre concret o LN sencera)
   centreId           String?
-  centre             Centre?      @relation(fields: [centreId], references: [id])
   liniaNegociId      String?
-  liniaNegoci        LiniaNegoci? @relation(fields: [liniaNegociId], references: [id])
-
-  // Valor i justificació
-  import_            Decimal  @map("import") @db.Decimal(18, 2)
-  motiu              String                    // per què s'ha fet l'ajust
-
-  // Auditoria
+  import_            Decimal          @map("import") @db.Decimal(18, 2)
+  motiu              String
   creatPer           String
-  creatPerUser       User     @relation(fields: [creatPer], references: [id])
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  centre             Centre?          @relation(fields: [centreId], references: [id])
+  concepteResultat   ConcepteResultat @relation(fields: [concepteResultatId], references: [id])
+  creatPerUser       User             @relation(fields: [creatPer], references: [id])
+  liniaNegoci        LiniaNegoci?     @relation(fields: [liniaNegociId], references: [id])
+  period             Period           @relation(fields: [periodId], references: [id])
 
   @@index([periodId])
   @@index([concepteResultatId])
@@ -350,137 +243,103 @@ model Ajust {
   @@index([liniaNegociId])
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Repartiment de costos Central → LN (compte de gestió)
-// ─────────────────────────────────────────────────────────────────────────────
-
 model RepartimentGrup {
-  id        String   @id @default(cuid())
-  codi      String   @unique
+  id        String                  @id @default(cuid())
+  codi      String                  @unique
   nom       String
-  ordre     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  membres RepartimentGrupMembre[]
-  normes  NormaRepartiment[]
-  pesos   PesRepartiment[]
+  ordre     Int                     @default(0)
+  isActive  Boolean                 @default(true)
+  createdAt DateTime                @default(now())
+  updatedAt DateTime                @updatedAt
+  normes    NormaRepartiment[]
+  pesos     PesRepartiment[]
+  membres   RepartimentGrupMembre[]
 }
 
 model RepartimentGrupMembre {
-  id            String @id @default(cuid())
+  id            String          @id @default(cuid())
   grupId        String
-  grup          RepartimentGrup @relation(fields: [grupId], references: [id], onDelete: Cascade)
   liniaNegociId String
-  liniaNegoci   LiniaNegoci @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
-  ordre         Int    @default(0)
+  ordre         Int             @default(0)
+  grup          RepartimentGrup @relation(fields: [grupId], references: [id], onDelete: Cascade)
+  liniaNegoci   LiniaNegoci     @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
 
   @@unique([grupId, liniaNegociId])
   @@index([liniaNegociId])
 }
 
-enum TipusNormaRepartiment {
-  PERCENT_VENDES_PROPIES
-  PERCENT_POOL_CENTRAL
-  IMPORT_FIX
-  RESTEM
-  REPARTIMENT_PROPORCIONAL
-}
-
 model NormaRepartiment {
-  id                  String   @id @default(cuid())
+  id                  String                @id @default(cuid())
   nom                 String?
   tipus               TipusNormaRepartiment
-  ordre               Int      @default(0)
-  actiu               Boolean  @default(true)
-
+  ordre               Int                   @default(0)
+  actiu               Boolean               @default(true)
   liniaNegociDestiId  String?
-  liniaNegociDesti    LiniaNegoci? @relation("NormaDesti", fields: [liniaNegociDestiId], references: [id], onDelete: SetNull)
-
   liniaNegociOrigenId String?
-  liniaNegociOrigen   LiniaNegoci? @relation("NormaOrigen", fields: [liniaNegociOrigenId], references: [id], onDelete: SetNull)
-
   concepteNode        Int
-
   grupId              String?
-  grup                RepartimentGrup? @relation(fields: [grupId], references: [id], onDelete: SetNull)
-
-  valorPercent        Decimal? @db.Decimal(9, 4)
-  valorImport         Decimal? @db.Decimal(18, 2)
-
-  vigentDesDe         DateTime @default(now())
+  valorPercent        Decimal?              @db.Decimal(9, 4)
+  valorImport         Decimal?              @db.Decimal(18, 2)
+  vigentDesDe         DateTime              @default(now())
   vigentFins          DateTime?
-
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
-
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   moviments           MovimentRepartiment[]
+  grup                RepartimentGrup?      @relation(fields: [grupId], references: [id])
+  liniaNegociDesti    LiniaNegoci?          @relation("NormaDesti", fields: [liniaNegociDestiId], references: [id])
+  liniaNegociOrigen   LiniaNegoci?          @relation("NormaOrigen", fields: [liniaNegociOrigenId], references: [id])
 
   @@index([liniaNegociDestiId])
   @@index([liniaNegociOrigenId])
   @@index([grupId])
 }
 
-enum EstatExecucioRepartiment {
-  BORRADOR
-  CONFIRMAT
-}
-
 model ExecucioRepartiment {
-  id           String   @id @default(cuid())
-  periodId     String   @unique
-  period       Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  id           String                   @id @default(cuid())
+  periodId     String                   @unique
   estat        EstatExecucioRepartiment @default(BORRADOR)
   calculatAt   DateTime?
   confirmatAt  DateTime?
   confirmatPer String?
   notes        String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  pesos     PesRepartiment[]
-  moviments MovimentRepartiment[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+  period       Period                   @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  moviments    MovimentRepartiment[]
+  pesos        PesRepartiment[]
 }
 
 model PesRepartiment {
-  id            String @id @default(cuid())
+  id            String              @id @default(cuid())
   execucioId    String
-  execucio      ExecucioRepartiment @relation(fields: [execucioId], references: [id], onDelete: Cascade)
   grupId        String
-  grup          RepartimentGrup @relation(fields: [grupId], references: [id], onDelete: Cascade)
   liniaNegociId String
-  liniaNegoci   LiniaNegoci @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
-
-  vendesBase    Decimal @db.Decimal(18, 2)
-  pesCalculat   Decimal @db.Decimal(9, 6)
-  pesOverride   Decimal? @db.Decimal(9, 6)
+  vendesBase    Decimal             @db.Decimal(18, 2)
+  pesCalculat   Decimal             @db.Decimal(9, 6)
+  pesOverride   Decimal?            @db.Decimal(9, 6)
+  execucio      ExecucioRepartiment @relation(fields: [execucioId], references: [id], onDelete: Cascade)
+  grup          RepartimentGrup     @relation(fields: [grupId], references: [id], onDelete: Cascade)
+  liniaNegoci   LiniaNegoci         @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
 
   @@unique([execucioId, grupId, liniaNegociId])
 }
 
 model MovimentRepartiment {
-  id                 String @id @default(cuid())
+  id                 String              @id @default(cuid())
   execucioId         String
-  execucio           ExecucioRepartiment @relation(fields: [execucioId], references: [id], onDelete: Cascade)
   normaId            String?
-  norma              NormaRepartiment? @relation(fields: [normaId], references: [id], onDelete: SetNull)
-
   liniaNegociDestiId String
-  liniaNegociDesti   LiniaNegoci @relation("MovimentDesti", fields: [liniaNegociDestiId], references: [id], onDelete: Cascade)
   concepteNode       Int
-
-  importCalculat     Decimal @db.Decimal(18, 2)
-  importOverride     Decimal? @db.Decimal(18, 2)
+  importCalculat     Decimal             @db.Decimal(18, 2)
+  importOverride     Decimal?            @db.Decimal(18, 2)
   detallCalcul       String?
+  execucio           ExecucioRepartiment @relation(fields: [execucioId], references: [id], onDelete: Cascade)
+  liniaNegociDesti   LiniaNegoci         @relation("MovimentDesti", fields: [liniaNegociDestiId], references: [id], onDelete: Cascade)
+  norma              NormaRepartiment?   @relation(fields: [normaId], references: [id])
 
   @@index([execucioId])
   @@index([liniaNegociDestiId])
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Traspassos de personal entre centres (vista Gestió)
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Configuració global del mòdul (singleton).
 model ConfigTraspassPersonal {
@@ -491,19 +350,285 @@ model ConfigTraspassPersonal {
 
 /// Mapeig text (Organizaciones o Proyecto) → centre de cost + departament.
 model MapeigTextCentreTreball {
-  id        String   @id @default(cuid())
-  text      String   @unique
-  centreId  String
-  centre    Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  id          String              @id @default(cuid())
+  text        String              @unique
+  centreId    String
+  ordre       Int                 @default(0)
+  isActive    Boolean             @default(true)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   /// Font de veritat: Sala/Serveis → SALA, Cuina/Cuiner → CUINA.
   departament DepartamentSalarial @default(SALA)
-  ordre     Int      @default(0)
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  centre      Centre              @relation(fields: [centreId], references: [id], onDelete: Cascade)
 
   @@index([centreId])
   @@index([departament])
+}
+
+/// Execució mensual de traspassos de personal (un per període).
+model ExecucioTraspassPersonal {
+  id                     String                        @id @default(cuid())
+  periodId               String                        @unique
+  estat                  EstatExecucioTraspassPersonal @default(BORRADOR)
+  importacioId           String?
+  nomFitxer              String?
+  calculatAt             DateTime?
+  confirmatAt            DateTime?
+  confirmatPer           String?
+  notes                  String?
+  alertesJson            String?
+  createdAt              DateTime                      @default(now())
+  updatedAt              DateTime                      @updatedAt
+  /// Snapshot JSON dels canvis a foraCentre (abans/després) en confirmar.
+  foraCentreSnapshotJson String?
+  importacio             Importacio?                   @relation(fields: [importacioId], references: [id])
+  period                 Period                        @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  moviments              MovimentTraspassPersonal[]
+
+  @@index([importacioId])
+}
+
+/// Moviment agregat origen → destí × departament (Sala/Cuina).
+model MovimentTraspassPersonal {
+  id             String                   @id @default(cuid())
+  execucioId     String
+  centreOrigenId String
+  centreDestiId  String
+  hores          Decimal                  @db.Decimal(18, 2)
+  tarifaHora     Decimal                  @db.Decimal(18, 2)
+  import_        Decimal                  @map("import") @db.Decimal(18, 2)
+  concepteNode   Int                      @default(13)
+  /// Departament copiat del mapeig d'origen (font de veritat) en calcular.
+  departament    DepartamentSalarial      @default(SALA)
+  /// Minuts agregats (font Excel); hores = minuts / 60.
+  minuts         Decimal                  @default(0) @db.Decimal(18, 2)
+  centreDesti    Centre                   @relation("TraspassDesti", fields: [centreDestiId], references: [id], onDelete: Cascade)
+  centreOrigen   Centre                   @relation("TraspassOrigen", fields: [centreOrigenId], references: [id], onDelete: Cascade)
+  execucio       ExecucioTraspassPersonal @relation(fields: [execucioId], references: [id], onDelete: Cascade)
+
+  @@index([execucioId])
+  @@index([centreOrigenId])
+  @@index([centreDestiId])
+  @@index([departament])
+}
+
+/// Registre d'un fitxer Excel pujat (operatiu restaurants).
+model CarregaFitxer {
+  id                   String                   @id @default(cuid())
+  tipus                TipusCarregaFitxer
+  nomFitxer            String
+  mida                 Int?
+  periodId             String?
+  resum                String?
+  notes                String?
+  creatPer             String
+  createdAt            DateTime                 @default(now())
+  creatPerUser         User                     @relation(fields: [creatPer], references: [id])
+  period               Period?                  @relation(fields: [periodId], references: [id])
+  costsPersonalsCentre CostPersonalCentre[]
+  costsSalarials       CostSalarialRestaurant[]
+  vendesArticles       VendaArticleRestaurant[]
+  vendesDiaries        VendaDiariaRestaurant[]
+
+  @@index([tipus, createdAt])
+  @@index([periodId])
+}
+
+/// Fet de cost salarial per restaurant, departament (Sala/Cuina) i període.
+/// Font independent del compte de resultats SAP. Upsert per period+centre+departament.
+model CostSalarialRestaurant {
+  id                 String              @id @default(cuid())
+  periodId           String
+  centreId           String
+  departament        DepartamentSalarial
+  totalSalari        Decimal             @default(0) @db.Decimal(18, 2)
+  incentiusMensual   Decimal             @default(0) @db.Decimal(18, 2)
+  incentiuTrimestral Decimal             @default(0) @db.Decimal(18, 2)
+  horesExtres        Decimal             @default(0) @db.Decimal(18, 2)
+  altres             Decimal             @default(0) @db.Decimal(18, 2)
+  baixes             Decimal             @default(0) @db.Decimal(18, 2)
+  indemnitzacions    Decimal             @default(0) @db.Decimal(18, 2)
+  foraCentre         Decimal             @default(0) @db.Decimal(18, 2)
+  notes              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  carregaId          String?
+  carrega            CarregaFitxer?      @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+  centre             Centre              @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  period             Period              @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, centreId, departament])
+  @@index([periodId])
+  @@index([centreId])
+  @@index([carregaId])
+  @@index([centreId, periodId])
+}
+
+/// Mapeig codi del fitxer payroll → centre Opsia (+ Sala/Cuina si restaurant).
+model MapeigCodiCostPersonal {
+  id                  String               @id @default(cuid())
+  /// Codi del fitxer (ex. 02001, 0015, 02001001).
+  codi                String               @unique
+  /// Text descriptiu opcional (ex. ADMINISTRACIO EMPRESA).
+  text                String?
+  centreId            String
+  /// Per restaurants: SALA/CUINA. Null = agregat al centre sense dept salarial.
+  departamentSalarial DepartamentSalarial?
+  ordre               Int                  @default(0)
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  centre              Centre               @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([centreId])
+  @@index([departamentSalarial])
+}
+
+/// Fet de cost personal importat (payroll) per període × centre.
+model CostPersonalCentre {
+  id                  String               @id @default(cuid())
+  periodId            String
+  centreId            String
+  departamentSalarial DepartamentSalarial?
+  carregaId           String?
+  /// Text/codi original de la fila (traçabilitat al detall).
+  codiOrigen          String?
+  textOrigen          String?
+  importBrut          Decimal              @default(0) @db.Decimal(18, 2)
+  segSocialEmpresa    Decimal              @default(0) @db.Decimal(18, 2)
+  totalSegSocial      Decimal              @default(0) @db.Decimal(18, 2)
+  costPersonal        Decimal              @default(0) @db.Decimal(18, 2)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  carrega             CarregaFitxer?       @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+  centre              Centre               @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  period              Period               @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId])
+  @@index([centreId])
+  @@index([carregaId])
+  @@index([periodId, centreId])
+}
+
+/// Vendes diàries agregades (fitxer V_MM_YYYY[_CC].xls o tickets CCR00008).
+/// Imports en Base (sense IVA). Amb forma de pagament: una fila per dia × forma.
+model VendaDiariaRestaurant {
+  id            String         @id @default(cuid())
+  periodId      String
+  centreId      String
+  dia           Int
+  data          DateTime       @db.Date
+  unitats       Decimal        @default(0) @db.Decimal(18, 2)
+  base          Decimal        @default(0) @db.Decimal(18, 2)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  carregaId     String?
+  /// "" = format V clàssic (sense desglossament); "Targeta" | "Efectiu" | …
+  formaPagament String         @default("")
+  carrega       CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+  centre        Centre         @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  period        Period         @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, centreId, dia, formaPagament])
+  @@index([periodId])
+  @@index([centreId])
+  @@index([carregaId])
+  @@index([centreId, periodId])
+}
+
+/// Vendes per article del mes (Detall = productes; Pack = packs/menús). Base sense IVA.
+model VendaArticleRestaurant {
+  id           String             @id @default(cuid())
+  periodId     String
+  centreId     String
+  origen       OrigenVendaArticle
+  article      String
+  tipusArticle String?
+  unitats      Decimal            @default(0) @db.Decimal(18, 2)
+  base         Decimal            @default(0) @db.Decimal(18, 2)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  /// Taxonomia TPV (Article [Grupo] / [Familia] / [Subfamilia])
+  grup         String?
+  familia      String?
+  subfamilia   String?
+  /// Derivada: si grup/família/subfamília conté «begud» → BEGUDA; altrament MENJAR (si hi ha taxonomia).
+  categoria    CategoriaVenda?
+  carregaId    String?
+  carrega      CarregaFitxer?     @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+  centre       Centre             @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  period       Period             @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([periodId, centreId, origen, article])
+  @@index([periodId])
+  @@index([centreId])
+  @@index([origen])
+  @@index([categoria])
+  @@index([carregaId])
+  @@index([centreId, periodId, origen])
+  @@index([centreId, periodId, categoria])
+}
+
+model NormaConsolidacio {
+  id                String                 @id @default(cuid())
+  codi              String?                @unique
+  nom               String
+  descripcio        String?
+  grup              GrupConsolidacio
+  tipus             TipusNormaConsolidacio
+  ordre             Int                    @default(0)
+  actiu             Boolean                @default(true)
+  nodeExcloure      Int?
+  nodesAjust        Int[]                  @default([])
+  grupEmpresaOrigen String?
+  nodeOrigen        Int?
+  grupEmpresaDesti  String?
+  nodeDesti         Int?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([grup])
+}
+
+enum UserRole {
+  ADMIN
+  EDICIO
+  CONSULTA
+}
+
+enum TipusInforme {
+  PYG_MENSUAL_CENTRES
+  PYG_MENSUAL_LN
+  PYG_EXERCICI_LN
+  PYG_EXERCICI_CENTRE
+  PYG_CENTRES
+  PYG_LN
+  EVALUACIO_NEGOCI
+  ALTRE
+  PYG_FDLC
+  HORES_CENTRES_TREBALL
+}
+
+enum EstatImport {
+  PENDENT
+  CLASSIFICAT
+  REVISAT
+  CONFIRMAT
+  ERROR
+  ARXIVAT
+}
+
+enum TipusNormaRepartiment {
+  PERCENT_VENDES_PROPIES
+  PERCENT_POOL_CENTRAL
+  IMPORT_FIX
+  RESTEM
+  REPARTIMENT_PROPORCIONAL
+}
+
+enum EstatExecucioRepartiment {
+  BORRADOR
+  CONFIRMAT
 }
 
 enum EstatExecucioTraspassPersonal {
@@ -517,192 +642,13 @@ enum DepartamentSalarial {
   CUINA
 }
 
-/// Execució mensual de traspassos de personal (un per període).
-model ExecucioTraspassPersonal {
-  id           String   @id @default(cuid())
-  periodId     String   @unique
-  period       Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
-  estat        EstatExecucioTraspassPersonal @default(BORRADOR)
-  importacioId String?
-  importacio   Importacio? @relation(fields: [importacioId], references: [id], onDelete: SetNull)
-  nomFitxer    String?
-  calculatAt   DateTime?
-  confirmatAt  DateTime?
-  confirmatPer String?
-  notes        String?
-  alertesJson  String?
-  /// Snapshot JSON dels canvis a foraCentre (abans/després) en confirmar.
-  foraCentreSnapshotJson String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  moviments MovimentTraspassPersonal[]
-
-  @@index([importacioId])
-}
-
-/// Moviment agregat origen → destí × departament (Sala/Cuina).
-model MovimentTraspassPersonal {
-  id             String @id @default(cuid())
-  execucioId     String
-  execucio       ExecucioTraspassPersonal @relation(fields: [execucioId], references: [id], onDelete: Cascade)
-
-  centreOrigenId String
-  centreOrigen   Centre @relation("TraspassOrigen", fields: [centreOrigenId], references: [id], onDelete: Cascade)
-  centreDestiId  String
-  centreDesti    Centre @relation("TraspassDesti", fields: [centreDestiId], references: [id], onDelete: Cascade)
-
-  /// Departament copiat del mapeig d'origen (font de veritat) en calcular.
-  departament  DepartamentSalarial @default(SALA)
-
-  /// Minuts agregats (font Excel); hores = minuts / 60.
-  minuts       Decimal @db.Decimal(18, 2) @default(0)
-  hores        Decimal @db.Decimal(18, 2)
-  tarifaHora   Decimal @db.Decimal(18, 2)
-  import_      Decimal @map("import") @db.Decimal(18, 2)
-  concepteNode Int     @default(13)
-
-  @@index([execucioId])
-  @@index([centreOrigenId])
-  @@index([centreDestiId])
-  @@index([departament])
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Cost salarial restaurants (font Excel pròpia · Sala / Cuina)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Historial de càrregues (Cost salarial / Vendes restaurants)
-// ─────────────────────────────────────────────────────────────────────────────
-
 enum TipusCarregaFitxer {
   COST_SALARIAL
-  COST_PERSONAL_CENTRE
   VENDES_V
   VENDES_DETALL
   VENDES_PACK
+  COST_PERSONAL_CENTRE
 }
-
-/// Registre d'un fitxer Excel pujat (operatiu restaurants).
-model CarregaFitxer {
-  id        String            @id @default(cuid())
-  tipus     TipusCarregaFitxer
-  nomFitxer String
-  mida      Int?
-  periodId  String?
-  period    Period?           @relation(fields: [periodId], references: [id], onDelete: SetNull)
-  resum     String?           // ex. «3 restaurants · maig 2026»
-  notes     String?
-  creatPer  String
-  creatPerUser User           @relation(fields: [creatPer], references: [id])
-  createdAt DateTime          @default(now())
-
-  costsSalarials CostSalarialRestaurant[]
-  costsPersonalsCentre CostPersonalCentre[]
-  vendesDiaries  VendaDiariaRestaurant[]
-  vendesArticles VendaArticleRestaurant[]
-
-  @@index([tipus, createdAt])
-  @@index([periodId])
-}
-
-/// Fet de cost salarial per restaurant, departament (Sala/Cuina) i període.
-/// Font independent del compte de resultats SAP. Upsert per period+centre+departament.
-model CostSalarialRestaurant {
-  id        String @id @default(cuid())
-
-  periodId  String
-  period    Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  centreId  String
-  centre    Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
-
-  departament DepartamentSalarial
-
-  carregaId String?
-  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
-
-  totalSalari          Decimal @db.Decimal(18, 2) @default(0)
-  incentiusMensual     Decimal @db.Decimal(18, 2) @default(0)
-  incentiuTrimestral   Decimal @db.Decimal(18, 2) @default(0)
-  horesExtres          Decimal @db.Decimal(18, 2) @default(0)
-  altres               Decimal @db.Decimal(18, 2) @default(0)
-  baixes               Decimal @db.Decimal(18, 2) @default(0)
-  indemnitzacions      Decimal @db.Decimal(18, 2) @default(0)
-  foraCentre           Decimal @db.Decimal(18, 2) @default(0)
-
-  notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([periodId, centreId, departament])
-  @@index([periodId])
-  @@index([centreId])
-  @@index([carregaId])
-  @@index([centreId, periodId])
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Cost personal per centre (payroll / llistat costos → Gestió)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Mapeig codi del fitxer payroll → centre Opsia (+ Sala/Cuina si restaurant).
-model MapeigCodiCostPersonal {
-  id          String   @id @default(cuid())
-  /// Codi del fitxer (ex. 02001, 0015, 02001001).
-  codi        String   @unique
-  /// Text descriptiu opcional (ex. ADMINISTRACIO EMPRESA).
-  text        String?
-  centreId    String
-  centre      Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
-  /// Per restaurants: SALA/CUINA. Null = agregat al centre sense dept salarial.
-  departamentSalarial DepartamentSalarial?
-  ordre       Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([centreId])
-  @@index([departamentSalarial])
-}
-
-/// Fet de cost personal importat (payroll) per període × centre.
-model CostPersonalCentre {
-  id        String @id @default(cuid())
-
-  periodId  String
-  period    Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  centreId  String
-  centre    Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
-
-  departamentSalarial DepartamentSalarial?
-
-  carregaId String?
-  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
-
-  /// Text/codi original de la fila (traçabilitat al detall).
-  codiOrigen String?
-  textOrigen String?
-
-  importBrut       Decimal @db.Decimal(18, 2) @default(0)
-  segSocialEmpresa Decimal @db.Decimal(18, 2) @default(0)
-  totalSegSocial   Decimal @db.Decimal(18, 2) @default(0)
-  costPersonal     Decimal @db.Decimal(18, 2) @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([periodId])
-  @@index([centreId])
-  @@index([carregaId])
-  @@index([periodId, centreId])
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Vendes restaurants (TPV · fitxers V / Detall / Pack)
-// ─────────────────────────────────────────────────────────────────────────────
 
 /// Origen del fitxer d'articles: Detall = productes; Pack = conceptes pack/menú.
 enum OrigenVendaArticle {
@@ -710,118 +656,17 @@ enum OrigenVendaArticle {
   PACK
 }
 
-/// Vendes diàries agregades (fitxer V_MM_YYYY[_CC].xls o tickets CCR00008).
-/// Imports en Base (sense IVA). Amb forma de pagament: una fila per dia × forma.
-model VendaDiariaRestaurant {
-  id       String   @id @default(cuid())
-
-  periodId String
-  period   Period   @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  centreId String
-  centre   Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
-
-  carregaId String?
-  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
-
-  dia      Int      // 1–31
-  data     DateTime @db.Date
-
-  /// "" = format V clàssic (sense desglossament); "Targeta" | "Efectiu" | …
-  formaPagament String @default("")
-
-  unitats  Decimal  @db.Decimal(18, 2) @default(0)
-  base     Decimal  @db.Decimal(18, 2) @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([periodId, centreId, dia, formaPagament])
-  @@index([periodId])
-  @@index([centreId])
-  @@index([carregaId])
-  @@index([centreId, periodId])
-}
-
-/// Vendes per article del mes (Detall = productes; Pack = packs/menús). Base sense IVA.
-model VendaArticleRestaurant {
-  id       String @id @default(cuid())
-
-  periodId String
-  period   Period @relation(fields: [periodId], references: [id], onDelete: Cascade)
-
-  centreId String
-  centre   Centre @relation(fields: [centreId], references: [id], onDelete: Cascade)
-
-  carregaId String?
-  carrega   CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
-
-  origen   OrigenVendaArticle
-  article  String
-  tipusArticle String?
-
-  /// Taxonomia TPV (Article [Grupo] / [Familia] / [Subfamilia])
-  grup        String?
-  familia     String?
-  subfamilia  String?
-  /// Derivada: si grup/família/subfamília conté «begud» → BEGUDA; altrament MENJAR (si hi ha taxonomia).
-  categoria   CategoriaVenda?
-
-  unitats  Decimal @db.Decimal(18, 2) @default(0)
-  base     Decimal @db.Decimal(18, 2) @default(0)
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@unique([periodId, centreId, origen, article])
-  @@index([periodId])
-  @@index([centreId])
-  @@index([origen])
-  @@index([categoria])
-  @@index([carregaId])
-  @@index([centreId, periodId, origen])
-  @@index([centreId, periodId, categoria])
-}
-
 enum CategoriaVenda {
   MENJAR
   BEGUDA
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// MODUL: Consolidació (eliminacions intra-empresa i inter-empresa)
-// ─────────────────────────────────────────────────────────────────────────────
-
 enum GrupConsolidacio {
-  CALBLAY_INTRA      // Cal Blay: columnes LN → total empresa
-  GRUP_EMPRESARIAL   // Grup Cal Blay + FDLC (futur consulta consolidat)
+  CALBLAY_INTRA
+  GRUP_EMPRESARIAL
 }
 
 enum TipusNormaConsolidacio {
-  EXCLURE_NODE           // Posar a zero un node i restar als subtotals indicats
-  ELIMINAR_PARELL_INTER  // Eliminar parell ingress/despesa entre empreses del grup
-}
-
-model NormaConsolidacio {
-  id               String                 @id @default(cuid())
-  codi             String?                @unique
-  nom              String
-  descripcio       String?
-  grup             GrupConsolidacio
-  tipus            TipusNormaConsolidacio
-  ordre            Int                    @default(0)
-  actiu            Boolean                @default(true)
-
-  nodeExcloure     Int?
-  nodesAjust       Int[]                  @default([])
-
-  grupEmpresaOrigen String?
-  nodeOrigen        Int?
-  grupEmpresaDesti  String?
-  nodeDesti         Int?
-
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-
-  @@index([grup])
+  EXCLURE_NODE
+  ELIMINAR_PARELL_INTER
 }
