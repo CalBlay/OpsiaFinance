@@ -7,6 +7,7 @@ import styles from "../traspass-personal/page.module.css";
 import {
   createMapeigCostPersonalAction,
   deleteMapeigCostPersonalAction,
+  esborrarTotMapeigCostPersonalAction,
   generarMapeigAutoDesDePayrollAction,
   generarMapeigDesDeFitxerLocalAction,
   importarMapeigCostPersonalExcelAction,
@@ -109,6 +110,38 @@ export function CostPersonalCentreSettingsPanel({
     <div className={styles.stack}>
       {feedback && (
         <p className={feedback.ok ? styles.feedbackOk : styles.feedbackErr}>{feedback.missatge}</p>
+      )}
+
+      {canEdit && (
+        <section className={styles.card}>
+          <h2 className={styles.cardTitle}>Esborrar mapeig</h2>
+          <p className={styles.helpText}>
+            Hi ha <strong>{mapeigs.length}</strong> mapeigs. Esborra&apos;ls tots per tornar a
+            configurar-los manualment.
+          </p>
+          <div className={styles.fileRow}>
+            <Button
+              size="sm"
+              disabled={pending || mapeigs.length === 0}
+              onClick={() => {
+                if (
+                  !confirm(
+                    mapeigs.length
+                      ? `Segur que vols esborrar els ${mapeigs.length} mapeigs?`
+                      : "No hi ha mapeigs."
+                  )
+                ) {
+                  return;
+                }
+                startTransition(async () => {
+                  notify(await esborrarTotMapeigCostPersonalAction());
+                });
+              }}
+            >
+              <Trash2 size={14} /> Esborrar tot el mapeig ({mapeigs.length})
+            </Button>
+          </div>
+        </section>
       )}
 
       {canEdit && (

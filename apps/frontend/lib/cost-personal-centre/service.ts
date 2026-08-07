@@ -1,13 +1,14 @@
 import { crearCarregaFitxer } from "@/lib/carrega-fitxer";
 import {
   type FilaCostPersonalExcel,
+  esFilaResumOTotal,
   extreureCodiPayroll,
   inferDeptSalarialDesDeText,
   parseExcelCostPersonalCentre,
 } from "@/lib/cost-personal-centre/parser";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
-import type { DepartamentSalarial } from "@prisma/client";
+import type { DepartamentSalarial, OrigenCostPersonalCentre } from "@prisma/client";
 
 export type MapeigCostPersonalDTO = {
   id: string;
@@ -25,6 +26,7 @@ export type ImportCostPersonalResult = {
   senseMapeig: number;
   errors: string[];
   carregaId?: string;
+  origen?: OrigenCostPersonalCentre;
 };
 
 type MapeigRow = {
@@ -36,14 +38,16 @@ type MapeigRow = {
   isActive: boolean;
 };
 
-/** Resol el mapeig més específic (codi exacte o prefix més llarg). */
+/** Resol el mapeig més específic (codi exacte o prefix de nivell centre). */
 export function resolMapeigCodi(codi: string, byCodi: Map<string, MapeigRow>): MapeigRow | null {
   const c = codi.trim();
   if (!c) return null;
   const exacte = byCodi.get(c);
   if (exacte) return exacte;
-  // Prova prefixes progressivament més curts (02001001 → 0200100 → … → 02)
-  for (let len = c.length - 1; len >= 2; len--) {
+  // Prefixos només a partir de longitud de centre (5).
+  // Evita encaixar LN curts (01, 00…) i barrejar restaurants amb Serveis Externs.
+  const minPrefix = 5;
+  for (let len = c.length - 1; len >= minPrefix; len--) {
     const pref = c.slice(0, len);
     const m = byCodi.get(pref);
     if (m) return m;
@@ -52,16 +56,101 @@ export function resolMapeigCodi(codi: string, byCodi: Map<string, MapeigRow>): M
 }
 
 /**
- * Evita doble comptatge jeràrquic: si hi ha un fill mapejat al fitxer,
- * s'ignora el pare (codi prefix del fill).
+ * Candidats de codi per al mapeig (centres = 5 dígits).
+ * Prova primer el centre 5 dígits (com al mapeig manual), després fulles.
+ */
+export function candidatsCodiPayroll(codiFila: string, text: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (c: string | null | undefined) => {
+    const v = (c ?? "").trim();
+    if (!/^\d{4,8}$/.test(v) || seen.has(v)) return;
+    seen.add(v);
+    out.push(v);
+  };
+
+  // 1) Centre 5 dígits (el que tens al mapeig: 03001, 00105…)
+  for (const m of text.match(/\b(\d{5})\b/g) ?? []) add(m);
+  if (/^\d{5}$/.test(codiFila.trim())) add(codiFila);
+  if (/^\d{6,8}$/.test(codiFila.trim())) add(codiFila.trim().slice(0, 5));
+
+  // 2) Fulles / altres
+  for (const m of text.match(/\b(\d{6,8})\b/g) ?? []) add(m);
+  add(codiFila);
+
+  return out;
+}
+
+const TOKENS_GENERICS_MAPEIG = new Set([
+  "restaurants",
+  "restaurant",
+  "empresa",
+  "serveis",
+  "servei",
+  "centrals",
+  "central",
+  "sala",
+  "cuina",
+  "cocina",
+  "personal",
+  "administracio",
+  "administracion",
+]);
+
+/** Fallback: encaixa per nom de centre al text (DECORACIÓ ↔ mapeig «…DECORAC…»). */
+function resolMapeigPerText(text: string, mapeigs: MapeigRow[]): MapeigRow | null {
+  if (esFilaResumOTotal(text)) return null;
+  const clau = text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+  if (clau.length < 4) return null;
+
+  let millor: { m: MapeigRow; score: number } | null = null;
+  for (const m of mapeigs) {
+    const ref = (m.text ?? "")
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+    if (ref.length < 4) continue;
+    // Només tokens distintius (evita «restaurants» / «serveis» → centre erroni)
+    const tokens = ref.split(" ").filter((t) => t.length >= 4 && !TOKENS_GENERICS_MAPEIG.has(t));
+    if (!tokens.length) continue;
+    let hits = 0;
+    for (const t of tokens) {
+      if (clau.includes(t)) hits++;
+    }
+    if (!hits) continue;
+    const score = hits / Math.max(tokens.length, 1);
+    if (score >= 0.5 && (!millor || score > millor.score)) {
+      millor = { m, score };
+    }
+  }
+  return millor && millor.score >= 0.5 ? millor.m : null;
+}
+
+/**
+ * El mapeig és a nivell centre (5 dígits: 03001, 00105…).
+ * Si hi ha fila del centre I fills de departament (03001001…),
+ * ens quedem amb el centre (total correcte) i ignorem els fills.
+ * Si només hi ha fills, els mantenim (es mapegen per prefix).
  */
 export function filtrarFullesMapejades<T extends { codi: string }>(files: T[]): T[] {
-  const codis = files.map((f) => f.codi);
+  const centres5 = new Set(files.map((f) => f.codi.trim()).filter((c) => /^\d{5}$/.test(c)));
   return files.filter((f) => {
-    const esPare = codis.some(
-      (altre) => altre !== f.codi && altre.startsWith(f.codi) && altre.length > f.codi.length
-    );
-    return !esPare;
+    const c = f.codi.trim();
+    if (/^\d{5}$/.test(c)) return true;
+    if (c.length >= 6 && /^\d+$/.test(c)) {
+      const pare = c.slice(0, 5);
+      // Hi ha total del centre → no sumar també el departament
+      if (centres5.has(pare)) return false;
+      return true;
+    }
+    return true;
   });
 }
 
@@ -93,7 +182,7 @@ function clauAgregat(centreId: string, dept: DepartamentSalarial | null): string
   return `${centreId}::${dept ?? "_"}`;
 }
 
-/** Importa el llistat payroll i substitueix les dades del període. */
+/** Importa el llistat payroll (nòmina o millores) i substitueix només aquest origen del període. */
 export async function importarCostPersonalCentreDesDeBuffer(
   buffer: Buffer,
   opts: {
@@ -103,12 +192,15 @@ export async function importarCostPersonalCentreDesDeBuffer(
     mida?: number;
     creatPer: string;
     syncRestaurants?: boolean;
+    /** NOMINA (defecte) o MILLORES — detectat pel nom del fitxer. */
+    origen?: OrigenCostPersonalCentre;
   }
 ): Promise<ImportCostPersonalResult> {
+  const origen: OrigenCostPersonalCentre = opts.origen ?? "NOMINA";
   const errors: string[] = [];
   let parsed: { files: FilaCostPersonalExcel[]; diagnostica?: string };
   try {
-    parsed = parseExcelCostPersonalCentre(buffer);
+    parsed = parseExcelCostPersonalCentre(buffer, origen === "MILLORES" ? "MILLORES" : "NOMINA");
   } catch (e) {
     return {
       ok: false,
@@ -117,6 +209,7 @@ export async function importarCostPersonalCentreDesDeBuffer(
       centres: 0,
       senseMapeig: 0,
       errors,
+      origen,
     };
   }
 
@@ -130,6 +223,7 @@ export async function importarCostPersonalCentreDesDeBuffer(
       centres: 0,
       senseMapeig: 0,
       errors,
+      origen,
     };
   }
 
@@ -145,6 +239,7 @@ export async function importarCostPersonalCentreDesDeBuffer(
       centres: 0,
       senseMapeig: parsed.files.length,
       errors,
+      origen,
     };
   }
 
@@ -159,20 +254,25 @@ export async function importarCostPersonalCentreDesDeBuffer(
   const avisSense = new Set<string>();
 
   for (const f of parsed.files) {
-    const codi = extreureCodiPayroll(f.text) ?? f.codi;
-    const mapeig = resolMapeigCodi(codi, byCodi);
+    if (esFilaResumOTotal(f.text)) continue;
+    // Mapeig només centres: ignora qualsevol fila amb codi de departament (6–8 dígits).
+    if (/\b\d{6,8}\b/.test(f.text)) continue;
+    const codiBase = /^\d{5}$/.test(f.codi.trim())
+      ? f.codi.trim()
+      : (extreureCodiPayroll(f.text) ?? f.codi.trim());
+    if (!/^\d{5}$/.test(codiBase)) continue;
+    // Només mapeig exacte del centre (sense prefixos de fulles).
+    const mapeig = byCodi.get(codiBase) ?? resolMapeigCodi(codiBase, byCodi);
     if (!mapeig) {
       senseMapeig++;
-      if (avisSense.size < 15) avisSense.add(codi);
+      if (avisSense.size < 15) avisSense.add(codiBase);
       continue;
     }
-    const dept =
-      mapeig.departamentSalarial ??
-      inferDeptSalarialDesDeText(f.text) ??
-      inferDeptSalarialDesDeText(mapeig.text ?? "");
+    // Sense inferir Sala/Cuina al text: amb mapeig de centres, un sol cub per centre.
+    const dept = mapeig.departamentSalarial;
     matched.push({
       ...f,
-      codi,
+      codi: codiBase,
       centreId: mapeig.centreId,
       departamentSalarial: dept,
     });
@@ -191,6 +291,7 @@ export async function importarCostPersonalCentreDesDeBuffer(
       centres: 0,
       senseMapeig,
       errors,
+      origen,
     };
   }
 
@@ -220,21 +321,24 @@ export async function importarCostPersonalCentreDesDeBuffer(
   }
 
   const periodId = await resolPeriodId(opts.any, opts.mes);
+  const etiquetaOrigen = origen === "MILLORES" ? "Millores" : "Nòmina";
+  const tipusCarrega = origen === "MILLORES" ? "COST_PERSONAL_MILLORES" : "COST_PERSONAL_CENTRE";
   const carregaId = await crearCarregaFitxer({
-    tipus: "COST_PERSONAL_CENTRE",
+    tipus: tipusCarrega,
     nomFitxer: opts.nomFitxer,
     mida: opts.mida ?? buffer.length,
     periodId,
-    resum: `${agregats.size} centres/dept · ${MESOS_LLARGS[opts.mes - 1]} ${opts.any}`,
+    resum: `${etiquetaOrigen} · ${agregats.size} centres/dept · ${MESOS_LLARGS[opts.mes - 1]} ${opts.any}`,
     creatPer: opts.creatPer,
   });
 
-  // Substitueix el període sencer (una sola font activa per mes).
-  await db.costPersonalCentre.deleteMany({ where: { periodId } });
+  // Substitueix només aquest origen del període (nòmina i millores coexisteixen).
+  await db.costPersonalCentre.deleteMany({ where: { periodId, origen } });
 
   const rows = [...agregats.values()].map((a) => ({
     periodId,
     centreId: a.centreId,
+    origen,
     departamentSalarial: a.departamentSalarial,
     carregaId,
     codiOrigen: a.codiOrigen,
@@ -250,14 +354,15 @@ export async function importarCostPersonalCentreDesDeBuffer(
     await db.costPersonalCentre.createMany({ data: rows.slice(i, i + BATCH) });
   }
 
-  if (opts.syncRestaurants !== false) {
+  // Les millores no toquen el sync de restaurants (només la nòmina).
+  if (origen === "NOMINA" && opts.syncRestaurants !== false) {
     await syncCostSalarialRestaurantsDesDePayroll(periodId, [...agregats.values()]);
   }
 
   const nCentres = new Set([...agregats.values()].map((a) => a.centreId)).size;
   return {
     ok: true,
-    missatge: `Importat: ${rows.length} registres · ${nCentres} centres · ${MESOS_LLARGS[opts.mes - 1]} ${opts.any}.${
+    missatge: `Importat (${etiquetaOrigen}): ${rows.length} registres · ${nCentres} centres · ${MESOS_LLARGS[opts.mes - 1]} ${opts.any}.${
       senseMapeig ? ` ${senseMapeig} files sense mapeig.` : ""
     }`,
     filesImportades: rows.length,
@@ -265,6 +370,7 @@ export async function importarCostPersonalCentreDesDeBuffer(
     senseMapeig,
     errors,
     carregaId,
+    origen,
   };
 }
 
@@ -391,6 +497,7 @@ export async function importarMapeigCostPersonalDesDeBuffer(
   buffer: Buffer,
   substituirTot: boolean
 ): Promise<{ importats: number; errors: string[] }> {
+  /** Esborra tots els mapeigs codi payroll → centre. */
   const { read, utils } = await import("xlsx");
   const wb = read(buffer);
   const sheet = wb.Sheets[wb.SheetNames[0] ?? ""];
@@ -442,4 +549,20 @@ export async function importarMapeigCostPersonalDesDeBuffer(
   }
 
   return { importats, errors };
+}
+
+/** Esborra tots els mapeigs codi payroll → centre. */
+export async function esborrarTotMapeigCostPersonal(): Promise<{
+  ok: boolean;
+  missatge: string;
+  esborrats: number;
+}> {
+  const r = await db.mapeigCodiCostPersonal.deleteMany({});
+  return {
+    ok: true,
+    esborrats: r.count,
+    missatge: r.count
+      ? `S'han esborrat ${r.count} mapeigs. Pots crear-los manualment.`
+      : "No hi havia mapeigs.",
+  };
 }

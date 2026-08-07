@@ -4,13 +4,15 @@ import { formatDateShort } from "@/lib/utils";
 export type TipusCarregaFitxer =
   | "COST_SALARIAL"
   | "COST_PERSONAL_CENTRE"
+  | "COST_PERSONAL_MILLORES"
   | "VENDES_V"
   | "VENDES_DETALL"
   | "VENDES_PACK";
 
 export const TIPUS_CARREGA_LABELS: Record<TipusCarregaFitxer, string> = {
   COST_SALARIAL: "Cost salarial",
-  COST_PERSONAL_CENTRE: "Cost personal centre",
+  COST_PERSONAL_CENTRE: "Cost personal (nòmina)",
+  COST_PERSONAL_MILLORES: "Cost personal (millores)",
   VENDES_V: "Vendes diàries (V)",
   VENDES_DETALL: "Vendes detall",
   VENDES_PACK: "Vendes pack",
@@ -28,6 +30,8 @@ export type CarregaFitxerLlistaItem = {
   createdAtLabel: string;
   usuari: string;
   periodLabel: string | null;
+  periodAny: number | null;
+  periodMes: number | null;
   registres: number;
 };
 
@@ -47,7 +51,7 @@ export async function llistaCarreguesFitxer(
   const rows = await carrega.findMany({
     where: { tipus: { in: tipusList } },
     orderBy: { createdAt: "desc" },
-    take: 50,
+    take: 200,
     select: {
       id: true,
       tipus: true,
@@ -81,6 +85,8 @@ export async function llistaCarreguesFitxer(
     createdAtLabel: formatDateShort(r.createdAt),
     usuari: r.creatPerUser.name,
     periodLabel: r.period?.nom ?? null,
+    periodAny: r.period?.any ?? null,
+    periodMes: r.period?.mes ?? null,
     registres:
       r._count.costsSalarials +
       (r._count.costsPersonalsCentre ?? 0) +

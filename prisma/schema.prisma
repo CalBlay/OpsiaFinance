@@ -486,28 +486,34 @@ model MapeigCodiCostPersonal {
 
 /// Fet de cost personal importat (payroll) per període × centre.
 model CostPersonalCentre {
-  id                  String               @id @default(cuid())
+  id                  String                   @id @default(cuid())
   periodId            String
   centreId            String
+  /// Nòmina mensual vs millores (mateix layout Excel; millores sense provisió a K).
+  origen              OrigenCostPersonalCentre @default(NOMINA)
   departamentSalarial DepartamentSalarial?
   carregaId           String?
   /// Text/codi original de la fila (traçabilitat al detall).
   codiOrigen          String?
   textOrigen          String?
-  importBrut          Decimal              @default(0) @db.Decimal(18, 2)
-  segSocialEmpresa    Decimal              @default(0) @db.Decimal(18, 2)
-  totalSegSocial      Decimal              @default(0) @db.Decimal(18, 2)
-  costPersonal        Decimal              @default(0) @db.Decimal(18, 2)
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
-  carrega             CarregaFitxer?       @relation(fields: [carregaId], references: [id], onDelete: Cascade)
-  centre              Centre               @relation(fields: [centreId], references: [id], onDelete: Cascade)
-  period              Period               @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  importBrut          Decimal                  @default(0) @db.Decimal(18, 2)
+  /// Columna K: provisió pagues extres. Millores: sempre 0.
+  segSocialEmpresa    Decimal                  @default(0) @db.Decimal(18, 2)
+  /// Columna L: seguretat social (sempre).
+  totalSegSocial      Decimal                  @default(0) @db.Decimal(18, 2)
+  /// Columna M: cost personal.
+  costPersonal        Decimal                  @default(0) @db.Decimal(18, 2)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  carrega             CarregaFitxer?           @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+  centre              Centre                   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  period              Period                   @relation(fields: [periodId], references: [id], onDelete: Cascade)
 
   @@index([periodId])
   @@index([centreId])
   @@index([carregaId])
   @@index([periodId, centreId])
+  @@index([periodId, origen])
 }
 
 /// Vendes diàries agregades (fitxer V_MM_YYYY[_CC].xls o tickets CCR00008).
@@ -648,6 +654,13 @@ enum TipusCarregaFitxer {
   VENDES_DETALL
   VENDES_PACK
   COST_PERSONAL_CENTRE
+  COST_PERSONAL_MILLORES
+}
+
+/// Font del cost personal per centre: nòmina mensual o millores.
+enum OrigenCostPersonalCentre {
+  NOMINA
+  MILLORES
 }
 
 /// Origen del fitxer d'articles: Detall = productes; Pack = conceptes pack/menú.

@@ -107,7 +107,6 @@ export function DetallCellaModal({
   }
   const teTraspass =
     traspassSortida !== 0 || traspassEntrada !== 0 || (data?.totalTraspass ?? 0) !== 0;
-  const tePayroll = !!data?.payrollSubstitueix || (data?.totalPayroll ?? 0) !== 0;
 
   function desarAjust() {
     if (!potEditar || !mesEditable) return;
@@ -189,17 +188,8 @@ export function DetallCellaModal({
             <>
               <div className={styles.summary}>
                 <span>
-                  {tePayroll ? "SAP (substituït)" : "Dades SAP"}:{" "}
-                  <strong>{formatNumSigned(data.totalDades, 2)}&nbsp;€</strong>
+                  Dades SAP: <strong>{formatNumSigned(data.totalDades, 2)}&nbsp;€</strong>
                 </span>
-                {tePayroll && (
-                  <span>
-                    Payroll:{" "}
-                    <strong className={styles.payroll}>
-                      {formatNumSigned(data.totalPayroll, 2)}&nbsp;€
-                    </strong>
-                  </span>
-                )}
                 {data.totalAjustos !== 0 && (
                   <span>
                     Ajustos:{" "}

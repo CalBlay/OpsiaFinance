@@ -42,7 +42,7 @@ function acumularDada(
   }
 ) {
   const node = d.concepteResultat.node;
-  // Personal amb centre → base Gestió (payroll + traspass). Sense centre es manté SAP.
+  // Personal amb centre → base Gestió (SAP+ajust + traspass). Sense centre es manté SAP.
   if (esNodePersonalCompte(node) && d.centreId) return;
 
   const lnId = lnInformePerAgregacio(d);
@@ -72,7 +72,7 @@ function sumarPersonalLn(perLn: DirectePerLn, lnId: string, imp: ImportsPersonal
 }
 
 /**
- * Injeta personal de la base Gestió (SAP+ajust → payroll → traspass) agregat per LN del centre.
+ * Injeta personal de la base Gestió (SAP+ajust → traspass) agregat per LN del centre.
  */
 async function aplicarPersonalGestioADirecte(
   result: Map<string, DirectePerLn>,

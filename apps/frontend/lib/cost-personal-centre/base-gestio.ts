@@ -1,12 +1,15 @@
 /**
- * Fase 1 — Una sola base Gestió de personal (centre × mes).
+ * Base Gestió de personal (centre × mes).
  *
- * Pipeline:
+ * Pipeline (docs/gestio-i-cost-personal.md):
  *   SAP + ajustos manuals
- *     → payroll (substitueix Sous i salaris + SS el mes que hi ha fitxer)
  *     → traspassos confirmats (± a sous / cost)
  *
- * Consumidors: compte centre/LN/empresa Gestió, cost-personal, repartiment (directe personal).
+ * La nòmina/millores (payroll) és només informativa / comparativa:
+ * no substitueix ni alimenta aquesta base.
+ *
+ * Consumidors: compte centre/LN/empresa Gestió, cost-personal (vista gestió),
+ * repartiment (base personal).
  */
 
 import {
@@ -20,7 +23,8 @@ import { db } from "@/lib/db";
 import type { RangMesos } from "@/lib/periodes";
 import { prismaPeriodFilter } from "@/lib/periodes";
 
-export type OrigenBasePersonal = "sap" | "payroll";
+/** Origen de la cel·la Gestió personal (sempre SAP+ajust; payroll no hi entra). */
+export type OrigenBasePersonal = "sap";
 
 /** Imports amb signe de compte (costos ≤ 0). */
 export interface ImportsPersonalGestio {
@@ -28,7 +32,7 @@ export interface ImportsPersonalGestio {
   indemnitzacions: number;
   totalSegSocial: number;
   altresDespesesSocials: number;
-  /** = brut + indem + SS + altres (després de payroll); + deltaTraspass. */
+  /** = brut + indem + SS + altres; + deltaTraspass. */
   costPersonal: number;
 }
 
@@ -110,11 +114,24 @@ async function carregarConceptesPersonal(): Promise<Map<string, number>> {
 export async function carregarBaseDirectePersonal(
   filtre: FiltreBaseGestio
 ): Promise<BaseGestioPersonal> {
-  return carregarSapAjustos(filtre);
+  return carregarSapAjustos(filtre, true);
 }
 
-/** SAP + ajustos per centre×mes (nodes 13–16; el 17 es deriva). */
-async function carregarSapAjustos(filtre: FiltreBaseGestio): Promise<BaseGestioPersonal> {
+/**
+ * Només dades SAP importades (dadaResultat), sense ajustos ni traspass ni payroll.
+ * Usat a la comparativa Cost personal ↔ SAP.
+ */
+export async function carregarBaseSapNomesPersonal(
+  filtre: FiltreBaseGestio
+): Promise<BaseGestioPersonal> {
+  return carregarSapAjustos(filtre, false);
+}
+
+/** SAP (± ajustos) per centre×mes (nodes 13–16; el 17 es deriva). */
+async function carregarSapAjustos(
+  filtre: FiltreBaseGestio,
+  incloureAjustos: boolean
+): Promise<BaseGestioPersonal> {
   const nodeById = await carregarConceptesPersonal();
   const ids = [...nodeById.keys()];
   if (!ids.length) return new Map();
@@ -132,15 +149,24 @@ async function carregarSapAjustos(filtre: FiltreBaseGestio): Promise<BaseGestioP
         period: { select: { mes: true } },
       },
     }),
-    db.ajust.findMany({
-      where: { ...wc, concepteResultatId: { in: ids }, period: pw },
-      select: {
-        centreId: true,
-        concepteResultatId: true,
-        import_: true,
-        period: { select: { mes: true } },
-      },
-    }),
+    incloureAjustos
+      ? db.ajust.findMany({
+          where: { ...wc, concepteResultatId: { in: ids }, period: pw },
+          select: {
+            centreId: true,
+            concepteResultatId: true,
+            import_: true,
+            period: { select: { mes: true } },
+          },
+        })
+      : Promise.resolve(
+          [] as Array<{
+            centreId: string | null;
+            concepteResultatId: string;
+            import_: unknown;
+            period: { mes: number };
+          }>
+        ),
   ]);
 
   const out: BaseGestioPersonal = new Map();
@@ -180,59 +206,6 @@ async function carregarSapAjustos(filtre: FiltreBaseGestio): Promise<BaseGestioP
     }
   }
 
-  return out;
-}
-
-async function carregarPayrollOverlay(
-  filtre: FiltreBaseGestio
-): Promise<Map<string, Map<number, ImportsPersonalGestio>>> {
-  const wc = whereCentre(filtre);
-  const rows = await db.costPersonalCentre.findMany({
-    where: { ...wc, period: periodWhere(filtre.any, filtre.mes) },
-    select: {
-      centreId: true,
-      importBrut: true,
-      segSocialEmpresa: true,
-      costPersonal: true,
-      period: { select: { mes: true } },
-    },
-  });
-
-  const out = new Map<string, Map<number, ImportsPersonalGestio>>();
-  for (const f of rows) {
-    let perMes = out.get(f.centreId);
-    if (!perMes) {
-      perMes = new Map();
-      out.set(f.centreId, perMes);
-    }
-    const mes = f.period.mes;
-    let acc = perMes.get(mes);
-    if (!acc) {
-      acc = emptyImports();
-      perMes.set(mes, acc);
-    }
-    const brut = Math.abs(Number(f.importBrut));
-    // Als fitxers actuals la columna K (desada temporalment a
-    // segSocialEmpresa) és la provisió de pagues extres.
-    const provisioPaguesExtres = Math.abs(Number(f.segSocialEmpresa));
-    // Les càrregues ja existents van desar la provisió també a totalSegSocial.
-    // El total de la fila és fiable i permet recuperar la SS real (columna L).
-    const seguretatSocial = Math.max(
-      0,
-      Math.abs(Number(f.costPersonal)) - brut - provisioPaguesExtres
-    );
-
-    // Payroll → signe compte. La provisió és cost retributiu i es presenta a
-    // Sous i salaris; la SS real es presenta a Seguretat Social.
-    acc.importBrut += -(brut + provisioPaguesExtres);
-    acc.totalSegSocial += -seguretatSocial;
-  }
-
-  for (const perMes of out.values()) {
-    for (const [mes, acc] of perMes) {
-      perMes.set(mes, normalitzaCost(acc));
-    }
-  }
   return out;
 }
 
@@ -290,7 +263,8 @@ export async function carregarDeltasTraspassPersonalCentreMes(
 }
 
 /**
- * Carrega la base Gestió de personal: SAP(+ajust) → payroll → traspass (per mes).
+ * Carrega la base Gestió de personal: SAP(+ajust) → traspass (per mes).
+ * Sense nòmina/millores.
  */
 export async function carregarBaseGestioPersonal(
   filtre: FiltreBaseGestio
@@ -314,13 +288,12 @@ export async function carregarBaseGestioPersonal(
 
   const centreIdsTraspass = filtre.centreId ? [filtre.centreId] : centreIdsScope;
 
-  const [sap, payroll, traspass] = await Promise.all([
-    carregarSapAjustos(filtreScoped),
-    carregarPayrollOverlay(filtreScoped),
+  const [sap, traspass] = await Promise.all([
+    carregarSapAjustos(filtreScoped, true),
     carregarDeltasTraspassPersonalCentreMes(filtre.any, rang, centreIdsTraspass),
   ]);
 
-  const centreIds = new Set([...sap.keys(), ...payroll.keys(), ...traspass.keys()]);
+  const centreIds = new Set([...sap.keys(), ...traspass.keys()]);
   if (centreIdsScope?.length) {
     for (const id of [...centreIds]) {
       if (!centreIdsScope.includes(id)) centreIds.delete(id);
@@ -333,30 +306,12 @@ export async function carregarBaseGestioPersonal(
   for (const centreId of centreIds) {
     const perMes = new Map<number, CelBaseGestioPersonal>();
     for (const m of mesos) {
-      const pay = payroll.get(centreId)?.get(m);
       const sapCel = sap.get(centreId)?.get(m);
       const delta = traspass.get(centreId)?.get(m) ?? 0;
 
-      if (!pay && !sapCel && !delta) continue;
+      if (!sapCel && !delta) continue;
 
-      let imports: ImportsPersonalGestio;
-      let origen: OrigenBasePersonal;
-      if (pay) {
-        // El fitxer payroll no conté indemnitzacions (node 14) ni altres
-        // despeses socials (node 16): aquests dos conceptes es mantenen de SAP.
-        imports = normalitzaCost({
-          ...pay,
-          indemnitzacions: sapCel?.imports.indemnitzacions ?? 0,
-          altresDespesesSocials: sapCel?.imports.altresDespesesSocials ?? 0,
-        });
-        origen = "payroll";
-      } else if (sapCel) {
-        imports = { ...sapCel.imports };
-        origen = "sap";
-      } else {
-        imports = emptyImports();
-        origen = "sap";
-      }
+      const imports: ImportsPersonalGestio = sapCel ? { ...sapCel.imports } : emptyImports();
 
       if (delta) {
         imports.importBrut += delta;
@@ -367,7 +322,7 @@ export async function carregarBaseGestioPersonal(
         centreId,
         mes: m,
         imports,
-        origen,
+        origen: "sap",
         deltaTraspass: delta,
       });
     }

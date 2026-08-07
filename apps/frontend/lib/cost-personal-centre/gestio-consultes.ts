@@ -75,7 +75,7 @@ function recalcular(rows: ConceptePivot[]): ConceptePivot[] {
 
 /**
  * Aplica la base Gestió de personal al compte d'un centre (12 mesos):
- * SAP+ajust → payroll → traspassos (mateixa capa que /consultes/cost-personal).
+ * SAP+ajust → traspassos (sense nòmina/millores).
  */
 export async function aplicarCostPersonalEvolucioCentre(
   centreId: string,
@@ -109,7 +109,7 @@ export async function aplicarCostPersonalEvolucioCentre(
 
 /**
  * Vista LN Gestió: substitueix el bloc personal de cada columna centre
- * per la base Gestió (inclou payroll + traspass). No cal aplicar traspass a part.
+ * per la base Gestió (SAP+ajust + traspass). No cal aplicar traspass a part.
  */
 export async function aplicarBaseGestioPersonalCentres(
   any: number,
@@ -135,7 +135,7 @@ export async function aplicarBaseGestioPersonalCentres(
 
 /**
  * Vista empresa Gestió: substitueix personal per LN amb la suma de centres
- * de la base Gestió (payroll + traspass). El repartiment s'aplica després a part.
+ * de la base Gestió (SAP+ajust + traspass). El repartiment s'aplica després a part.
  */
 export async function aplicarBaseGestioPersonalLinies(
   any: number,

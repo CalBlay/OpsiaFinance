@@ -249,7 +249,7 @@ export async function getCompteExplotacioCentre(
   // perquè KPIs i files de total reflecteixin ajustos manuals.
   let conceptsOut = recalcularSubtotalsCompte(concepts, rows);
   if (vista === "gestio") {
-    // Base única Gestió personal: SAP+ajust → payroll → traspass (centre×mes).
+    // Base única Gestió personal: SAP+ajust → traspass (centre×mes). Sense payroll.
     const { aplicarCostPersonalEvolucioCentre } = await import(
       "@/lib/cost-personal-centre/gestio-consultes"
     );
@@ -371,7 +371,7 @@ export async function getComparativaLn(
       COL_REPARTIMENT_NOM,
     } = await import("@/lib/repartiment/gestio-consultes");
 
-    // Personal = base Gestió (payroll + traspass); estructura (repartiment) a columna a part.
+    // Personal = base Gestió (SAP+ajust + traspass); estructura (repartiment) a columna a part.
     const centreIds = centres.map((c) => c.id);
     rows = await aplicarBaseGestioPersonalCentres(any, rang, centreIds, rows);
 
@@ -602,7 +602,7 @@ export async function getComparativaEmpresa(
     );
 
     const lnIds = liniesRaw.map((l) => l.id);
-    // Personal = base Gestió (payroll + traspass). Repartiment només (sense doble traspass).
+    // Personal = base Gestió (SAP+ajust + traspass). Repartiment només (sense doble traspass).
     conceptRows = await aplicarBaseGestioPersonalLinies(any, rang, lnIds, conceptRows);
     const deltaRepartiment = await carregarDeltasGestioAgregats(any, rang);
     conceptRows = aplicarGestioRepartiment(concepts, conceptRows, lnIds, deltaRepartiment);
@@ -1025,8 +1025,9 @@ export interface DetallCellaResult {
   totalRepartiment: number;
   totalMirall: number;
   totalTraspass: number;
+  /** @deprecated Payroll ja no alimenta Gestió; sempre 0. */
   totalPayroll: number;
-  /** True si el payroll ha substituït el SAP al total de Gestió. */
+  /** @deprecated Sempre false (payroll informatiu). */
   payrollSubstitueix: boolean;
   total: number;
 }
@@ -1380,91 +1381,6 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
   const totalAjustos = ajustos.reduce((s, a) => s + Number(a.import_), 0);
 
   let totalTraspass = 0;
-  let totalPayroll = 0;
-  let payrollSubstitueix = false;
-
-  // Vista Gestió · centre o LN: payroll substitueix el bloc personal al detall.
-  if (params.vista === "gestio" && (params.centreId || params.liniaNegociId)) {
-    const { campPayrollPerNode, esNodePersonalCompte } = await import(
-      "@/lib/cost-personal-centre/nodes"
-    );
-    if (esNodePersonalCompte(concepte.node)) {
-      const camp = campPayrollPerNode(concepte.node);
-      const periods = await db.period.findMany({
-        where: periodWhere,
-        select: { id: true, any: true, mes: true },
-        orderBy: { mes: "asc" },
-      });
-      if (periods.length && camp) {
-        const fets = await db.costPersonalCentre.findMany({
-          where: {
-            periodId: { in: periods.map((p) => p.id) },
-            ...(params.centreId
-              ? { centreId: params.centreId }
-              : { centre: { liniaNegociId: params.liniaNegociId!, isActive: true } }),
-          },
-          select: {
-            importBrut: true,
-            totalSegSocial: true,
-            costPersonal: true,
-            codiOrigen: true,
-            textOrigen: true,
-            departamentSalarial: true,
-            period: { select: { any: true, mes: true } },
-            centre: {
-              select: {
-                codi: true,
-                nom: true,
-                liniaNegoci: { select: { codi: true, nom: true } },
-              },
-            },
-          },
-        });
-        if (fets.length) {
-          payrollSubstitueix = true;
-          for (const f of fets) {
-            const raw =
-              camp === "zero"
-                ? 0
-                : camp === "importBrut"
-                  ? Number(f.importBrut)
-                  : camp === "totalSegSocial"
-                    ? Number(f.totalSegSocial)
-                    : Number(f.costPersonal);
-            if (Math.abs(raw) < 0.005) continue;
-            const valor = -Math.abs(raw);
-            totalPayroll += valor;
-            const dept =
-              f.departamentSalarial === "CUINA"
-                ? "Cuina"
-                : f.departamentSalarial === "SALA"
-                  ? "Sala"
-                  : null;
-            const origenTxt = [f.codiOrigen, f.textOrigen].filter(Boolean).join(" · ");
-            items.push({
-              origen: "payroll",
-              import_: valor,
-              centreCodi: f.centre.codi,
-              centreNom: f.centre.nom,
-              liniaCodi: f.centre.liniaNegoci?.codi ?? null,
-              liniaNom: f.centre.liniaNegoci?.nom ?? null,
-              mes: f.period.mes,
-              any: f.period.any,
-              motiu: [origenTxt || "Cost personal (payroll)", dept].filter(Boolean).join(" · "),
-            });
-          }
-          // Marca les línies SAP com a substituïdes (seguixen visibles per contrast).
-          for (const it of items) {
-            if (it.origen === "dada" && !it.motiu) {
-              it.motiu = "SAP Directe (substituït a Gestió)";
-            } else if (it.origen === "dada" && it.motiu) {
-              it.motiu = `${it.motiu} · SAP (substituït)`;
-            }
-          }
-        }
-      }
-    }
-  }
 
   // Vista Gestió: traspassos de personal (node 17 → presentació a Sous i salaris 13).
   if (params.vista === "gestio") {
@@ -1580,7 +1496,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     }
   }
 
-  // Vista Gestió · personal: el total = base Gestió (payroll/SAP+traspass per centre×mes)
+  // Vista Gestió · personal: el total = base Gestió (SAP+ajust+traspass per centre×mes)
   // + repartiment LN. El traspass ja va dins la base → no el sumem una altra vegada.
   let totalCalc: number;
   const {
@@ -1609,14 +1525,12 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     const mesosOk =
       mesFiltre != null
         ? new Set([mesFiltre])
-        : params.rang
-          ? new Set(
-              Array.from(
-                { length: params.rang.fins - params.rang.des + 1 },
-                (_, i) => params.rang!.des + i
-              )
-            )
-          : null;
+        : (() => {
+            const rang = params.rang;
+            return rang
+              ? new Set(Array.from({ length: rang.fins - rang.des + 1 }, (_, i) => rang.des + i))
+              : null;
+          })();
     for (const perMes of base.values()) {
       for (const [m, cel] of perMes) {
         if (mesosOk && !mesosOk.has(m)) continue;
@@ -1630,8 +1544,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     }
     totalCalc = sumBase + (params.centreId ? 0 : totalRepartiment);
   } else {
-    const baseSenseSap = totalAjustos + totalRepartiment + totalMirall + totalTraspass;
-    totalCalc = payrollSubstitueix ? totalPayroll + baseSenseSap : totalDades + baseSenseSap;
+    totalCalc = totalDades + totalAjustos + totalRepartiment + totalMirall + totalTraspass;
   }
 
   return {
@@ -1643,8 +1556,8 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     totalRepartiment: Math.round(totalRepartiment * 100) / 100,
     totalMirall: Math.round(totalMirall * 100) / 100,
     totalTraspass: Math.round(totalTraspass * 100) / 100,
-    totalPayroll: Math.round(totalPayroll * 100) / 100,
-    payrollSubstitueix,
+    totalPayroll: 0,
+    payrollSubstitueix: false,
     total: Math.round(totalCalc * 100) / 100,
   };
 }

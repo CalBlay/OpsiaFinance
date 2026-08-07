@@ -2,7 +2,10 @@
 
 import { auth } from "@/lib/auth";
 import { eliminarCarregaFitxer } from "@/lib/carrega-fitxer";
-import { periodeDesDelNomFitxerCostPersonal } from "@/lib/cost-personal-centre/nom-fitxer";
+import {
+  periodeDesDelNomFitxerCostPersonal,
+  tipusFitxerCostPersonal,
+} from "@/lib/cost-personal-centre/nom-fitxer";
 import { importarCostPersonalCentreDesDeBuffer } from "@/lib/cost-personal-centre/service";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { revalidatePath } from "next/cache";
@@ -58,12 +61,15 @@ export async function uploadCostPersonalCentreAction(formData: FormData): Promis
   let okCount = 0;
 
   for (const file of files) {
+    const origen = tipusFitxerCostPersonal(file.name);
     const periode = periodeDesDelNomFitxerCostPersonal(file.name);
     const any = periode?.any ?? defAny;
     const mes = periode?.mes ?? defMes;
     if (!periode) {
+      const exemple =
+        origen === "MILLORES" ? "Cost_Personal_Millores_07_26.xlsx" : "Cost_Personal_07_26.xlsx";
       errors.push(
-        `«${file.name}»: no s'ha pogut llegir el període del nom (ex. Cost_Personal_07_26.xlsx); s'usa ${MESOS_LLARGS[mes - 1]} ${any}.`
+        `«${file.name}»: no s'ha pogut llegir el període del nom (ex. ${exemple}); s'usa ${MESOS_LLARGS[mes - 1]} ${any}.`
       );
     }
 
@@ -75,6 +81,7 @@ export async function uploadCostPersonalCentreAction(formData: FormData): Promis
         nomFitxer: file.name,
         mida: file.size,
         creatPer: userId,
+        origen,
       });
       if (result.ok) {
         okCount++;

@@ -1,0 +1,116 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.hint {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.4;
+  max-width: 52rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  table-layout: fixed;
+  min-width: 1100px;
+}
+
+.table th,
+.table td {
+  padding: 0.4rem 0.45rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.table thead th {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  background: color-mix(in srgb, var(--color-muted-foreground) 8%, var(--color-card, #fff));
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.table thead th.stickyCentre {
+  z-index: 3;
+  left: 0;
+}
+
+.group {
+  text-align: center;
+  border-left: 1px solid var(--color-border);
+}
+
+.groupFirst {
+  border-left: 2px solid var(--color-border);
+}
+
+.sub {
+  text-align: right;
+  font-size: 0.62rem;
+  border-left: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.centre {
+  width: 14rem;
+  text-align: left;
+}
+
+.origen {
+  width: 4.5rem;
+  text-align: left;
+}
+
+.stickyCentre {
+  position: sticky;
+  left: 0;
+  background: var(--color-card, #fff);
+  z-index: 2;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
+}
+
+.totalRow td {
+  font-weight: 700;
+  background: color-mix(in srgb, var(--opsia-accent-primary, #2f6f6d) 8%, transparent);
+  border-top: 2px solid var(--color-border);
+}
+
+.muted {
+  color: var(--color-muted-foreground);
+  font-weight: 400;
+}
+
+.diff {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.ok {
+  color: #15803d;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}

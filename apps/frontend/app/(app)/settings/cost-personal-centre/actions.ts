@@ -4,6 +4,7 @@ import { auth } from "@/lib/auth";
 import { generarMapeigDesDePayrollBuffer } from "@/lib/cost-personal-centre/auto-mapeig";
 import {
   deleteMapeigCostPersonal,
+  esborrarTotMapeigCostPersonal,
   importarMapeigCostPersonalDesDeBuffer,
   upsertMapeigCostPersonal,
 } from "@/lib/cost-personal-centre/service";
@@ -73,6 +74,14 @@ export async function deleteMapeigCostPersonalAction(id: string): Promise<Result
   const r = await deleteMapeigCostPersonal(id);
   refresh();
   return r;
+}
+
+/** Esborra tots els mapeigs (per refer-los manualment). */
+export async function esborrarTotMapeigCostPersonalAction(): Promise<Result> {
+  if (!(await requireEditor())) return ERR("No tens permisos.");
+  const r = await esborrarTotMapeigCostPersonal();
+  refresh();
+  return { ok: r.ok, missatge: r.missatge };
 }
 
 export async function importarMapeigCostPersonalExcelAction(formData: FormData): Promise<Result> {

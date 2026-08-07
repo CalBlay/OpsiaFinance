@@ -82,7 +82,7 @@ export const DADES_TABS: DadesTab[] = [
     label: "Cost personal",
     title: "Cost personal per centre",
     description:
-      "Llistat payroll (brut + provisió de pagues extres + SS) per centre. Amb el botó + pots pujar un o més Excel (el període surt del nom, ex. Cost_Personal_07_26.xlsx). Cal mapeig a Configuració; substitueix el bloc personal a Gestió del centre.",
+      "Nòmina (Cost_Personal_mm_aa.xlsx) i millores (Cost_Personal_Millores_mm_aa.xlsx). J=brut, K=provisió, L=SS; Sous=J+K; Cost=J+K+L (M ignorada). Informatiu: no alimenta Gestió. Comparativa vs SAP directe (sense ajustos).",
     icon: UserCog,
     match: (p) => p.startsWith("/dades/cost-personal-centre"),
   },

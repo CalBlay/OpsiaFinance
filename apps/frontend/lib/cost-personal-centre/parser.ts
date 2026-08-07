@@ -1,17 +1,43 @@
+/**
+ * Parser Cost Personal (nòmina / millores).
+ *
+ * Regles de negoci (docs/gestio-i-cost-personal.md):
+ *   - Columnes: Importe bruto + Provisión + Seguridad Social (+ Operación ignorada)
+ *   - Sous = brut + provisió · SS = L · Cost = brut + provisió + SS (mai Operación)
+ *   - Només centres (codi 5 dígits) i detalls heretables (Sala/Cuina / 100.x)
+ *   - Capçaleres LN («04 - PRECUINATS») NO s’importen ni hereten al centre anterior
+ */
+
 import type { DepartamentSalarial } from "@prisma/client";
 import { type WorkBook, read, utils } from "xlsx";
 
 export type FilaCostPersonalExcel = {
-  /** Codi extret (02001, 0015…) o clau normalitzada del text. */
   codi: string;
   text: string;
+  /** Col. brut (J / Importe bruto) */
   importBrut: number;
+  /** Col. provisió pagues (K) — 0 a millores */
   segSocialEmpresa: number;
+  /** Col. seguretat social (L) */
   totalSegSocial: number;
+  /** Sempre brut+provisió+SS */
   costPersonal: number;
-  /** Nivell d’indentació aproximat (0 = arrel). */
   nivell: number;
+  codiHeretat?: boolean;
 };
+
+type Layout = {
+  startRow: number;
+  idxDesc: number;
+  idxBrut: number;
+  idxProv: number;
+  idxSs: number;
+  /** Operación / total fitxer — només per validar layout; no s’usa com a cost */
+  idxOp: number;
+  origen: string;
+};
+
+/* ─── helpers numèrics / text ─────────────────────────────────────────────── */
 
 function parseNum(v: unknown): number {
   if (v === null || v === undefined || v === "") return 0;
@@ -30,7 +56,6 @@ function parseNum(v: unknown): number {
   if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
     s = s.replace(/\./g, "").replace(",", ".");
   } else if (s.includes(",") && s.includes(".")) {
-    // 1,234.56 vs 1.234,56 — si hi ha coma després del punt → ES
     if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
       s = s.replace(/\./g, "").replace(",", ".");
     } else {
@@ -44,7 +69,7 @@ function parseNum(v: unknown): number {
   return neg ? -n : n;
 }
 
-function normalitzarCapçalera(v: unknown): string {
+function normHeader(v: unknown): string {
   return String(v ?? "")
     .trim()
     .toLowerCase()
@@ -52,254 +77,507 @@ function normalitzarCapçalera(v: unknown): string {
     .replace(/\p{M}/gu, "");
 }
 
-/** Extreu el codi d’una etiqueta jeràrquica (prioritza el número inicial). */
-export function extreureCodiPayroll(text: string): string | null {
+function cellNum(raw: unknown[], text: unknown[], col: number): number {
+  if (col < 0) return 0;
+  const a = parseNum(raw[col]);
+  if (a !== 0) return a;
+  return parseNum(text[col]);
+}
+
+function cellText(raw: unknown[], text: unknown[], col: number): string {
+  const t = text[col];
+  if (t !== null && t !== undefined && String(t).trim()) return String(t).trim();
+  const r = raw[col];
+  if (r !== null && r !== undefined && String(r).trim()) return String(r).trim();
+  return "";
+}
+
+function absRound2(...vals: number[]): number {
+  return Math.round(vals.reduce((s, v) => s + Math.abs(v), 0) * 100) / 100;
+}
+
+/* ─── classificació de files ──────────────────────────────────────────────── */
+
+/** Concepte comptable 100.x / SOU / MILLORES — no és centre. */
+export function esLiniaConcepteComptable(text: string): boolean {
   const t = text.trim();
-  if (!t) return null;
-  // Nivell centre típic: 5 dígits (02001, 00105…). Evita LN de 2 dígits (00, 01, 02).
-  const centres = t.match(/\b(\d{5})\b/g);
-  if (centres?.length) {
-    // El primer codi de 5 dígits sol ser el centre; si n'hi ha més, el primer
-    return centres[0] ?? null;
-  }
-  const leading = t.match(/^(\d{2,8})\b/);
-  if (leading?.[1] && leading[1].length >= 4) return leading[1];
-  const tots = t.match(/\b(\d{4,8})\b/g);
-  if (!tots?.length) return null;
-  return tots.sort((a, b) => b.length - a.length)[0] ?? null;
+  if (/^\d{1,3}[.,]\d+\b/.test(t)) return true;
+  const n = normHeader(t);
+  return (
+    /\b(sou i salari|sou i salaris|salario|millores|mejora|indemnitz|seguretat social|seguridad social)\b/.test(
+      n
+    ) && !/\b\d{5}\b/.test(t)
+  );
+}
+
+export function esFilaResumOTotal(text: string): boolean {
+  const t = text.trim();
+  if (!t || esLiniaConcepteComptable(t)) return false;
+  const n = normHeader(t);
+  if (/\btotal\s+(empresa|general|global|grupo|grup)\b/.test(n)) return true;
+  if (/^(total|suma|subtotal)\b/.test(n)) return true;
+  if (/\bsubtotal\b/.test(n)) return true;
+  if (/\b(trabajadores|treballadors|empleados|empleats)\b/.test(n)) return true;
+  return false;
 }
 
 /**
- * Tots els codis útils per mapeig en una etiqueta jeràrquica.
- * Prioritza nivell centre (5 dígits); també inclou fulles 6–8 si porten Sala/Cuina.
+ * «04 - PRECUINATS», «01 - RESTAURANTS»… sense codi de centre.
+ * Si s’importessin/heretessin → Casaments llegiria Precuinats, etc.
  */
+export function esCapcaleraLiniaNegoci(text: string): boolean {
+  const t = text.trim();
+  if (!t || esLiniaConcepteComptable(t) || esFilaResumOTotal(t)) return false;
+  if (!/^\d{2}\b/.test(t)) return false;
+  if (/\b\d{5}\b/.test(t)) return false;
+  return true;
+}
+
+/** Detall sota centre: pot heretar el codi del centre pare. */
+export function esFilaDetallHeretable(text: string): boolean {
+  if (esLiniaConcepteComptable(text)) return true;
+  const n = normHeader(text);
+  return /\b(sala|cuina|cocina|netej|limpieza|cambrer|cuiner)\b/.test(n);
+}
+
+export function esCodiCentrePayroll(text: string, codi: string): boolean {
+  if (!codi || !/^\d{4,8}$/.test(codi)) return false;
+  if (esLiniaConcepteComptable(text)) return false;
+  if (codi.length === 5 || codi.length >= 7) return true;
+  if (codi.length === 4) return !/^100\d?$/.test(codi);
+  return false;
+}
+
+/** Prioritza codi de centre de 5 dígits (primer trobat). */
+export function extreureCodiPayroll(text: string): string | null {
+  const t = text.trim();
+  if (!t || esLiniaConcepteComptable(t)) return null;
+  const cinc = t.match(/\b(\d{5})\b/g);
+  if (cinc?.length) return cinc[0] ?? null;
+  const lead = t.match(/^(\d{4,8})\b/);
+  if (lead?.[1]) return lead[1];
+  const tots = t.match(/\b(\d{4,8})\b/g);
+  if (tots?.length) return [...tots].sort((a, b) => b.length - a.length)[0] ?? null;
+  return null;
+}
+
+/**
+ * Codi més específic de la fila.
+ * Si hi ha departament (6–8 dígits), aquest mana; si no, l’últim centre de 5 dígits.
+ */
+export function extreureCodiMesEspecific(text: string): string | null {
+  const t = text.trim();
+  if (!t || esLiniaConcepteComptable(t)) return null;
+  const depts = t.match(/\b(\d{6,8})\b/g);
+  if (depts?.length) {
+    return [...depts].sort((a, b) => b.length - a.length)[0] ?? null;
+  }
+  const centres = t.match(/\b(\d{5})\b/g);
+  if (centres?.length) {
+    // «00 - … - 00105 - CUINA CENTRAL» → 00105 (l’últim 5 dígits)
+    return centres[centres.length - 1] ?? null;
+  }
+  const lead = t.match(/^(\d{4,8})\b/);
+  if (lead?.[1] && lead[1].length >= 4) return lead[1];
+  return null;
+}
+
 export function extreureCodisPerMapeig(text: string): string[] {
   const t = text.trim();
   if (!t) return [];
   const tots = [...new Set(t.match(/\b(\d{4,8})\b/g) ?? [])];
   const cinc = tots.filter((c) => c.length === 5);
-  if (cinc.length) {
-    const out = [...cinc];
-    // Fulles 7–8 dígits que pengen d'un centre (ex. 07001004 SALA)
-    for (const c of tots) {
-      if (c.length >= 7 && cinc.some((p) => c.startsWith(p))) out.push(c);
-    }
-    return [...new Set(out)];
+  if (!cinc.length) return tots.filter((c) => c.length >= 4);
+  const out = [...cinc];
+  for (const c of tots) {
+    if (c.length >= 7 && cinc.some((p) => c.startsWith(p))) out.push(c);
   }
-  return tots.filter((c) => c.length >= 4);
+  return [...new Set(out)];
 }
 
-function detectarCapçalera(matrix: unknown[][]): {
-  row: number;
-  idxDesc: number;
-  idxBrut: number;
-  idxSsEmp: number;
-  idxSsTot: number;
-  idxCost: number;
-} | null {
-  for (let i = 0; i < Math.min(40, matrix.length); i++) {
-    const row = matrix[i] ?? [];
-    const headers = row.map(normalitzarCapçalera);
-    const idxBrut = headers.findIndex(
-      (h) =>
-        h.includes("importe bruto") ||
-        h.includes("import brut") ||
-        h.includes("salario bruto") ||
-        h === "bruto" ||
-        h === "brut"
-    );
-    const idxCost = headers.findIndex(
-      (h) =>
-        h.includes("coste de personal") ||
-        h.includes("cost personal") ||
-        h.includes("coste personal") ||
-        h.includes("costo de personal")
-    );
-    const idxSsEmp = headers.findIndex(
-      (h) =>
-        (h.includes("provision") && (h.includes("paga") || h.includes("extra"))) ||
-        h.includes("seguridad social empresa") ||
-        h.includes("seguretat social empresa") ||
-        h.includes("ss empresa")
-    );
-    const idxSsTot = headers.findIndex(
-      (h) =>
-        (h.includes("total") && (h.includes("seg") || h.includes("ss"))) ||
-        h.includes("total seg. social") ||
-        h.includes("total seg social") ||
-        h.includes("seguridad social") ||
-        h.includes("seguretat social")
-    );
-    if (idxBrut >= 0 || idxCost >= 0) {
-      let idxDesc = headers.findIndex(
-        (h) =>
-          h.includes("centre") ||
-          h.includes("centro") ||
-          h.includes("descrip") ||
-          h.includes("cuenta") ||
-          h.includes("compte") ||
-          h.includes("denomin") ||
-          h.includes("dimension") ||
-          h.includes("concepto")
-      );
-      if (idxDesc < 0) idxDesc = 0;
-      return {
-        row: i,
-        idxDesc,
-        idxBrut: idxBrut >= 0 ? idxBrut : idxCost,
-        idxSsEmp: idxSsEmp >= 0 ? idxSsEmp : -1,
-        idxSsTot: idxSsTot >= 0 ? idxSsTot : -1,
-        idxCost: idxCost >= 0 ? idxCost : idxBrut,
-      };
-    }
-  }
+export function inferDeptSalarialDesDeText(text: string): DepartamentSalarial | null {
+  const t = normHeader(text);
+  if (/\bcuina\b/.test(t) || /\bcocin/.test(t)) return "CUINA";
+  if (/\bsala\b/.test(t) || /\bcambrer/.test(t)) return "SALA";
   return null;
 }
 
-function nivellIndent(raw: string): number {
-  const m = raw.match(/^(\s*)/);
-  const spaces = m?.[1]?.length ?? 0;
-  return Math.floor(spaces / 2);
-}
-
-function esTextCapcaleraOTitol(text: string): boolean {
-  const n = normalitzarCapçalera(text);
+function esCapcaleraColumna(text: string): boolean {
+  const n = normHeader(text);
   return (
-    n.includes("importe") ||
-    n.includes("coste de personal") ||
-    n.includes("cost personal") ||
+    n.includes("importe bruto") ||
+    n.includes("import brut") ||
+    n.includes("provisio") ||
+    n.includes("provision") ||
     n.includes("seguridad social") ||
     n.includes("seguretat social") ||
-    n === "descripcion" ||
-    n === "descripcio" ||
-    n === "concepto" ||
+    n.includes("operacion") ||
+    n.includes("operacio") ||
+    n.includes("coste de personal") ||
     n.includes("listado") ||
     n.includes("llistat")
   );
 }
 
-/**
- * Només etiquetes (codi + text) per generar el mapeig.
- * No calen columnes d'imports ni imports ≠ 0.
- */
-export function parseEtiquetesPayrollPerMapeig(buffer: Buffer): {
-  files: { codi: string; text: string }[];
-} {
-  const wb: WorkBook = read(buffer);
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) return { files: [] };
+/* ─── layout de columnes ──────────────────────────────────────────────────── */
 
-  const matrix = utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], {
-    header: 1,
-    defval: null,
-    raw: false,
-  });
-  if (!matrix.length) return { files: [] };
+/** Capçaleres amb nom (font de veritat). */
+function detectarLayoutPerCapcalera(matrix: unknown[][]): Layout | null {
+  for (let i = 0; i < Math.min(40, matrix.length); i++) {
+    const headers = (matrix[i] ?? []).map(normHeader);
 
-  const cap = detectarCapçalera(matrix);
-  let idxDesc = cap?.idxDesc ?? 0;
-  let idxCodiSeparat = -1;
-  let startRow = cap ? cap.row + 1 : 0;
+    const idxBrut = headers.findIndex(
+      (h) =>
+        h.includes("importe bruto") ||
+        h.includes("import brut") ||
+        h.includes("salario bruto") ||
+        (h.includes("importe") && h.includes("brut")) ||
+        h === "bruto" ||
+        h === "brut"
+    );
+    const idxProv = headers.findIndex(
+      (h) =>
+        h.includes("provisio") ||
+        h.includes("provision") ||
+        (h.includes("paga") && h.includes("extra"))
+    );
+    const idxSs = headers.findIndex(
+      (h, col) =>
+        col !== idxProv &&
+        !h.includes("operacion") &&
+        !h.includes("operacio") &&
+        (h.includes("seguridad social") ||
+          h.includes("seguretat social") ||
+          (h.includes("social") && (h.includes("empresa") || h.includes("segur"))) ||
+          h === "ss")
+    );
+    const idxOp = headers.findIndex(
+      (h) =>
+        h.includes("operacion") ||
+        h.includes("operacio") ||
+        (h.includes("cost") && h.includes("personal")) ||
+        h === "coste" ||
+        h === "cost"
+    );
 
-  if (!cap) {
-    let millorCol = 0;
-    let millorScore = 0;
-    const maxCols = Math.min(8, Math.max(1, ...matrix.slice(0, 100).map((r) => (r ?? []).length)));
-    for (let col = 0; col < maxCols; col++) {
-      let score = 0;
-      for (let i = 0; i < Math.min(100, matrix.length); i++) {
-        const t = String((matrix[i] ?? [])[col] ?? "").trim();
-        if (!t) continue;
-        if (extreureCodiPayroll(t) || /^\d{2,8}\b/.test(t) || /\s[-–]\s/.test(t)) score++;
-      }
-      if (score > millorScore) {
-        millorScore = score;
-        millorCol = col;
-      }
+    if (idxBrut < 0 || idxSs < 0) continue;
+    // Ordre esperat: brut < provisió < ss (< op)
+    if (idxProv >= 0 && !(idxBrut < idxProv && idxProv < idxSs)) continue;
+    if (idxOp >= 0 && idxSs >= idxOp) continue;
+
+    let idxDesc = headers.findIndex(
+      (h) =>
+        h.includes("descrip") ||
+        h.includes("denomin") ||
+        h.includes("dimension") ||
+        h.includes("centro") ||
+        h.includes("centre") ||
+        h.includes("concepto") ||
+        h.includes("organiza")
+    );
+    if (idxDesc < 0) idxDesc = 0;
+
+    return {
+      startRow: i + 1,
+      idxDesc,
+      idxBrut,
+      idxProv,
+      idxSs,
+      idxOp: idxOp >= 0 ? idxOp : -1,
+      origen: `capçalera f${i} brut=${idxBrut} prov=${idxProv} ss=${idxSs} op=${idxOp}`,
+    };
+  }
+  return null;
+}
+
+function detectarIdxDesc(matrixText: unknown[][], startRow: number): number {
+  let millor = 0;
+  let millorScore = 0;
+  const fi = Math.min(startRow + 100, matrixText.length);
+  const maxCols = Math.min(
+    20,
+    Math.max(1, ...matrixText.slice(startRow, fi).map((r) => (r ?? []).length))
+  );
+  for (let col = 0; col < maxCols; col++) {
+    let score = 0;
+    for (let i = startRow; i < fi; i++) {
+      const t = String((matrixText[i] ?? [])[col] ?? "");
+      if (/\b\d{5}\b/.test(t)) score += 2;
+      else if (/\b\d{4,8}\b/.test(t) && /[A-Za-zÀ-ú]/.test(t)) score += 1;
     }
-    idxDesc = millorCol;
-
-    if (idxDesc > 0) {
-      let codiScore = 0;
-      for (let i = 0; i < Math.min(80, matrix.length); i++) {
-        const t = String((matrix[i] ?? [])[idxDesc - 1] ?? "").trim();
-        if (/^\d{2,8}$/.test(t)) codiScore++;
-      }
-      if (codiScore >= 5) idxCodiSeparat = idxDesc - 1;
-    }
-
-    for (let i = 0; i < Math.min(40, matrix.length); i++) {
-      const t = String((matrix[i] ?? [])[idxDesc] ?? "").trim();
-      const c = idxCodiSeparat >= 0 ? String((matrix[i] ?? [])[idxCodiSeparat] ?? "").trim() : "";
-      if (extreureCodiPayroll(t) || /^\d{2,8}$/.test(c) || /^\d{2,8}\b/.test(t)) {
-        startRow = i;
-        break;
-      }
+    if (score > millorScore) {
+      millorScore = score;
+      millor = col;
     }
   }
+  return millor;
+}
 
-  const perCodi = new Map<string, string>();
-
-  const registra = (codi: string, text: string) => {
-    if (!codi || !text || esTextCapcaleraOTitol(text)) return;
-    // Ignora només LN de 2 dígits (00, 01, 02…) — no són centre
-    if (codi.length <= 2) return;
-    const prev = perCodi.get(codi);
-    // Preferim el text més curt i específic (menys jerarquia engolada)
-    if (!prev || text.length < prev.length || (text.length === prev.length && text < prev)) {
-      perCodi.set(codi, text);
-    }
-  };
-
-  for (let i = startRow; i < matrix.length; i++) {
-    const row = matrix[i] ?? [];
-    const descRaw = String(row[idxDesc] ?? "");
-    let text = descRaw.trim();
-    if (!text) continue;
-    if (esTextCapcaleraOTitol(text)) continue;
-
-    if (idxCodiSeparat >= 0) {
-      const c = String(row[idxCodiSeparat] ?? "").trim();
-      if (/^\d{4,8}$/.test(c)) {
-        if (!text.startsWith(c)) text = `${c} - ${text}`;
-        registra(c, text);
-      }
-    }
-
-    for (const codi of extreureCodisPerMapeig(text)) {
-      registra(codi, text);
-    }
+function detectarStartDades(matrixText: unknown[][], idxDesc: number): number {
+  for (let i = 0; i < Math.min(60, matrixText.length); i++) {
+    const t = String((matrixText[i] ?? [])[idxDesc] ?? "");
+    if (/\b\d{5}\b/.test(t) || extreureCodiPayroll(t)) return i;
   }
-
-  if (perCodi.size === 0) {
-    for (let i = 0; i < matrix.length; i++) {
-      const row = matrix[i] ?? [];
-      for (let col = 0; col < Math.min(6, row.length); col++) {
-        const text = String(row[col] ?? "").trim();
-        if (!text || esTextCapcaleraOTitol(text)) continue;
-        for (const codi of extreureCodisPerMapeig(text)) {
-          registra(codi, text);
-        }
-      }
-    }
-  }
-
-  return {
-    files: [...perCodi.entries()].map(([codi, text]) => ({ codi, text })),
-  };
+  return 0;
 }
 
 /**
- * Llegeix el llistat de costos per centre de cost (payroll).
- * Retorna files amb import ≠ 0 i text identificable.
+ * Puntuació de coherència d’un layout candidat:
+ * - brut sol ser el component més gran
+ * - SS < sous
+ * - si hi ha Operación: brut+prov+ss ≈ op
  */
-export function parseExcelCostPersonalCentre(buffer: Buffer): {
-  files: FilaCostPersonalExcel[];
-  diagnostica?: string;
-} {
+function scoreLayout(
+  matrixRaw: unknown[][],
+  matrixText: unknown[][],
+  layout: Layout,
+  mode: "NOMINA" | "MILLORES"
+): number {
+  let okQuadre = 0;
+  let mostres = 0;
+  let sumBrut = 0;
+  let sumProv = 0;
+  let sumSs = 0;
+
+  const fi = Math.min(layout.startRow + 120, matrixRaw.length);
+  for (let i = layout.startRow; i < fi; i++) {
+    const raw = matrixRaw[i] ?? [];
+    const text = matrixText[i] ?? [];
+    const j = Math.abs(cellNum(raw, text, layout.idxBrut));
+    const k = mode === "MILLORES" ? 0 : Math.abs(cellNum(raw, text, layout.idxProv));
+    const l = Math.abs(cellNum(raw, text, layout.idxSs));
+    if (j + k + l < 1) continue;
+    sumBrut += j;
+    sumProv += k;
+    sumSs += l;
+    if (layout.idxOp >= 0) {
+      const m = Math.abs(cellNum(raw, text, layout.idxOp));
+      if (m >= 1) {
+        mostres++;
+        if (Math.abs(j + k + l - m) <= Math.max(0.5, m * 0.02)) okQuadre++;
+      }
+    }
+  }
+
+  let score = sumBrut + sumProv + sumSs * 0.3;
+  if (mode === "NOMINA") {
+    if (sumBrut > sumProv && sumBrut > sumSs) score += 1e8;
+    const sous = sumBrut + sumProv;
+    if (sous > 1 && sumSs < sous * 0.8) score += 5e7;
+    if (sous > 1 && sumSs > sous * 1.2) score -= 2e8; // desplaçament +1 típic
+  }
+  if (mostres >= 3) score += (okQuadre / mostres) * 3e8;
+  return score;
+}
+
+function resolLayout(
+  matrixRaw: unknown[][],
+  matrixText: unknown[][],
+  mode: "NOMINA" | "MILLORES"
+): Layout {
+  const perNom = detectarLayoutPerCapcalera(matrixText) ?? detectarLayoutPerCapcalera(matrixRaw);
+  if (perNom) return { ...perNom, idxProv: mode === "MILLORES" ? -1 : perNom.idxProv };
+
+  const idxDesc = detectarIdxDesc(matrixText, 0);
+  const start = detectarStartDades(matrixText, idxDesc);
+
+  // Candidats fixos: I/J/K/L (brut a I) i J/K/L/M (brut a J)
+  const candidats: Layout[] = [
+    {
+      startRow: start,
+      idxDesc,
+      idxBrut: 8,
+      idxProv: mode === "MILLORES" ? -1 : 9,
+      idxSs: 10,
+      idxOp: 11,
+      origen: "fixes I/J/K/L",
+    },
+    {
+      startRow: start,
+      idxDesc,
+      idxBrut: 9,
+      idxProv: mode === "MILLORES" ? -1 : 10,
+      idxSs: 11,
+      idxOp: 12,
+      origen: "fixes J/K/L/M",
+    },
+  ];
+
+  let millor = candidats[0]!;
+  let millorScore = Number.NEGATIVE_INFINITY;
+  for (const c of candidats) {
+    const s = scoreLayout(matrixRaw, matrixText, c, mode);
+    // Preferència lleu a I/J/K/L (desplaçament històric)
+    const bonus = c.idxBrut === 8 ? 1e6 : 0;
+    if (s + bonus > millorScore) {
+      millorScore = s + bonus;
+      millor = c;
+    }
+  }
+  return millor;
+}
+
+/* ─── extracció de files ──────────────────────────────────────────────────── */
+
+function extreureFiles(
+  matrixRaw: unknown[][],
+  matrixText: unknown[][],
+  layout: Layout,
+  mode: "NOMINA" | "MILLORES"
+): FilaCostPersonalExcel[] {
+  const out: FilaCostPersonalExcel[] = [];
+  let centreActual: string | null = null;
+  let textCentreActual: string | null = null;
+
+  for (let i = layout.startRow; i < matrixRaw.length; i++) {
+    const raw = matrixRaw[i] ?? [];
+    const txt = matrixText[i] ?? [];
+
+    let text = cellText(raw, txt, layout.idxDesc);
+    if (!text) {
+      for (let c = 0; c < 4; c++) {
+        if (c === layout.idxDesc) continue;
+        const t = cellText(raw, txt, c);
+        if (t && !esCapcaleraColumna(t) && !esFilaResumOTotal(t)) {
+          text = t;
+          break;
+        }
+      }
+    }
+
+    const textScan = [text, cellText(raw, txt, 0), cellText(raw, txt, 1), cellText(raw, txt, 2)]
+      .filter(Boolean)
+      .join(" · ");
+
+    // Totals / capçaleres LN → trenquen herència i NO s’importen
+    if (esFilaResumOTotal(text) || esFilaResumOTotal(textScan)) {
+      centreActual = null;
+      textCentreActual = null;
+      continue;
+    }
+    if (esCapcaleraLiniaNegoci(text) || esCapcaleraLiniaNegoci(textScan)) {
+      centreActual = null;
+      textCentreActual = null;
+      continue;
+    }
+
+    if (!text || esCapcaleraColumna(text)) {
+      for (let c = 0; c < 4; c++) {
+        const t = cellText(raw, txt, c);
+        if (!t || esFilaResumOTotal(t)) continue;
+        const codi = extreureCodiPayroll(t);
+        if (codi && esCodiCentrePayroll(t, codi)) {
+          centreActual = codi;
+          textCentreActual = t;
+          break;
+        }
+      }
+      continue;
+    }
+
+    // Codi de la fila: el més específic (dept 6–8 mana sobre centre 5)
+    let codiPropi: string | null = null;
+    for (let c = 0; c < 4; c++) {
+      const t = cellText(raw, txt, c);
+      if (!t || esFilaResumOTotal(t)) continue;
+      const codi = extreureCodiMesEspecific(t);
+      if (codi && esCodiCentrePayroll(t, codi.length >= 5 ? codi.slice(0, 5) : codi)) {
+        // Actualitza centreActual amb el centre 5 dígits si n’hi ha
+        const centre5 = codi.length >= 5 ? codi.slice(0, 5) : null;
+        if (centre5 && /^\d{5}$/.test(centre5)) {
+          centreActual = centre5;
+          textCentreActual = t;
+        }
+        codiPropi = codi;
+        break;
+      }
+    }
+    if (!codiPropi) {
+      const c = extreureCodiMesEspecific(text);
+      if (c) {
+        codiPropi = c;
+        if (/^\d{5}/.test(c)) {
+          centreActual = c.slice(0, 5);
+          textCentreActual = text;
+        }
+      }
+    }
+
+    const brut = cellNum(raw, txt, layout.idxBrut);
+    const prov = mode === "MILLORES" ? 0 : cellNum(raw, txt, layout.idxProv);
+    const ss = cellNum(raw, txt, layout.idxSs);
+    let j = brut;
+    // % imputació ~100 a la col brut → ignora
+    if (Math.abs(j) >= 99 && Math.abs(j) <= 101 && Math.abs(prov) + Math.abs(ss) > 0.05) {
+      j = 0;
+    }
+    const suma = Math.abs(j) + Math.abs(prov) + Math.abs(ss);
+    if (suma < 0.05) continue;
+
+    // Només el TOTAL del centre (codi exacte 5 dígits).
+    // Files de departament («… 03001 … 03001001 …») tenen codi 8 dígits → fora
+    // (si les suméssim amb el centre, el resultat es dobla).
+    if (!codiPropi || codiPropi.length !== 5) {
+      continue;
+    }
+
+    out.push({
+      codi: codiPropi,
+      text,
+      importBrut: Math.abs(j),
+      segSocialEmpresa: Math.abs(prov),
+      totalSegSocial: Math.abs(ss),
+      costPersonal: absRound2(j, prov, ss),
+      nivell: 0,
+      codiHeretat: false,
+    });
+  }
+
+  // Un sol registre per codi de centre (si el fitxer repeteix la fila, ens quedem l’última)
+  const perCodi = new Map<string, FilaCostPersonalExcel>();
+  for (const f of out) {
+    perCodi.set(f.codi, f);
+  }
+  return [...perCodi.values()];
+}
+
+export function normalitzarFilesNomina(files: FilaCostPersonalExcel[]): FilaCostPersonalExcel[] {
+  return files.map((f) => {
+    const brut = Math.abs(f.importBrut);
+    const provisio = Math.abs(f.segSocialEmpresa);
+    const ss = Math.abs(f.totalSegSocial);
+    return {
+      ...f,
+      importBrut: brut,
+      segSocialEmpresa: provisio,
+      totalSegSocial: ss,
+      costPersonal: absRound2(brut, provisio, ss),
+    };
+  });
+}
+
+export function normalitzarFilesMillores(files: FilaCostPersonalExcel[]): FilaCostPersonalExcel[] {
+  return files.map((f) => {
+    const brut = Math.abs(f.importBrut);
+    const ss = Math.abs(f.totalSegSocial);
+    return {
+      ...f,
+      importBrut: brut,
+      segSocialEmpresa: 0,
+      totalSegSocial: ss,
+      costPersonal: absRound2(brut, ss),
+    };
+  });
+}
+
+/* ─── API pública ─────────────────────────────────────────────────────────── */
+
+export function parseExcelCostPersonalCentre(
+  buffer: Buffer,
+  mode: "NOMINA" | "MILLORES" = "NOMINA"
+): { files: FilaCostPersonalExcel[]; diagnostica?: string } {
   const wb: WorkBook = read(buffer, { type: "buffer", cellDates: true });
-  // Prova tots els fulls; agafa el que tingui més files amb imports
-  let millor: { files: FilaCostPersonalExcel[]; diagnostica: string } | null = null;
+  let millor: { files: FilaCostPersonalExcel[]; diagnostica: string; score: number } | null = null;
 
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName];
@@ -316,334 +594,56 @@ export function parseExcelCostPersonalCentre(buffer: Buffer): {
     });
     if (!matrixRaw.length) continue;
 
-    const parsed = parseMatrixCostPersonal(matrixRaw, matrixText, sheetName);
-    if (!millor || parsed.files.length > millor.files.length) {
-      millor = parsed;
+    const layout = resolLayout(matrixRaw, matrixText, mode);
+    const files = extreureFiles(matrixRaw, matrixText, layout, mode);
+    const score = files.reduce(
+      (s, f) => s + f.importBrut + f.segSocialEmpresa + f.totalSegSocial,
+      0
+    );
+    const diag = [
+      `Full «${sheetName}»`,
+      layout.origen,
+      `brut=${layout.idxBrut} prov=${layout.idxProv} ss=${layout.idxSs}`,
+      `${files.length} files`,
+      `Σbrut=${Math.round(files.reduce((s, f) => s + f.importBrut, 0))}`,
+      `ΣSS=${Math.round(files.reduce((s, f) => s + f.totalSegSocial, 0))}`,
+    ].join(" · ");
+
+    if (!millor || score > millor.score) {
+      millor = { files, diagnostica: diag, score };
     }
   }
 
   if (!millor) return { files: [], diagnostica: "Fulls buits." };
-  return millor;
+
+  const files =
+    mode === "MILLORES"
+      ? normalitzarFilesMillores(millor.files)
+      : normalitzarFilesNomina(millor.files);
+
+  return { files, diagnostica: millor.diagnostica };
 }
 
-function cellNum(rawRow: unknown[], textRow: unknown[], col: number): number {
-  if (col < 0) return 0;
-  const fromRaw = parseNum(rawRow[col]);
-  if (fromRaw !== 0) return fromRaw;
-  return parseNum(textRow[col]);
-}
-
-function cellText(rawRow: unknown[], textRow: unknown[], col: number): string {
-  const t = textRow[col];
-  if (t !== null && t !== undefined && String(t).trim()) return String(t);
-  const r = rawRow[col];
-  if (r !== null && r !== undefined && String(r).trim()) return String(r);
-  return "";
-}
-
-function detectarCapçaleraFlexible(matrix: unknown[][]): {
-  row: number;
-  idxDesc: number;
-  idxBrut: number;
-  idxSsEmp: number;
-  idxSsTot: number;
-  idxCost: number;
-} | null {
-  for (let i = 0; i < Math.min(50, matrix.length); i++) {
-    const row = matrix[i] ?? [];
-    const headers = row.map(normalitzarCapçalera);
-    // Només coincidències FORTES (evitar títols tipus «Listado coste personal» a una sola cel·la)
-    const idxBrut = headers.findIndex(
-      (h) =>
-        h.includes("importe bruto") ||
-        h.includes("import brut") ||
-        h.includes("salario bruto") ||
-        h.includes("sou brut") ||
-        (h.includes("importe") && h.includes("brut")) ||
-        h === "bruto" ||
-        h === "brut"
-    );
-    const idxCost = headers.findIndex(
-      (h) =>
-        h.includes("coste de personal") ||
-        h.includes("cost personal") ||
-        h.includes("coste personal") ||
-        h.includes("costo de personal") ||
-        (h.includes("coste") && h.includes("personal")) ||
-        (h.includes("cost") && h.includes("personal"))
-    );
-    const idxSsEmp = headers.findIndex(
-      (h) =>
-        (h.includes("provision") && (h.includes("paga") || h.includes("extra"))) ||
-        h.includes("seguridad social empresa") ||
-        h.includes("seguretat social empresa") ||
-        h.includes("ss empresa") ||
-        h.includes("s.s. empresa")
-    );
-    const idxSsTot = headers.findIndex(
-      (h) =>
-        h.includes("total seg") ||
-        h.includes("total ss") ||
-        (h.includes("total") && h.includes("social")) ||
-        h.includes("seguridad social") ||
-        h.includes("seguretat social")
-    );
-
-    // Cal almenys 2 columnes de capçalera reconegudes, o brut+cost forts
-    const hits = [idxBrut, idxCost, idxSsEmp, idxSsTot].filter((x) => x >= 0);
-    if (hits.length < 1) continue;
-    // Una sola coincidència dèbil a una cel·la llarga (títol) → ignora
-    if (hits.length === 1) {
-      const h = headers[hits[0]!] ?? "";
-      if (h.length > 40) continue;
+/** Etiquetes per generar mapeig (sense imports). */
+export function parseEtiquetesPayrollPerMapeig(buffer: Buffer): {
+  files: { codi: string; text: string }[];
+} {
+  const parsed = parseExcelCostPersonalCentre(buffer, "NOMINA");
+  const perCodi = new Map<string, string>();
+  for (const f of parsed.files) {
+    for (const codi of extreureCodisPerMapeig(f.text)) {
+      if (codi.length < 4) continue;
+      const prev = perCodi.get(codi);
+      if (!prev || f.text.length < prev.length) perCodi.set(codi, f.text);
     }
-
-    let idxDesc = headers.findIndex(
-      (h) =>
-        h.includes("centre") ||
-        h.includes("centro") ||
-        h.includes("descrip") ||
-        h.includes("cuenta") ||
-        h.includes("compte") ||
-        h.includes("denomin") ||
-        h.includes("dimension") ||
-        h.includes("concepto") ||
-        h.includes("organiza")
-    );
-    if (idxDesc < 0) idxDesc = 0;
-
-    const brut = idxBrut >= 0 ? idxBrut : idxCost;
-    const cost = idxCost >= 0 ? idxCost : brut;
-    if (brut < 0) continue;
-
-    return {
-      row: i,
-      idxDesc,
-      idxBrut: brut,
-      idxSsEmp: idxSsEmp >= 0 ? idxSsEmp : -1,
-      idxSsTot: idxSsTot >= 0 ? idxSsTot : -1,
-      idxCost: cost,
-    };
-  }
-  return null;
-}
-
-type LayoutParse = {
-  startRow: number;
-  idxDesc: number;
-  idxBrut: number;
-  idxSsEmp: number;
-  idxSsTot: number;
-  idxCost: number;
-  origen: string;
-};
-
-/** Columna de text amb codis + columnes numèriques (imports). */
-function inferirLayout(matrixRaw: unknown[][], matrixText: unknown[][]): LayoutParse | null {
-  const sample = Math.min(200, matrixRaw.length);
-  const maxCols = Math.min(
-    25,
-    Math.max(1, ...matrixRaw.slice(0, sample).map((r) => (r ?? []).length), 1)
-  );
-
-  let idxDesc = 0;
-  let bestDesc = 0;
-  for (let col = 0; col < maxCols; col++) {
-    let score = 0;
-    for (let i = 0; i < sample; i++) {
-      const t = cellText(matrixRaw[i] ?? [], matrixText[i] ?? [], col);
-      if (!t || t.length < 3) continue;
-      if (extreureCodiPayroll(t) || /\b\d{4,8}\b/.test(t)) score++;
-      else if (/\s[-–]\s/.test(t) && /[A-Za-zÀ-ú]/.test(t)) score += 0.3;
-    }
-    if (score > bestDesc) {
-      bestDesc = score;
-      idxDesc = col;
+    if (/^\d{4,8}$/.test(f.codi) && f.codi.length >= 4) {
+      const prev = perCodi.get(f.codi);
+      if (!prev || f.text.length < prev.length) perCodi.set(f.codi, f.text);
     }
   }
-  if (bestDesc < 3) return null;
-
-  const numericScores: { col: number; score: number; sum: number }[] = [];
-  for (let col = 0; col < maxCols; col++) {
-    if (col === idxDesc) continue;
-    let score = 0;
-    let sum = 0;
-    for (let i = 0; i < sample; i++) {
-      const n = cellNum(matrixRaw[i] ?? [], matrixText[i] ?? [], col);
-      if (Math.abs(n) > 0.5) {
-        score++;
-        sum += Math.abs(n);
-      }
-    }
-    // Imports de nòmina: calen diverses files amb valors reals
-    if (score >= 5 && sum > 10) numericScores.push({ col, score, sum });
-  }
-  numericScores.sort((a, b) => b.sum - a.sum || b.score - a.score);
-  if (!numericScores.length) return null;
-
-  let startRow = 0;
-  for (let i = 0; i < Math.min(60, matrixRaw.length); i++) {
-    const t = cellText(matrixRaw[i] ?? [], matrixText[i] ?? [], idxDesc);
-    if (extreureCodiPayroll(t) || /\b\d{4,8}\b/.test(t)) {
-      startRow = i;
-      break;
-    }
-  }
-
-  const cols = numericScores.map((n) => n.col);
-  // Heurística: primera col num = brut, segona = SS, última (o la de més suma) = cost
-  const byColAsc = [...cols].sort((a, b) => a - b);
   return {
-    startRow,
-    idxDesc,
-    idxBrut: byColAsc[0] ?? cols[0]!,
-    idxSsEmp: byColAsc[1] ?? -1,
-    idxSsTot: byColAsc[1] ?? -1,
-    idxCost: byColAsc[byColAsc.length - 1] ?? cols[0]!,
-    origen: `inferit desc=${idxDesc} nums=[${byColAsc.join(",")}]`,
+    files: [...perCodi.entries()]
+      .map(([codi, text]) => ({ codi, text }))
+      .sort((a, b) => a.codi.localeCompare(b.codi, "ca", { numeric: true })),
   };
-}
-
-function extreureAmbLayout(
-  matrixRaw: unknown[][],
-  matrixText: unknown[][],
-  layout: LayoutParse
-): { files: FilaCostPersonalExcel[]; textSenseImport: number } {
-  const files: FilaCostPersonalExcel[] = [];
-  let textSenseImport = 0;
-  const maxColScan = Math.max(layout.idxBrut, layout.idxCost, layout.idxSsEmp, layout.idxDesc + 10);
-
-  for (let i = layout.startRow; i < matrixRaw.length; i++) {
-    const rawRow = matrixRaw[i] ?? [];
-    const textRow = matrixText[i] ?? [];
-    const descRaw = cellText(rawRow, textRow, layout.idxDesc);
-    const text = descRaw.trim();
-    if (!text || esTextCapcaleraOTitol(text)) continue;
-    // Cal alguna dada numèrica a la fila (no només títols de grup)
-    if (!/[A-Za-zÀ-ú]/.test(text) && !/\d{4,8}/.test(text)) continue;
-
-    let importBrut = cellNum(rawRow, textRow, layout.idxBrut);
-    const segSocialEmpresa = cellNum(rawRow, textRow, layout.idxSsEmp);
-    const totalSegSocial = cellNum(rawRow, textRow, layout.idxSsTot) || segSocialEmpresa;
-    let costPersonal = cellNum(rawRow, textRow, layout.idxCost);
-
-    let sumaFila = 0;
-    for (let c = 0; c <= Math.min(rawRow.length - 1, maxColScan); c++) {
-      if (c === layout.idxDesc) continue;
-      sumaFila += Math.abs(cellNum(rawRow, textRow, c));
-    }
-
-    if (sumaFila < 0.05) {
-      textSenseImport++;
-      continue;
-    }
-
-    if (Math.abs(importBrut) < 0.005 && Math.abs(costPersonal) < 0.005) {
-      // Omple amb la suma de columnes numèriques de la fila
-      importBrut = 0;
-      for (let c = layout.idxDesc + 1; c < Math.min(rawRow.length, layout.idxDesc + 12); c++) {
-        importBrut += cellNum(rawRow, textRow, c);
-      }
-      costPersonal = importBrut;
-    } else if (layout.idxCost === layout.idxBrut && (importBrut || totalSegSocial)) {
-      costPersonal = Math.round((importBrut + totalSegSocial) * 100) / 100;
-    } else if (!costPersonal && (importBrut || totalSegSocial)) {
-      costPersonal = Math.round((importBrut + totalSegSocial) * 100) / 100;
-    }
-
-    const codi = extreureCodiPayroll(text) ?? text.slice(0, 80);
-    files.push({
-      codi,
-      text,
-      importBrut,
-      segSocialEmpresa,
-      totalSegSocial,
-      costPersonal: costPersonal || importBrut,
-      nivell: nivellIndent(descRaw),
-    });
-  }
-
-  return { files, textSenseImport };
-}
-
-function mostraFiles(matrixText: unknown[][], n = 4, cols = 12): string {
-  return matrixText
-    .slice(0, n)
-    .map((r, i) => {
-      const cells = (r ?? [])
-        .slice(0, cols)
-        .map((c, j) => `c${j}:${String(c ?? "").slice(0, 28)}`)
-        .filter((s) => !s.endsWith(":"));
-      return `f${i}{${cells.join("; ")}}`;
-    })
-    .join(" ");
-}
-
-function parseMatrixCostPersonal(
-  matrixRaw: unknown[][],
-  matrixText: unknown[][],
-  sheetName: string
-): { files: FilaCostPersonalExcel[]; diagnostica: string } {
-  const candidats: LayoutParse[] = [];
-
-  const cap = detectarCapçaleraFlexible(matrixText) ?? detectarCapçaleraFlexible(matrixRaw);
-  if (cap) {
-    candidats.push({
-      startRow: cap.row + 1,
-      idxDesc: cap.idxDesc,
-      idxBrut: cap.idxBrut,
-      idxSsEmp: cap.idxSsEmp,
-      idxSsTot: cap.idxSsTot,
-      idxCost: cap.idxCost,
-      origen: `capçalera f${cap.row}`,
-    });
-  }
-
-  const inferit = inferirLayout(matrixRaw, matrixText);
-  if (inferit) candidats.push(inferit);
-
-  if (!candidats.length) {
-    return {
-      files: [],
-      diagnostica: `Full «${sheetName}»: sense layout. ${mostraFiles(matrixText)}`,
-    };
-  }
-
-  let millor: {
-    files: FilaCostPersonalExcel[];
-    textSenseImport: number;
-    layout: LayoutParse;
-  } | null = null;
-
-  for (const layout of candidats) {
-    const r = extreureAmbLayout(matrixRaw, matrixText, layout);
-    if (!millor || r.files.length > millor.files.length) {
-      millor = { ...r, layout };
-    }
-  }
-
-  const files = millor?.files ?? [];
-  const layout = millor?.layout;
-  const diag = [
-    `Full «${sheetName}»`,
-    layout?.origen ?? "?",
-    layout
-      ? `desc=${layout.idxDesc} brut=${layout.idxBrut} ss=${layout.idxSsEmp} cost=${layout.idxCost}`
-      : "",
-    `${files.length} files amb import`,
-    millor?.textSenseImport ? `${millor.textSenseImport} text sense import` : "",
-    files.length === 0 ? mostraFiles(matrixText) : "",
-  ]
-    .filter(Boolean)
-    .join(" · ");
-
-  return { files, diagnostica: diag };
-}
-
-/** Heurística Sala/Cuina a partir del text (restaurants). */
-export function inferDeptSalarialDesDeText(text: string): DepartamentSalarial | null {
-  const t = text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-  if (/\bcuina\b/.test(t) || /\bcocin/.test(t)) return "CUINA";
-  if (/\bsala\b/.test(t) || /\bcambrer/.test(t) || /\bserveis?\b/.test(t)) return "SALA";
-  return null;
 }

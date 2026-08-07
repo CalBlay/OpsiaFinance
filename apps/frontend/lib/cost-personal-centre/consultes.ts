@@ -87,7 +87,8 @@ type ColMeta = {
   departament?: "SALA" | "CUINA" | "SENSE";
 };
 
-const SUBTITOL_GESTIO = "Gestió: base única (SAP+ajust → payroll → traspassos) + estructura a LN";
+const SUBTITOL_GESTIO =
+  "Gestió: SAP + ajustos + traspassos (+ estructura a LN). Sense nòmina/millores.";
 const SUBTITOL_DIRECTE = "Directe: SAP + ajustos";
 
 /** Delta de repartiment (node 17) agregat per LN i període. */
@@ -767,20 +768,8 @@ export async function getInformeCostPersonalDepartaments(
     };
   }
 
-  // Gestió: per mes, payroll→depts; mesos sense payroll→cel·la base a Sense; deltaTraspass a Sense.
-  const [base, payroll] = await Promise.all([
-    carregarBaseGestioPersonal({ any, mes, centreId }),
-    db.costPersonalCentre.findMany({
-      where: { centreId, period: periodWhere(any, mes) },
-      select: {
-        departamentSalarial: true,
-        importBrut: true,
-        segSocialEmpresa: true,
-        costPersonal: true,
-        period: { select: { mes: true } },
-      },
-    }),
-  ]);
+  // Gestió: SAP+ajust+traspass a Sense (payroll no alimenta Gestió; desglossament SALA/CUINA és informatiu a nòmina).
+  const [base] = await Promise.all([carregarBaseGestioPersonal({ any, mes, centreId })]);
 
   const depts: Array<"SALA" | "CUINA" | "SENSE"> = ["SALA", "CUINA", "SENSE"];
   const importsPerDept = new Map<string, Imports>();
@@ -794,58 +783,16 @@ export async function getInformeCostPersonalDepartaments(
     return acc;
   };
 
-  const payrollByMes = new Map<number, typeof payroll>();
-  for (const f of payroll) {
-    const m = f.period.mes;
-    let list = payrollByMes.get(m);
-    if (!list) {
-      list = [];
-      payrollByMes.set(m, list);
-    }
-    list.push(f);
-  }
-
   const mesos = mes != null ? [mes] : [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
   const perMes = base.get(centreId);
 
   for (const m of mesos) {
     const cel = perMes?.get(m);
     if (!cel) continue;
-
-    const filesPayroll = payrollByMes.get(m);
-    if (filesPayroll?.length) {
-      for (const f of filesPayroll) {
-        const key =
-          f.departamentSalarial === "SALA"
-            ? "SALA"
-            : f.departamentSalarial === "CUINA"
-              ? "CUINA"
-              : "SENSE";
-        const acc = getAcc(key);
-        const importBrut = Math.abs(Number(f.importBrut));
-        const provisioPaguesExtres = Math.abs(Number(f.segSocialEmpresa));
-        const seguretatSocial = Math.max(
-          0,
-          Math.abs(Number(f.costPersonal)) - importBrut - provisioPaguesExtres
-        );
-        const brut = -(importBrut + provisioPaguesExtres);
-        const ss = -seguretatSocial;
-        acc.importBrut += brut;
-        acc.totalSegSocial += ss;
-        acc.costPersonal += brut + ss;
-      }
-      // Delta traspass de la cel·la base → Sense (per quadrar amb agregar).
-      if (cel.deltaTraspass) {
-        const acc = getAcc("SENSE");
-        acc.importBrut += cel.deltaTraspass;
-        acc.costPersonal += cel.deltaTraspass;
-      }
-    } else {
-      const acc = getAcc("SENSE");
-      acc.importBrut += cel.imports.importBrut;
-      acc.totalSegSocial += cel.imports.totalSegSocial;
-      acc.costPersonal += cel.imports.costPersonal;
-    }
+    const acc = getAcc("SENSE");
+    acc.importBrut += cel.imports.importBrut;
+    acc.totalSegSocial += cel.imports.totalSegSocial;
+    acc.costPersonal += cel.imports.costPersonal;
   }
 
   const labels: Record<string, string> = {
@@ -856,7 +803,7 @@ export async function getInformeCostPersonalDepartaments(
 
   const cols: ColMeta[] = depts
     .filter((d) => {
-      const imp = importsPerDept.get(d)!;
+      const imp = importsPerDept.get(d) ?? emptyImports();
       return imp.costPersonal || imp.importBrut || imp.totalSegSocial;
     })
     .map((d) => ({
