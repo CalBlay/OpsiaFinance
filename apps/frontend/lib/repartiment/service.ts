@@ -20,10 +20,12 @@ import {
   syncNormaPersonalPrecuinats,
 } from "@/lib/repartiment/normes-default";
 import {
-  PERCENTATGES_SUPORT_PERSONAL_PRECUINATS,
+  SUPORT_PERSONAL_PRECUINATS_CENTRES,
   type SuportPersonalPrecuinats,
+  reglesSuportPersonalPrecuinats,
   suportPersonalPrecuinatsDesDeCentres,
 } from "@/lib/repartiment/personal-precuinats";
+import type { NormaRepartiment } from "@prisma/client";
 
 export function validarZeroSumMoviments(
   moviments: { liniaNegociDestiId: string; concepteNode: number; importCalculat: number }[],
@@ -70,9 +72,11 @@ type PeriodeSuportPrecuinats = {
  */
 async function carregarSuportPersonalPrecuinats(
   periods: PeriodeSuportPrecuinats[],
-  centralLnId: string
+  centralLnId: string,
+  normes: Pick<NormaRepartiment, "nom" | "actiu" | "valorPercent">[]
 ): Promise<Map<string, SuportPersonalPrecuinats>> {
-  const codisCentre = PERCENTATGES_SUPORT_PERSONAL_PRECUINATS.map((r) => r.codiCentre);
+  const regles = reglesSuportPersonalPrecuinats(normes);
+  const codisCentre = SUPORT_PERSONAL_PRECUINATS_CENTRES.map((r) => r.codiCentre);
   const centres = await db.centre.findMany({
     where: { liniaNegociId: centralLnId, codi: { in: codisCentre } },
     select: { id: true, codi: true },
@@ -88,14 +92,14 @@ async function carregarSuportPersonalPrecuinats(
         centreIds,
       });
       const costPerCentre = new Map<string, number>();
-      for (const regla of PERCENTATGES_SUPORT_PERSONAL_PRECUINATS) {
+      for (const regla of regles) {
         const centreId = idByCodi.get(regla.codiCentre);
         const cost = centreId
           ? (base.get(centreId)?.get(period.mes)?.imports.costPersonal ?? 0)
           : 0;
         costPerCentre.set(regla.codiCentre, cost);
       }
-      return [period.id, suportPersonalPrecuinatsDesDeCentres(costPerCentre)] as const;
+      return [period.id, suportPersonalPrecuinatsDesDeCentres(costPerCentre, regles)] as const;
     })
   );
 
@@ -192,9 +196,9 @@ export async function calcularExecucioRepartiment(periodId: string) {
   await syncNormaPersonalPrecuinats();
   const normes = await getNormesVigents();
   const directe = await getDirectePerLnNode(periodId);
-  const suportPrecuinats = (await carregarSuportPersonalPrecuinats([period], central.id)).get(
-    period.id
-  ) ?? { import: 0, detall: "Sense cost als centres de suport" };
+  const suportPrecuinats = (
+    await carregarSuportPersonalPrecuinats([period], central.id, normes)
+  ).get(period.id) ?? { import: 0, detall: "Sense cost als centres de suport" };
   // Reutilitza directe ja carregat (abans calcularPesosGrups tornava a demanar-lo).
   const pesosCalc = await calcularPesosGrups(periodId, directe);
 
@@ -353,7 +357,7 @@ export async function getDeltasGestioPerLn(
   ]);
 
   const execByPeriod = new Map(execucions.map((e) => [e.periodId, e]));
-  const suportByPeriod = await carregarSuportPersonalPrecuinats(periods, central.id);
+  const suportByPeriod = await carregarSuportPersonalPrecuinats(periods, central.id, deps.normes);
   const result = new Map<string, Map<string, Map<number, number>>>();
 
   for (const periodId of confirmatsIds) {

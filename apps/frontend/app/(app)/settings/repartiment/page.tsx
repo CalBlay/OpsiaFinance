@@ -1,5 +1,9 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import {
+  syncGrupsRepartiment,
+  syncNormaPersonalPrecuinats,
+} from "@/lib/repartiment/normes-default";
 import { decimalToNumber } from "@/lib/repartiment/serialize";
 import { NormesRepartimentPanel } from "./NormesRepartimentPanel";
 import styles from "./page.module.css";
@@ -10,6 +14,9 @@ export const metadata = { title: "Normes de repartiment — OpsiaFinance" };
 export default async function RepartimentSettingsPage() {
   const session = await auth();
   const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+
+  await syncGrupsRepartiment();
+  await syncNormaPersonalPrecuinats();
 
   const [normesRaw, grupsRaw] = await Promise.all([
     db.normaRepartiment.findMany({

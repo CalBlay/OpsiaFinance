@@ -140,19 +140,12 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 450,
     },
     {
-      nom: "Precuinats · personal SAP + suport Central per centres",
-      tipus: "REPARTIMENT_PROPORCIONAL",
-      destCodi: "LN00004",
-      concepteNode: NODE_COST_SALARIAL,
-      ordre: 451,
-    },
-    {
       nom: "Precuinats · gestió 30% cost gestió Central SAP",
       tipus: "PERCENT_POOL_CENTRAL",
       destCodi: "LN00004",
       concepteNode: NODE_COST_GESTIO,
       valorPercent: 30,
-      ordre: 452,
+      ordre: 455,
     },
   ],
   LN00005: [

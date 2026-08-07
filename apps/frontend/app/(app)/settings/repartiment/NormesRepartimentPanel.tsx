@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/Button";
 import { CONCEPTE_NODE_LABEL } from "@/lib/repartiment/nodes";
+import { esNormaSuportPersonalPrecuinats } from "@/lib/repartiment/personal-precuinats";
 import { Fragment, useState, useTransition } from "react";
 import {
   carregarNormesSeedAction,
@@ -128,8 +129,9 @@ export function NormesRepartimentPanel({
             </Button>
           </div>
           <p className={styles.helpText}>
-            Confirmades: LN00002/03 compres pool+SAP · personal pool · LN00004 gestió 30% ·
-            LN00005/06. «Sincronitzar noves normes» afegeix del seed sense esborrar les existents.
+            Confirmades: LN00002/03 compres pool+SAP · personal pool · LN00004 gestió 30% i suport
+            personal per centres editable · LN00005/06. «Sincronitzar noves normes» afegeix del seed
+            sense esborrar les existents.
           </p>
         </div>
       )}
@@ -191,10 +193,11 @@ export function NormesRepartimentPanel({
                   </tr>
                   {blocNormes.map((n) => {
                     const editValor = valorEditable(n.tipus);
+                    const esSuportPersonalPrecuinats = esNormaSuportPersonalPrecuinats(n.nom);
                     return (
                       <tr key={n.id}>
                         <td className={styles.colOrdre}>
-                          {canEdit ? (
+                          {canEdit && !esSuportPersonalPrecuinats ? (
                             <input
                               className={`${styles.inlineInput} ${styles.inlineInputOrdre}`}
                               type="text"
@@ -211,7 +214,7 @@ export function NormesRepartimentPanel({
                           )}
                         </td>
                         <td className={styles.colNom}>
-                          {canEdit ? (
+                          {canEdit && !esSuportPersonalPrecuinats ? (
                             <input
                               className={`${styles.inlineInput} ${styles.inlineInputNom}`}
                               type="text"
@@ -228,7 +231,9 @@ export function NormesRepartimentPanel({
                           )}
                         </td>
                         <td>
-                          <code className={styles.code}>{n.tipus}</code>
+                          <code className={styles.code}>
+                            {esSuportPersonalPrecuinats ? "PERCENT_CENTRE_ORIGEN" : n.tipus}
+                          </code>
                         </td>
                         <td>{n.liniaNegociDesti?.codi ?? "—"}</td>
                         <td>{CONCEPTE_NODE_LABEL[n.concepteNode] ?? n.concepteNode}</td>
