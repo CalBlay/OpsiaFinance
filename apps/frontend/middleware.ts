@@ -8,17 +8,33 @@ import { NextResponse } from "next/server";
 /*
  * Middleware — EDGE RUNTIME.
  * Usa authConfig (edge-safe): sense imports de Node.js.
- * - Autenticació via JWT
- * - Sincronitza ?grup= → cookie global d'empresa
- * - Bloqueja Administració per a rol CONSULTA
+ *
+ * IMPORTANT: amb `auth((req) => …)` el callback `authorized` de authConfig
+ * NO s'executa. Tota la protecció d'accés ha d'estar aquí.
  */
 const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const url = req.nextUrl;
   const pathname = url.pathname;
-  const role = req.auth?.user?.role;
+  const isLoggedIn = !!req.auth?.user;
+  const isLogin = pathname === "/login";
+  const isApiAuth = pathname.startsWith("/api/auth");
 
+  if (isApiAuth) return NextResponse.next();
+
+  if (isLogin) {
+    if (isLoggedIn) return NextResponse.redirect(new URL("/", url));
+    return NextResponse.next();
+  }
+
+  if (!isLoggedIn) {
+    const loginUrl = new URL("/login", url);
+    loginUrl.searchParams.set("callbackUrl", `${pathname}${url.search}`);
+    return NextResponse.redirect(loginUrl);
+  }
+
+  const role = req.auth?.user?.role;
   if (
     (pathname.startsWith("/dades") || pathname.startsWith("/settings")) &&
     role &&

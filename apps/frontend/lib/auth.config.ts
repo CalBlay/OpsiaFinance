@@ -8,23 +8,14 @@ import type { UserRole } from "@/types";
  */
 export const authConfig: NextAuthConfig = {
   secret: process.env.AUTH_SECRET,
+  trustHost: true,
   pages: {
     signIn: "/login",
   },
   session: { strategy: "jwt" },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const { pathname } = nextUrl;
-
-      const isPublic = pathname === "/login";
-      const isApiAuth = pathname.startsWith("/api/auth");
-
-      if (isApiAuth) return true;
-      if (isPublic && isLoggedIn) return Response.redirect(new URL("/", nextUrl));
-      if (!isPublic && !isLoggedIn) return false; // → redirigeix a /login automàticament
-      return true;
-    },
+    // La protecció de rutes viu a middleware.ts (el wrapper auth((req)=>…)
+    // no invoca `authorized` a Auth.js v5).
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
