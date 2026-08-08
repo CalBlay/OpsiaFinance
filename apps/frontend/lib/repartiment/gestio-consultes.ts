@@ -4,12 +4,12 @@ import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import { nodePresentacioGestio } from "@/lib/repartiment/nodes";
 import { cache } from "react";
 
-export const COL_REPARTIMENT_ID = "__repartiment__";
-
-/** Etiqueta de columna / detall a consultes Gestió (abans «Repart.»). */
-export const COL_REPARTIMENT_CODI = "ESTRUCTURA";
-export const COL_REPARTIMENT_NOM = "ESTRUCTURA";
-export const COL_REPARTIMENT_LABEL_DETALL = "ESTRUCTURA";
+export {
+  COL_REPARTIMENT_CODI,
+  COL_REPARTIMENT_ID,
+  COL_REPARTIMENT_LABEL_DETALL,
+  COL_REPARTIMENT_NOM,
+} from "@/lib/repartiment/constants";
 
 /** Suma deltas de diversos períodes en un mapa LN → node → import. */
 export function agregarDeltasPerLn(

@@ -10,7 +10,7 @@ import { etiquetaGrafic, indicesCentresOperatius, segmentsVendes } from "@/lib/c
 import { NODE_VENDES } from "@/lib/kpi-definitions";
 import type { RangMesos } from "@/lib/periodes";
 import { esUnMes } from "@/lib/periodes";
-import { COL_REPARTIMENT_ID } from "@/lib/repartiment/gestio-consultes";
+import { COL_REPARTIMENT_ID } from "@/lib/repartiment/constants";
 import { useEffect, useState, useTransition } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { carregarComparativaLnAction } from "../actions-perf";
