@@ -33,6 +33,14 @@
   color: var(--opsia-cx-label, var(--opsia-ink-soft));
 }
 
+.heroTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 1rem;
+}
+
 .heroTitle {
   margin: 0;
   font-size: var(--opsia-cx-heading-size, clamp(1.2rem, 2.2vw, 1.5rem));
@@ -40,6 +48,17 @@
   letter-spacing: var(--opsia-cx-heading-tracking, -0.04em);
   color: var(--opsia-cx-heading, var(--opsia-ink-soft));
   line-height: 1.15;
+  min-width: 0;
+  flex: 1 1 12rem;
+}
+
+.heroPeriode {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .heroSub {

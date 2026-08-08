@@ -87,6 +87,52 @@ export async function updateNormaConsolidacioAction(
   return OK();
 }
 
+export async function upsertImportNormaConsolidacioAction(
+  normaId: string,
+  any: number,
+  mes: number,
+  importValor: number,
+  nota?: string
+): Promise<Result> {
+  if (!(await requireEditor())) return ERR("Sense permisos.");
+  if (!Number.isInteger(any) || any < 2000 || any > 2100) return ERR("Any no vàlid.");
+  if (!Number.isInteger(mes) || mes < 1 || mes > 12) return ERR("Mes no vàlid.");
+  if (!Number.isFinite(importValor)) return ERR("Import no vàlid.");
+
+  const norma = await db.normaConsolidacio.findUnique({
+    where: { id: normaId },
+    select: { fontImport: true },
+  });
+  if (!norma) return ERR("Norma no trobada.");
+  if (norma.fontImport !== "IMPORT_FIX_MENSUAL") {
+    return ERR("Aquesta norma no usa imports mensuals.");
+  }
+
+  await db.normaConsolidacioImport.upsert({
+    where: { normaId_any_mes: { normaId, any, mes } },
+    update: {
+      import_: Math.round(importValor * 100) / 100,
+      nota: nota?.trim() || null,
+    },
+    create: {
+      normaId,
+      any,
+      mes,
+      import_: Math.round(importValor * 100) / 100,
+      nota: nota?.trim() || null,
+    },
+  });
+  refresh();
+  return OK("Import desat.");
+}
+
+export async function deleteImportNormaConsolidacioAction(id: string): Promise<Result> {
+  if (!(await requireEditor())) return ERR("Sense permisos.");
+  await db.normaConsolidacioImport.delete({ where: { id } });
+  refresh();
+  return OK("Import eliminat.");
+}
+
 export async function createNormaConsolidacioAction(
   grup: GrupConsolidacio,
   tipus: TipusNormaConsolidacio,

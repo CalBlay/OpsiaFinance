@@ -5,9 +5,12 @@
  * Exemples que han de coincidir:
  *   Excel «Masia Esplugues»  ↔  BD «Restaurant Masia d'Esplugues»
  *   Excel «Camp Nou»         ↔  BD «Camp Nou Cal Blay»
+ *   Excel «Tarraco Arena»    ↔  BD «Restaurant Tarraco» (CCR00005)
+ *   Excel «Mirador»          ↔  BD «Restaurant Mirador de les Caves» (CCR00006)
+ *   Excel «Plural»           ↔  BD «Restaurant Valkiria» (CCR00009)
  */
 
-/** Variants conegudes → clau canònica. */
+/** Variants conegudes → clau canònica (ha de coincidir amb el centre a Dimensions). */
 export const ALIASES_RESTAURANT: Record<string, string> = {
   // —— Fitxer cost salarial (Nom Restaurant) ——
   origens: "origens",
@@ -18,12 +21,20 @@ export const ALIASES_RESTAURANT: Record<string, string> = {
   "masia desplugues": "masia esplugues",
   mirador: "mirador",
   "el mirador": "mirador",
+  "mirador caves": "mirador",
+  "restaurant mirador": "mirador",
+  "restaurant mirador de les caves": "mirador",
   "camp nou": "camp nou",
   "camp nou cal blay": "camp nou",
-  "tarraco arena": "tarraco arena",
+  tarraco: "tarraco",
+  "tarraco arena": "tarraco",
+  "tarraca arena": "tarraco",
+  "restaurant tarraco": "tarraco",
   "juno house": "juno house",
-  // —— Altres restaurants LN (altres Excels) ——
-  plural: "plural",
+  // —— Altres noms Excel ↔ centres LN ——
+  plural: "valkiria",
+  valkiria: "valkiria",
+  "restaurant valkiria": "valkiria",
   soliver: "soliver",
   greenvita: "greenvita",
   "green vita": "greenvita",
@@ -76,4 +87,5 @@ export const RESTAURANTS_FITXER_COST_SALARIAL = [
   "Camp Nou",
   "Tarraco Arena",
   "Juno House",
+  "Plural",
 ] as const;

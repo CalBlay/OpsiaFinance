@@ -25,7 +25,7 @@ import {
 } from "@/lib/consultes";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
+import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import {
   KPI_DEFINICIONS,
   type KpiComparatiuItem,
@@ -58,17 +58,11 @@ export default async function ComparativaPage({
   ]);
   // Limita a N exercicis recents (anysTots ve en desc) per no escanejar tota l'història.
   const anys = anysTots.slice(0, MAX_ANYS_COMPARATIVA);
-  const potLiniaCentre = grupMostraConsultesLiniaCentre(grup);
-  const arbre = exclouFdlcDeConsultaLinia(arbreRaw);
+  const arbre = liniesPerConsultaDetall(arbreRaw, grup);
 
-  const scope: AmbitTemporal = !potLiniaCentre
-    ? "empresa"
-    : sp.scope === "linia"
-      ? "linia"
-      : sp.scope === "centre"
-        ? "centre"
-        : "empresa";
-  const id = potLiniaCentre ? (sp.id ?? null) : null;
+  const scope: AmbitTemporal =
+    sp.scope === "linia" ? "linia" : sp.scope === "centre" ? "centre" : "empresa";
+  const id = sp.id ?? null;
 
   const granularitat: GranularitatTemporal =
     sp.g === "mensual" ? "mensual" : sp.g === "mes" ? "mes" : "anual";
@@ -361,7 +355,7 @@ export default async function ComparativaPage({
               granularitat={granularitat}
               mes={mesActual}
               mesosSeleccionats={mesosSeleccionats}
-              nomesEmpresa={!potLiniaCentre}
+              nomesEmpresa={false}
             />
             <ExportInformeButton
               disabled={!!necessitaId || !!buit}

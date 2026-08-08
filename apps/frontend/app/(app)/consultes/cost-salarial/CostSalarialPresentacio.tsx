@@ -31,6 +31,7 @@ export interface RestaurantBarRow {
 
 export interface PresentacioComparativaProps {
   mode: "comparativa";
+  compte?: CompteCostSalarial;
   periode: string;
   totals: {
     costTotal: number;
@@ -106,8 +107,10 @@ function HeroScorecard({
   return (
     <header className={styles.hero}>
       <div className={styles.heroHead}>
-        <p className={styles.eyebrow}>{periode}</p>
-        <h2 className={styles.heroTitle}>{titol}</h2>
+        <div className={styles.heroTitleRow}>
+          <h2 className={styles.heroTitle}>{titol}</h2>
+          <p className={styles.heroPeriode}>{periode}</p>
+        </div>
         {subtitol ? <p className={styles.heroSub}>{subtitol}</p> : null}
       </div>
 
@@ -166,10 +169,10 @@ function HeroScorecard({
   );
 }
 
-/** Pastís amb el pes % de cada partida sobre el cost. */
+/** Pastís amb el pes % de cada partida sobre el cost (exclou partides només informatives). */
 function PartidesPie({ partides, total }: { partides: PartidaSlice[]; total: number }) {
   const data = partides
-    .filter((p) => p.import_ > 0.005)
+    .filter((p) => p.import_ > 0.005 && p.pct != null)
     .map((p, i) => ({
       name: p.label,
       value: p.import_,
@@ -415,10 +418,12 @@ function RestaurantsCompact({ rows }: { rows: RestaurantBarRow[] }) {
 
 function PresentacioComparativaView({
   periode,
+  compte = "directe",
   totals,
   restaurants,
 }: {
   periode: string;
+  compte?: CompteCostSalarial;
   totals: PresentacioComparativaProps["totals"];
   restaurants: RestaurantBarRow[];
 }) {
@@ -446,13 +451,21 @@ function PresentacioComparativaView({
       <div className={styles.splitRow}>
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>Pes de cada partida</h3>
-          <p className={styles.panelLead}>% de cada concepte sobre el cost.</p>
+          <p className={styles.panelLead}>
+            {compte === "gestio"
+              ? "% sobre el cost (sense indemnitzacions)."
+              : "% de cada concepte sobre el cost."}
+          </p>
           <PartidesPie partides={totals.partides} total={totals.costTotal} />
         </section>
 
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>Statement de partides</h3>
-          <p className={styles.panelLead}>Import, pes i % Sala/Cuina.</p>
+          <p className={styles.panelLead}>
+            {compte === "gestio"
+              ? "Indemnitzacions només informatives: no entren al total."
+              : "Import, pes i % Sala/Cuina."}
+          </p>
           <StatementTable
             rows={statementRows.filter(
               (r) => Math.abs(r.import_) >= 0.005 || r.key === "foraCentre"
@@ -503,7 +516,11 @@ function PresentacioRestaurantView(props: PresentacioRestaurantProps) {
       <div className={styles.splitRow}>
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>Pes de cada partida</h3>
-          <p className={styles.panelLead}>% de cada concepte sobre el cost.</p>
+          <p className={styles.panelLead}>
+            {props.compte === "gestio"
+              ? "% sobre el cost (sense indemnitzacions)."
+              : "% de cada concepte sobre el cost."}
+          </p>
           <PartidesPie partides={props.partidesTotals} total={props.costTotal} />
         </section>
 
@@ -511,7 +528,7 @@ function PresentacioRestaurantView(props: PresentacioRestaurantProps) {
           <h3 className={styles.panelTitle}>Statement · partides</h3>
           <p className={styles.panelLead}>
             {props.compte === "gestio"
-              ? "Fora centre = traspassos (+destí −origen). Clica per al detall."
+              ? "Fora centre = traspassos (+destí −origen). Indemnitzacions només informatives (no al total)."
               : "Fora centre = Excel. Clica per al detall."}
           </p>
           <StatementTable
@@ -544,6 +561,7 @@ export function CostSalarialPresentacio(props: CostSalarialPresentacioProps) {
     return (
       <PresentacioComparativaView
         periode={props.periode}
+        compte={props.compte}
         totals={props.totals}
         restaurants={props.restaurants}
       />

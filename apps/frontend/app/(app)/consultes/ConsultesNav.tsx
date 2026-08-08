@@ -1,12 +1,6 @@
 "use client";
 
 import { LinkPending } from "@/components/ui/LinkPending";
-import { GRUP_COOKIE_NAME } from "@/lib/grup-cookie-name";
-import {
-  type GrupEmpresa,
-  grupMostraConsultesLiniaCentre,
-  parseGrupEmpresa,
-} from "@/lib/grups-empresa";
 import { cn } from "@/lib/utils";
 import {
   Building2,
@@ -21,14 +15,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import styles from "./layout.module.css";
 
 const RESULTATS_TABS = [
   { href: "/consultes/empresa", label: "Empresa", icon: Landmark },
   { href: "/consultes/evolucio", label: "Evolució mensual", icon: TrendingUp },
-  { href: "/consultes/linia", label: "Per línia", icon: Layers, calBlay: true },
-  { href: "/consultes/centre", label: "Per centre", icon: Building2, calBlay: true },
+  { href: "/consultes/linia", label: "Per línia", icon: Layers },
+  { href: "/consultes/centre", label: "Per centre", icon: Building2 },
   { href: "/consultes/comparativa", label: "Comparativa temporal", icon: GitCompareArrows },
   { href: "/consultes/cost-personal", label: "Cost de personal", icon: UserRound },
 ] as const;
@@ -45,15 +39,6 @@ function isRestaurantsPath(pathname: string): boolean {
     pathname.startsWith("/consultes/vendes-restaurants") ||
     pathname.startsWith("/consultes/cost-salarial")
   );
-}
-
-function readGrupCookie(): GrupEmpresa {
-  if (typeof document === "undefined") return "calblay";
-  const raw = document.cookie
-    .split("; ")
-    .find((row) => row.startsWith(`${GRUP_COOKIE_NAME}=`))
-    ?.split("=")[1];
-  return parseGrupEmpresa(raw);
 }
 
 /** Conserva any/vista (i rang si n'hi ha) en canviar de pestanya. */
@@ -74,24 +59,9 @@ export function ConsultesNav() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [grup, setGrup] = useState<GrupEmpresa>("calblay");
-
-  useEffect(() => {
-    setGrup(readGrupCookie());
-    const onFocus = () => setGrup(readGrupCookie());
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
-  }, []);
 
   const restaurants = isRestaurantsPath(pathname);
-  const mostraLiniaCentre = grupMostraConsultesLiniaCentre(grup);
-  const tabs = useMemo(
-    () =>
-      restaurants
-        ? RESTAURANTS_TABS
-        : RESULTATS_TABS.filter((t) => !("calBlay" in t && t.calBlay) || mostraLiniaCentre),
-    [restaurants, mostraLiniaCentre]
-  );
+  const tabs = restaurants ? RESTAURANTS_TABS : RESULTATS_TABS;
   const title = restaurants ? "Restaurants" : "Resultats";
   const navLabel = restaurants ? "Consultes de restaurants" : "Consultes de resultats";
 

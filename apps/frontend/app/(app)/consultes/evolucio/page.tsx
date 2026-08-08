@@ -2,16 +2,17 @@ import { auth } from "@/lib/auth";
 import {
   type AmbitEvolucio,
   type VistaCompte,
+  aplicarConsolidacioInterEvolucioEmpresa,
   getAnysAmbDades,
   getArbreSeleccio,
   getEvolucioMensual,
 } from "@/lib/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import {
-  exclouFdlcDeConsultaLinia,
   filtraLiniesPerGrup,
-  grupMostraConsultesLiniaCentre,
+  grupAplicaConsolidacioInter,
   grupPermetVistaGestio,
+  liniesPerConsultaDetall,
 } from "@/lib/grups-empresa";
 import {
   aplicarVistaGestioEvolucioEmpresa,
@@ -36,14 +37,14 @@ export default async function EvolucioPage({
     getGrupEmpresaActual(),
   ]);
 
-  const potLinia = grupMostraConsultesLiniaCentre(grup);
-  const scope: AmbitEvolucio = potLinia && sp.scope === "linia" ? "linia" : "empresa";
+  const scope: AmbitEvolucio = sp.scope === "linia" ? "linia" : "empresa";
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
-  const lnId = potLinia ? (sp.ln ?? null) : null;
+  const lnId = sp.ln ?? null;
   const potGestio = grupPermetVistaGestio(grup);
   const vista: VistaCompte = potGestio && sp.vista === "gestio" ? "gestio" : "directe";
-  const linies = exclouFdlcDeConsultaLinia(
-    arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom }))
+  const linies = liniesPerConsultaDetall(
+    arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
+    grup
   );
   const lnIdsEmpresa = filtraLiniesPerGrup(
     arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
@@ -67,9 +68,18 @@ export default async function EvolucioPage({
         concepts: await aplicarVistaGestioEvolucioLn(lnId, anyActual, evRaw.concepts),
       };
     } else if (scope === "empresa") {
+      let conceptsGestio = await aplicarVistaGestioEvolucioEmpresa(anyActual, evRaw.concepts);
+      if (grupAplicaConsolidacioInter(grup)) {
+        conceptsGestio = await aplicarConsolidacioInterEvolucioEmpresa(
+          anyActual,
+          grup,
+          conceptsGestio,
+          { desMes: 1, finsMes: 12 }
+        );
+      }
       gestio = {
         ...evRaw,
-        concepts: await aplicarVistaGestioEvolucioEmpresa(anyActual, evRaw.concepts),
+        concepts: conceptsGestio,
       };
     }
   }
@@ -82,7 +92,7 @@ export default async function EvolucioPage({
       lnId={lnId}
       anyActual={anyActual}
       vistaInicial={vista}
-      nomesEmpresa={!potLinia}
+      nomesEmpresa={false}
       mostraVistaGestio={potGestio}
       potGestio={potGestio}
       isAdmin={session?.user?.role === "ADMIN"}

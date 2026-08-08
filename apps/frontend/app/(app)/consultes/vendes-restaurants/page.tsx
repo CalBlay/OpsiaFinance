@@ -79,7 +79,7 @@ export default async function ConsultaVendesRestaurantsPage({
   const mesRaw = sp.mes != null && sp.mes !== "" ? Number(sp.mes) : 0;
   const mes = Number.isFinite(mesRaw) && mesRaw >= 0 && mesRaw <= 12 ? mesRaw : 0;
   const vista: "comparativa" | "restaurant" =
-    nomesMirall || sp.vista === "restaurant" ? "restaurant" : "comparativa";
+    sp.vista === "restaurant" ? "restaurant" : "comparativa";
   const centreId =
     vista === "restaurant"
       ? sp.centre && centres.some((c) => c.id === sp.centre)

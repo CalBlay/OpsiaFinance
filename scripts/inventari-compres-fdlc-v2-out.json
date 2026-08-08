@@ -1,0 +1,189 @@
+{
+  "any": 2026,
+  "centresCcr08": [
+    {
+      "id": "cmr2jj4rk0028qssa7aey5xdr",
+      "codi": "CCR00008",
+      "nom": "RESTAURANT FONT  DE LA CANYA",
+      "liniaNegociId": "cmr2jj3d20015qssaay90zep0",
+      "isActive": true,
+      "createdAt": "2026-07-01T20:41:10.880Z",
+      "ordre": 8,
+      "updatedAt": "2026-07-01T20:41:10.880Z",
+      "liniaNegoci": {
+        "codi": "LN00001",
+        "nom": "RESTAURANTS"
+      }
+    },
+    {
+      "id": "cmr56vk2p006p4ksast6xvqp8",
+      "codi": "CCR00008",
+      "nom": "FDLC",
+      "liniaNegociId": "cmr2jj1vt0000qssazm95kk2o",
+      "isActive": true,
+      "createdAt": "2026-07-03T17:10:14.113Z",
+      "ordre": 19,
+      "updatedAt": "2026-07-03T17:10:14.113Z",
+      "liniaNegoci": {
+        "codi": "LN00000",
+        "nom": "CENTRAL"
+      }
+    }
+  ],
+  "tabla": [
+    {
+      "mes": 1,
+      "FDLC_7": -130.81,
+      "FDLC_8": -7405.14,
+      "LN00/CCR08_FDLC_7": 0,
+      "LN00/CCR08_FDLC_8": 0,
+      "LN01/CCR08_REST_7": -5700.15,
+      "LN01/CCR08_REST_8": -329.06
+    },
+    {
+      "mes": 2,
+      "FDLC_7": 0,
+      "FDLC_8": -5032.45,
+      "LN00/CCR08_FDLC_7": 0,
+      "LN00/CCR08_FDLC_8": 0,
+      "LN01/CCR08_REST_7": -5384.25,
+      "LN01/CCR08_REST_8": -6.99
+    },
+    {
+      "mes": 3,
+      "FDLC_7": 0,
+      "FDLC_8": -6505.2,
+      "LN00/CCR08_FDLC_7": 0,
+      "LN00/CCR08_FDLC_8": 0,
+      "LN01/CCR08_REST_7": -6345.9,
+      "LN01/CCR08_REST_8": -956.46
+    },
+    {
+      "mes": 4,
+      "FDLC_7": 0,
+      "FDLC_8": -8397.75,
+      "LN00/CCR08_FDLC_7": 0,
+      "LN00/CCR08_FDLC_8": 0,
+      "LN01/CCR08_REST_7": -6676.7,
+      "LN01/CCR08_REST_8": -7.98
+    },
+    {
+      "mes": 5,
+      "FDLC_7": 0,
+      "FDLC_8": -12111.06,
+      "LN00/CCR08_FDLC_7": 0,
+      "LN00/CCR08_FDLC_8": 0,
+      "LN01/CCR08_REST_7": -5987.26,
+      "LN01/CCR08_REST_8": -437.43
+    },
+    {
+      "mes": 6,
+      "FDLC_7": 0,
+      "FDLC_8": -6404.71,
+      "LN00/CCR08_FDLC_7": -5826.41,
+      "LN00/CCR08_FDLC_8": -799.65,
+      "LN01/CCR08_REST_7": 0,
+      "LN01/CCR08_REST_8": 0
+    },
+    {
+      "mes": 7,
+      "FDLC_7": 0,
+      "FDLC_8": -45.09,
+      "LN00/CCR08_FDLC_7": 0,
+      "LN00/CCR08_FDLC_8": 0,
+      "LN01/CCR08_REST_7": 0,
+      "LN01/CCR08_REST_8": 0
+    }
+  ],
+  "exactes": [],
+  "proxims": [
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7",
+      "mes": 3,
+      "L": -6505.2,
+      "R": -6345.9,
+      "diff": 159.3,
+      "ratio": 0.98
+    },
+    {
+      "pair": "FDLC_8 ↔ LN00/CCR08_7+8",
+      "mes": 6,
+      "L": -6404.71,
+      "R": -6626.06,
+      "diff": 221.35,
+      "ratio": 0.97
+    },
+    {
+      "pair": "FDLC_7+8 ↔ LN00/CCR08_7+8",
+      "mes": 6,
+      "L": -6404.71,
+      "R": -6626.06,
+      "diff": 221.35,
+      "ratio": 0.97
+    },
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7",
+      "mes": 2,
+      "L": -5032.45,
+      "R": -5384.25,
+      "diff": 351.8,
+      "ratio": 0.93
+    },
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7+8",
+      "mes": 2,
+      "L": -5032.45,
+      "R": -5391.24,
+      "diff": 358.79,
+      "ratio": 0.93
+    },
+    {
+      "pair": "FDLC_8 ↔ LN00/CCR08_7",
+      "mes": 6,
+      "L": -6404.71,
+      "R": -5826.41,
+      "diff": 578.3,
+      "ratio": 0.91
+    },
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7+8",
+      "mes": 3,
+      "L": -6505.2,
+      "R": -7302.36,
+      "diff": 797.16,
+      "ratio": 0.89
+    },
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7+8",
+      "mes": 1,
+      "L": -7405.14,
+      "R": -6029.21,
+      "diff": 1375.93,
+      "ratio": 0.81
+    },
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7",
+      "mes": 4,
+      "L": -8397.75,
+      "R": -6676.7,
+      "diff": 1721.05,
+      "ratio": 0.8
+    },
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7+8",
+      "mes": 4,
+      "L": -8397.75,
+      "R": -6684.68,
+      "diff": 1713.07,
+      "ratio": 0.8
+    },
+    {
+      "pair": "FDLC_8 ↔ LN01/Rest_7",
+      "mes": 1,
+      "L": -7405.14,
+      "R": -5700.15,
+      "diff": 1704.99,
+      "ratio": 0.77
+    }
+  ]
+}

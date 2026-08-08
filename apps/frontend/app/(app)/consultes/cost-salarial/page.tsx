@@ -9,6 +9,7 @@ import {
   getCentresRestaurants,
   getComparativaRestaurants,
   getInformeRestaurant,
+  pctPartidaSobreTotal,
 } from "@/lib/cost-salarial/consultes";
 import {
   costComparativaToExportInforme,
@@ -83,18 +84,9 @@ export default async function ConsultaCostSalarialPage({
       : (anysCost[0] ?? anyCalendari);
   const anys = anysCost.length ? anysCost : [anyActual];
   const mes = sp.mes ? Number(sp.mes) : null;
-  const centreId =
-    sp.centre && centres.some((c) => c.id === sp.centre)
-      ? sp.centre
-      : nomesMirall
-        ? (centres[0]?.id ?? null)
-        : (sp.centre ?? null);
-
   const vista = parseVistaCompte(sp);
-  let ambit = parseAmbit(sp);
-  if (nomesMirall) {
-    ambit = centreId ? (ambit === "sala-cuina" ? "sala-cuina" : "restaurant") : "comparativa";
-  }
+  const ambit = parseAmbit(sp);
+  const centreId = sp.centre && centres.some((c) => c.id === sp.centre) ? sp.centre : null;
 
   const periode = periodeLabel(anyActual, mes);
   const vistaLabel = vista === "gestio" ? "Gestió (traspassos)" : "Directe (Excel)";
@@ -127,7 +119,7 @@ export default async function ConsultaCostSalarialPage({
     <div className={styles.page}>
       <ConsultaHeader
         title="Cost salarial · restaurants"
-        subtitle={`${vistaLabel} · Fora centre: Excel o net +destí −origen. Clica la partida per al detall.`}
+        subtitle={`${vistaLabel} · Fora centre: Excel o net +destí −origen. A gestió, indemnitzacions només informatives (no entren al total ni al % / vendes).`}
         actions={
           <>
             <CostSalarialSelectors
@@ -157,6 +149,7 @@ export default async function ConsultaCostSalarialPage({
           <>
             <CostSalarialPresentacio
               mode="comparativa"
+              compte={vista}
               periode={periode}
               totals={{
                 costTotal: comparativa.totals.costTotal,
@@ -170,9 +163,7 @@ export default async function ConsultaCostSalarialPage({
                     key: p.key,
                     label: p.label,
                     import_,
-                    pct: comparativa.totals.costTotal
-                      ? (import_ / comparativa.totals.costTotal) * 100
-                      : null,
+                    pct: pctPartidaSobreTotal(p.key, import_, comparativa.totals.costTotal, vista),
                   };
                 }),
                 partidesSala: PARTIDES_SALARIALS.map((p) => {
@@ -181,7 +172,7 @@ export default async function ConsultaCostSalarialPage({
                     key: p.key,
                     label: p.label,
                     import_,
-                    pct: comparativa.totals.sala ? (import_ / comparativa.totals.sala) * 100 : null,
+                    pct: pctPartidaSobreTotal(p.key, import_, comparativa.totals.sala, vista),
                   };
                 }),
                 partidesCuina: PARTIDES_SALARIALS.map((p) => {
@@ -190,9 +181,7 @@ export default async function ConsultaCostSalarialPage({
                     key: p.key,
                     label: p.label,
                     import_,
-                    pct: comparativa.totals.cuina
-                      ? (import_ / comparativa.totals.cuina) * 100
-                      : null,
+                    pct: pctPartidaSobreTotal(p.key, import_, comparativa.totals.cuina, vista),
                   };
                 }),
               }}

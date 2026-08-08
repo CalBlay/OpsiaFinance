@@ -2,10 +2,13 @@
  * @deprecated Importeu des de `@/lib/consolidacio/*`. Es manté per compatibilitat.
  */
 export {
+  NODE_VENDES,
   NODE_CONSUMS_INTERNS,
   NODE_MOVIMENTS_INTERNS,
   NODE_ALTRES_INGRESSOS,
   NODE_COMPRES_DETALL,
+  NODE_ALTRES_APROVISIONAMENTS,
+  NODE_ARRENDAMENTS_CANONS,
 } from "@/lib/consolidacio/normes-seed";
 
 export { aplicarNormesConsolidacio } from "@/lib/consolidacio/motor";
@@ -27,6 +30,9 @@ const NORMES_CALBLAY_INTRA_FALLBACK: NormaConsolidacioMin[] = NORMES_CONSOLIDACI
   nodeOrigen: n.nodeOrigen ?? null,
   grupEmpresaDesti: n.grupEmpresaDesti ?? null,
   nodeDesti: n.nodeDesti ?? null,
+  nodesOrigen: n.nodesOrigen ?? [],
+  nodesDesti: n.nodesDesti ?? [],
+  fontImport: n.fontImport ?? "MIN_COINCIDENT",
 }));
 
 /** Fallback síncron si encara no hi ha normes a BD (tests / primera arrencada). */

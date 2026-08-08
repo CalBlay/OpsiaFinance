@@ -6,6 +6,7 @@ import {
   PARTIDES_SALARIALS,
   type PartidaImport,
   type PartidaKey,
+  pctPartidaSobreTotal,
 } from "@/lib/cost-salarial/partides";
 import { db } from "@/lib/db";
 import { NODE_VENDES } from "@/lib/kpi-definitions";
@@ -13,6 +14,8 @@ import { NODE_VENDES } from "@/lib/kpi-definitions";
 export type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
 export {
   PARTIDES_SALARIALS,
+  partidaComptaAlTotal,
+  pctPartidaSobreTotal,
   type PartidaImport,
   type PartidaKey,
 } from "@/lib/cost-salarial/partides";
@@ -111,16 +114,25 @@ function sumaPartides(acc: Record<PartidaKey, number>, row: RowDB): Record<Parti
   return acc;
 }
 
-function totalDePartides(p: Record<PartidaKey, number>): number {
-  return costTotalLinia(p);
+function totalDePartides(
+  p: Record<PartidaKey, number>,
+  compte: CompteCostSalarial = "directe"
+): number {
+  const brut = costTotalLinia(p);
+  if (compte === "gestio") return brut - p.indemnitzacions;
+  return brut;
 }
 
-function aPartidesLlista(p: Record<PartidaKey, number>, total: number): PartidaImport[] {
+function aPartidesLlista(
+  p: Record<PartidaKey, number>,
+  total: number,
+  compte: CompteCostSalarial = "directe"
+): PartidaImport[] {
   return PARTIDES_SALARIALS.map((def) => ({
     key: def.key,
     label: def.label,
     import_: p[def.key],
-    pct: total ? (p[def.key] / total) * 100 : null,
+    pct: pctPartidaSobreTotal(def.key, p[def.key], total, compte),
   }));
 }
 
@@ -282,8 +294,8 @@ export async function getInformeRestaurant(
   salaP.foraCentre = fc.SALA;
   cuinaP.foraCentre = fc.CUINA;
 
-  const salaTotal = totalDePartides(salaP);
-  const cuinaTotal = totalDePartides(cuinaP);
+  const salaTotal = totalDePartides(salaP, compte);
+  const cuinaTotal = totalDePartides(cuinaP, compte);
   const costTotal = salaTotal + cuinaTotal;
   const totals = emptyPartides();
   for (const k of Object.keys(totals) as PartidaKey[]) {
@@ -299,18 +311,18 @@ export async function getInformeRestaurant(
     sala: {
       departament: "SALA",
       label: "Sala",
-      partides: aPartidesLlista(salaP, salaTotal),
+      partides: aPartidesLlista(salaP, salaTotal, compte),
       total: salaTotal,
       pctSobreTotal: pct(salaTotal, costTotal),
     },
     cuina: {
       departament: "CUINA",
       label: "Cuina",
-      partides: aPartidesLlista(cuinaP, cuinaTotal),
+      partides: aPartidesLlista(cuinaP, cuinaTotal, compte),
       total: cuinaTotal,
       pctSobreTotal: pct(cuinaTotal, costTotal),
     },
-    partidesTotals: aPartidesLlista(totals, costTotal),
+    partidesTotals: aPartidesLlista(totals, costTotal, compte),
     costTotal,
     vendes,
     pctSobreVendes: pct(costTotal, Math.abs(vendes)),
@@ -389,8 +401,8 @@ export async function getComparativaRestaurants(
       entry.sala.foraCentre = fc.SALA;
       entry.cuina.foraCentre = fc.CUINA;
     }
-    const sala = totalDePartides(entry.sala);
-    const cuina = totalDePartides(entry.cuina);
+    const sala = totalDePartides(entry.sala, compte);
+    const cuina = totalDePartides(entry.cuina, compte);
     const costTotal = sala + cuina;
     const partides = emptyPartides();
     for (const k of Object.keys(partides) as PartidaKey[]) {

@@ -1,4 +1,15 @@
-import type { GrupConsolidacio, TipusNormaConsolidacio } from "@prisma/client";
+import type {
+  FontImportConsolidacio,
+  GrupConsolidacio,
+  TipusNormaConsolidacio,
+} from "@prisma/client";
+
+export type NormaConsolidacioImportSeed = {
+  any: number;
+  mes: number;
+  import: number;
+  nota?: string;
+};
 
 export type NormaConsolidacioSeed = {
   codi: string;
@@ -14,13 +25,32 @@ export type NormaConsolidacioSeed = {
   nodeOrigen?: number;
   grupEmpresaDesti?: string;
   nodeDesti?: number;
+  nodesOrigen?: number[];
+  nodesDesti?: number[];
+  fontImport?: FontImportConsolidacio;
+  notaOrigen?: string;
+  notaDesti?: string;
+  imports?: NormaConsolidacioImportSeed[];
 };
 
 /** Nodes SAP rellevants per a les regles de consolidació. */
+export const NODE_VENDES = 2;
 export const NODE_CONSUMS_INTERNS = 9;
 export const NODE_MOVIMENTS_INTERNS = 29;
 export const NODE_ALTRES_INGRESSOS = 4;
 export const NODE_COMPRES_DETALL = 7;
+export const NODE_ALTRES_APROVISIONAMENTS = 8;
+export const NODE_ARRENDAMENTS_CANONS = 18;
+
+/** Factures Central → Masia la Blayeta (FDLC), client C019081 · projectes ENTREGUES. */
+export const FACTURES_BLAYETA_2026: NormaConsolidacioImportSeed[] = [
+  { any: 2026, mes: 1, import: 6209.31, nota: "ENTREGUES GENER LA BLAYETA · C019081" },
+  { any: 2026, mes: 2, import: 4892.71, nota: "ENTREGUES FEBRER LA BLAYETA · C019081" },
+  { any: 2026, mes: 3, import: 6570.91, nota: "ENTREGUES MARÇ LA BLAYETA · C019081" },
+  { any: 2026, mes: 4, import: 7950.45, nota: "ENTREGUES ABRIL LA BLAYETA · C019081" },
+  { any: 2026, mes: 5, import: 10414.38, nota: "ENTREGUES MAIG LA BLAYETA · C019081" },
+  { any: 2026, mes: 6, import: 6117.73, nota: "ENTREGUES JUNY LA BLAYETA · C019081" },
+];
 
 export const NORMES_CONSOLIDACIO_SEED: NormaConsolidacioSeed[] = [
   {
@@ -48,31 +78,38 @@ export const NORMES_CONSOLIDACIO_SEED: NormaConsolidacioSeed[] = [
     nodesAjust: [30, 31, 32, 40, 42],
   },
   {
-    codi: "GRUP_COMPRES_FDLC_CONSUMS",
-    nom: "Compres Cal Blay ↔ consums FDLC",
-    descripcio:
-      "Pendent: eliminar parell compra Cal Blay (node 7 / LN00000) i consum intern FDLC (node 9). Activar quan la consulta Consolidat estigui operativa.",
-    grup: "GRUP_EMPRESARIAL",
-    tipus: "ELIMINAR_PARELL_INTER",
-    ordre: 110,
-    actiu: false,
-    grupEmpresaOrigen: "calblay",
-    nodeOrigen: NODE_COMPRES_DETALL,
-    grupEmpresaDesti: "fdlc",
-    nodeDesti: NODE_CONSUMS_INTERNS,
-  },
-  {
     codi: "GRUP_LLOGUER_CANON",
     nom: "Lloguer / cànon espais (Cal Blay → FDLC)",
     descripcio:
-      "Pendent: eliminar parell despesa Cal Blay i ingress FDLC (node 4 Altres ingressos). Confirmar node contrapartida Cal Blay abans d'activar.",
+      "Cal Blay paga lloguer/cànon (node 18, p.ex. CCB00005) i FDLC el cobra com a altres ingressos (node 4). Al consolidat del grup s'elimina el parell coincident.",
     grup: "GRUP_EMPRESARIAL",
     tipus: "ELIMINAR_PARELL_INTER",
-    ordre: 120,
-    actiu: false,
-    grupEmpresaOrigen: "fdlc",
-    nodeOrigen: NODE_ALTRES_INGRESSOS,
-    grupEmpresaDesti: "calblay",
-    nodeDesti: 26,
+    ordre: 100,
+    actiu: true,
+    fontImport: "MIN_COINCIDENT",
+    grupEmpresaOrigen: "calblay",
+    nodeOrigen: NODE_ARRENDAMENTS_CANONS,
+    grupEmpresaDesti: "fdlc",
+    nodeDesti: NODE_ALTRES_INGRESSOS,
+  },
+  {
+    codi: "GRUP_FACTURA_FDLC_VENDES",
+    nom: "Factura subministrament FDLC (Central → Blayeta)",
+    descripcio:
+      "Cal Blay factura a Masia la Blayeta (FDLC) el subministrament del restaurant. L'ingrés queda dins CCC00002 · Vendes (LN00000) sense cel·la pròpia; la despesa a FDLC als nodes 7+8. Al consolidat s'elimina l'import de la factura (taula mensual). El cost de compra externa a Cal Blay (CCR00008) no s'elimina.",
+    grup: "GRUP_EMPRESARIAL",
+    tipus: "ELIMINAR_PARELL_INTER",
+    ordre: 105,
+    actiu: true,
+    fontImport: "IMPORT_FIX_MENSUAL",
+    grupEmpresaOrigen: "calblay",
+    nodeOrigen: NODE_VENDES,
+    nodesOrigen: [NODE_VENDES],
+    grupEmpresaDesti: "fdlc",
+    nodeDesti: NODE_COMPRES_DETALL,
+    nodesDesti: [NODE_COMPRES_DETALL, NODE_ALTRES_APROVISIONAMENTS],
+    notaOrigen: "LN00000 · CCC00002 CENTRAL · ENTREGUES Masia la Blayeta (C019081)",
+    notaDesti: "FDLC · nodes 7 Compres + 8 Altres aprovisionaments",
+    imports: FACTURES_BLAYETA_2026,
   },
 ];

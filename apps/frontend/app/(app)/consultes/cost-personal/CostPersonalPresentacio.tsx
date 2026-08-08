@@ -81,8 +81,10 @@ export function CostPersonalPresentacio({
       <section className={styles.hero}>
         <div className={styles.heroTop}>
           <div>
-            <p className={styles.eyebrow}>{periode}</p>
-            <h2 className={styles.heroTitle}>{titol}</h2>
+            <div className={styles.heroTitleRow}>
+              <h2 className={styles.heroTitle}>{titol}</h2>
+              <p className={styles.heroPeriode}>{periode}</p>
+            </div>
             <p className={styles.heroMeta}>
               <span className={styles.badge}>{vistaLabel}</span>
               <span className={styles.metaSep}>·</span>

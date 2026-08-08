@@ -6,8 +6,7 @@ import {
   getCompteExplotacioCentreParell,
 } from "@/lib/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
-import { redirect } from "next/navigation";
+import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { CentreBoard } from "./CentreBoard";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +18,7 @@ export default async function ConsultaCentrePage({
   searchParams: Promise<{ centre?: string; any?: string; ln?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
-  const [session, arbre, anys, grup] = await Promise.all([
+  const [session, arbreRaw, anys, grup] = await Promise.all([
     auth(),
     getArbreSeleccio(),
     getAnysAmbDades(),
@@ -27,10 +26,8 @@ export default async function ConsultaCentrePage({
   ]);
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
-  if (!grupMostraConsultesLiniaCentre(grup)) {
-    redirect(`/consultes/empresa?any=${anyActual}`);
-  }
   const vista = sp.vista === "gestio" ? "gestio" : "directe";
+  const arbre = liniesPerConsultaDetall(arbreRaw, grup);
   let lnId = sp.ln ?? null;
   let centreId = sp.centre ?? null;
 
@@ -43,18 +40,13 @@ export default async function ConsultaCentrePage({
     }
   }
 
-  const arbreCalBlay = exclouFdlcDeConsultaLinia(arbre);
-
-  if (lnId) {
-    const lnSeleccionada = arbre.find((l) => l.id === lnId);
-    if (lnSeleccionada && !arbreCalBlay.some((l) => l.id === lnId)) {
-      lnId = null;
-      centreId = null;
-    }
+  if (lnId && !arbre.some((l) => l.id === lnId)) {
+    lnId = null;
+    centreId = null;
   }
 
   if (centreId && lnId) {
-    const ln = arbreCalBlay.find((l) => l.id === lnId);
+    const ln = arbre.find((l) => l.id === lnId);
     if (ln && !ln.centres.some((c) => c.id === centreId)) centreId = null;
   }
 
@@ -70,7 +62,7 @@ export default async function ConsultaCentrePage({
 
   return (
     <CentreBoard
-      arbre={arbreCalBlay}
+      arbre={arbre}
       anys={anys.length ? anys : [anyActual]}
       lnId={lnId}
       centreId={centreId}

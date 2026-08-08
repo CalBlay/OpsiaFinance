@@ -1,9 +1,12 @@
 export const NODE_LABELS_FALLBACK: Record<number, string> = {
+  2: "VENDES",
   4: "ALTRES INGRESSOS",
   7: "COMPRES",
+  8: "ALTRES APROVISIONAMENTS",
   9: "CONSUMS INTERNS",
   11: "TOTAL COMPRES",
   12: "MARGE BRUT",
+  18: "ARRENDAMENTS I CANONS",
   29: "MOVIMENTS INTERNS",
   30: "TOTAL DESPESES GESTIO",
   31: "MARGE OPERATIU",
@@ -25,6 +28,11 @@ export const GRUP_CONSOLIDACIO_LABELS: Record<string, string> = {
 export const TIPUS_NORMA_LABELS: Record<string, string> = {
   EXCLURE_NODE: "Excloure node",
   ELIMINAR_PARELL_INTER: "Eliminar parell inter-empresa",
+};
+
+export const FONT_IMPORT_LABELS: Record<string, string> = {
+  MIN_COINCIDENT: "Mínim coincident (cel·les)",
+  IMPORT_FIX_MENSUAL: "Import fix mensual (taula)",
 };
 
 export const GRUP_EMPRESA_NORMA_LABELS: Record<string, string> = {

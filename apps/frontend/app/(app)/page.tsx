@@ -22,14 +22,6 @@ import styles from "./page.module.css";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Inici — OpsiaFinance" };
 
-/** Línies d'ingrés detall (no subtotal) per al quesito FDLC. */
-const NODES_INGRES_DETALL_FDLC: { node: number; label: string }[] = [
-  { node: NODE_VENDES, label: "Vendes" },
-  { node: 3, label: "Prestació de serveis" },
-  { node: 4, label: "Altres ingressos" },
-  { node: 5, label: "Variació existències" },
-];
-
 export default async function HomePage() {
   const [session, grup] = await Promise.all([auth(), getGrupEmpresaActual()]);
   const darrer = await getDarrerPeriodAmbDades(grup);
@@ -42,7 +34,7 @@ export default async function HomePage() {
   let buit = true;
   let empresaHref = "/consultes/empresa";
   let pesIngressos: { name: string; value: number }[] = [];
-  let titolIngressos = "Pes d'ingressos per línia";
+  const titolIngressos = "Pes d'ingressos per línia";
   let costos: { name: string; value: number }[] = [];
 
   if (darrer) {
@@ -58,29 +50,19 @@ export default async function HomePage() {
     if (!comp.buit) {
       kpis = buildKpisEmpresa((node) => comp.concepts.find((c) => c.node === node)?.total ?? 0);
 
-      if (grup === "fdlc") {
-        titolIngressos = "Composició d'ingressos";
-        pesIngressos = NODES_INGRES_DETALL_FDLC.map(({ node, label }) => {
-          const row = comp.concepts.find((c) => c.node === node);
-          return { name: label, value: Math.max(0, row?.total ?? 0) };
-        })
-          .filter((s) => s.value > 0)
-          .sort((a, b) => b.value - a.value);
-      } else {
-        const ingressosRow = comp.concepts.find((c) => c.node === NODE_INGRESSOS);
-        const vendesRow = comp.concepts.find((c) => c.node === NODE_VENDES);
-        const filaPes =
-          (ingressosRow?.valors.some((v) => v > 0) ? ingressosRow : null) ??
-          (vendesRow?.valors.some((v) => v > 0) ? vendesRow : ingressosRow);
+      const ingressosRow = comp.concepts.find((c) => c.node === NODE_INGRESSOS);
+      const vendesRow = comp.concepts.find((c) => c.node === NODE_VENDES);
+      const filaPes =
+        (ingressosRow?.valors.some((v) => v > 0) ? ingressosRow : null) ??
+        (vendesRow?.valors.some((v) => v > 0) ? vendesRow : ingressosRow);
 
-        pesIngressos = comp.linies
-          .map((l, i) => ({
-            name: etiquetaGrafic(l),
-            value: Math.max(0, filaPes?.valors[i] ?? 0),
-          }))
-          .filter((s) => s.value > 0)
-          .sort((a, b) => b.value - a.value);
-      }
+      pesIngressos = comp.linies
+        .map((l, i) => ({
+          name: etiquetaGrafic(l),
+          value: Math.max(0, filaPes?.valors[i] ?? 0),
+        }))
+        .filter((s) => s.value > 0)
+        .sort((a, b) => b.value - a.value);
 
       const personal = Math.abs(
         comp.concepts.find((c) => c.node === NODE_COST_SALARIAL)?.total ?? 0

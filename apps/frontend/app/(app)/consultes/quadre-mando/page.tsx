@@ -34,20 +34,14 @@ export default async function QuadreMandoPage({
   const mes = Number.isFinite(mesRaw) && mesRaw >= 0 && mesRaw <= 12 ? mesRaw : 0;
 
   const data = await getQuadreMandoRestaurants(anyActual, mes, nomesMirall);
-  const title = nomesMirall
-    ? "Quadre de comandament · Font de la Canya"
-    : "Quadre de comandament · restaurants";
+  const title = "Quadre de comandament · restaurants";
   const informe = data.buit ? null : quadreToExportInforme(data, { title });
 
   return (
     <div className={styles.page}>
       <ConsultaHeader
         title={title}
-        subtitle={
-          nomesMirall
-            ? "FDLC només opera el mirall CCR00008 (Font de la Canya): vendes TPV, personal i compte."
-            : "Visió multiubicació: vendes TPV, personal (Excel), cost de compres i EBITDA (compte) en una sola lectura. Objectiu cost operatiu ≤ 60%."
-        }
+        subtitle="Visió multiubicació: vendes TPV, personal (Excel), cost de compres i EBITDA (compte) en una sola lectura. Objectiu cost operatiu ≤ 60%."
         actions={
           <>
             <QuadreSelectors anys={anys} any={anyActual} mes={mes} />

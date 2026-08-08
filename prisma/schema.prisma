@@ -576,24 +576,50 @@ model VendaArticleRestaurant {
 }
 
 model NormaConsolidacio {
-  id                String                 @id @default(cuid())
-  codi              String?                @unique
+  id                String                  @id @default(cuid())
+  codi              String?                 @unique
   nom               String
   descripcio        String?
   grup              GrupConsolidacio
   tipus             TipusNormaConsolidacio
-  ordre             Int                    @default(0)
-  actiu             Boolean                @default(true)
+  ordre             Int                     @default(0)
+  actiu             Boolean                 @default(true)
   nodeExcloure      Int?
-  nodesAjust        Int[]                  @default([])
+  nodesAjust        Int[]                   @default([])
   grupEmpresaOrigen String?
   nodeOrigen        Int?
   grupEmpresaDesti  String?
   nodeDesti         Int?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
+  /// Nodes de la cara origen (si buit, s'usa nodeOrigen). Permet suma 7+8, etc.
+  nodesOrigen       Int[]                   @default([])
+  /// Nodes de la cara destí (si buit, s'usa nodeDesti).
+  nodesDesti        Int[]                   @default([])
+  /// MIN_COINCIDENT = min(|A|,|B|) de cel·les; IMPORT_FIX_MENSUAL = taula d'imports.
+  fontImport        FontImportConsolidacio  @default(MIN_COINCIDENT)
+  /// Context consultable (p.ex. "LN00000 · CCC00002 · ENTREGUES Blayeta").
+  notaOrigen        String?
+  notaDesti         String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  imports           NormaConsolidacioImport[]
 
   @@index([grup])
+}
+
+/// Imports mensuals d'una norma (factures IC, imports fixos). Consultables i editables.
+model NormaConsolidacioImport {
+  id        String            @id @default(cuid())
+  normaId   String
+  any       Int
+  mes       Int
+  import_   Decimal           @map("import") @db.Decimal(18, 2)
+  nota      String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+  norma     NormaConsolidacio @relation(fields: [normaId], references: [id], onDelete: Cascade)
+
+  @@unique([normaId, any, mes])
+  @@index([normaId, any])
 }
 
 enum UserRole {
@@ -682,4 +708,9 @@ enum GrupConsolidacio {
 enum TipusNormaConsolidacio {
   EXCLURE_NODE
   ELIMINAR_PARELL_INTER
+}
+
+enum FontImportConsolidacio {
+  MIN_COINCIDENT
+  IMPORT_FIX_MENSUAL
 }

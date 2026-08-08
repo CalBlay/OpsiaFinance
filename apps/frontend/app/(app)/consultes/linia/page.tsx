@@ -16,22 +16,16 @@ import {
   getArbreSeleccio,
   getEvolucioMensual,
   parseRangMesosFromSearchParams,
-  rangToQuery,
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import {
-  esLiniaFdlc,
-  exclouFdlcDeConsultaLinia,
-  grupMostraConsultesLiniaCentre,
-} from "@/lib/grups-empresa";
+import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { NODE_EBITDA, NODE_INGRESSOS, buildKpisInforme } from "@/lib/kpi-definitions";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import type { RangMesos } from "@/lib/periodes";
 import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
-import { redirect } from "next/navigation";
 import { ajustarImportConsultaAction } from "../actions";
 import { LiniaCentresLazy } from "./LiniaCentresLazy";
 import { LiniaSelectors } from "./LiniaSelectors";
@@ -73,24 +67,14 @@ export default async function ConsultaLiniaPage({
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
   const rang = parseRangMesosFromSearchParams(sp);
 
-  if (!grupMostraConsultesLiniaCentre(grup)) {
-    redirect(`/consultes/empresa?any=${anyActual}${rangToQuery(rang)}`);
-  }
-
   const lnId = sp.ln ?? null;
   const vista: VistaCompte = sp.vista === "gestio" ? "gestio" : "directe";
   const canEdit = session?.user?.role === "ADMIN" && vista === "directe";
 
-  const linies = exclouFdlcDeConsultaLinia(
-    arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom }))
+  const linies = liniesPerConsultaDetall(
+    arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
+    grup
   );
-
-  if (lnId) {
-    const lnSeleccionada = arbre.find((l) => l.id === lnId);
-    if (lnSeleccionada && esLiniaFdlc(lnSeleccionada.codi)) {
-      redirect(`/consultes/empresa?any=${anyActual}${rangToQuery(rang)}`);
-    }
-  }
 
   // Només evolució (+ gestió): el desglossament per centres es carrega sota demanda.
   const [evRaw, infoGestio] = lnId

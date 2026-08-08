@@ -61,12 +61,26 @@ export function grupAplicaConsolidacioIntra(grup: GrupEmpresa): boolean {
   return grup === "calblay" || grup === "consolidat";
 }
 
-/** Pestanyes Resultats «Per línia» / «Per centre» no apliquen a FDLC (una sola LN sense centres). */
-export function grupMostraConsultesLiniaCentre(grup: GrupEmpresa): boolean {
-  return grup !== "fdlc";
+/** Eliminacions inter-empresa Cal Blay ↔ FDLC. */
+export function grupAplicaConsolidacioInter(grup: GrupEmpresa): boolean {
+  return grup === "consolidat";
 }
 
-/** A Restaurants, FDLC només veu el centre mirall CCR00008. */
+/** Pestanyes Resultats «Per línia» / «Per centre»: mateixa UI per a tots els grups. */
+export function grupMostraConsultesLiniaCentre(_grup: GrupEmpresa): boolean {
+  return true;
+}
+
+/**
+ * LN al selector de consultes detall (línia / centre / evolució LN).
+ * Cal Blay i Consolidat: sense FDLC. FDLC: només la LN FDLC.
+ */
+export function liniesPerConsultaDetall<T extends LnMin>(linies: T[], grup: GrupEmpresa): T[] {
+  if (grup === "fdlc") return linies.filter((l) => esLiniaFdlc(l.codi));
+  return exclouFdlcDeConsultaLinia(linies);
+}
+
+/** A Restaurants, FDLC només veu el centre mirall CCR00008 (filtre de dades). */
 export function grupFiltraRestaurantsNomesMirall(grup: GrupEmpresa): boolean {
   return grup === "fdlc";
 }

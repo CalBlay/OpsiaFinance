@@ -1,9 +1,14 @@
 "use server";
 
 import { auth } from "@/lib/auth";
-import { type RangMesos, getComparativaEmpresa, getEvolucioMensual } from "@/lib/consultes";
+import {
+  type RangMesos,
+  aplicarConsolidacioInterEvolucioEmpresa,
+  getComparativaEmpresa,
+  getEvolucioMensual,
+} from "@/lib/consultes";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
-import { grupPermetVistaGestio } from "@/lib/grups-empresa";
+import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { aplicarVistaGestioEvolucioEmpresa } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { buildEmpresaVistaData } from "./empresa-view-model";
@@ -19,21 +24,27 @@ export async function carregarEmpresaGestioAction(input: {
 
   const session = await auth();
   const isAdmin = session?.user?.role === "ADMIN";
-  const esPresentacioCalblay = input.grup === "calblay";
 
   const [compGestio, evEmpresaRaw, infoGestio] = await Promise.all([
     getComparativaEmpresa(input.any, input.rang, "gestio", input.grup),
-    esPresentacioCalblay
-      ? getEvolucioMensual("empresa", null, input.any, input.grup)
-      : Promise.resolve(null),
+    getEvolucioMensual("empresa", null, input.any, input.grup),
     getInfoGestioConsulta(input.any, input.rang),
   ]);
 
   let evEmpresaGestio = evEmpresaRaw;
   if (evEmpresaRaw) {
+    let conceptsGestio = await aplicarVistaGestioEvolucioEmpresa(input.any, evEmpresaRaw.concepts);
+    if (grupAplicaConsolidacioInter(input.grup)) {
+      conceptsGestio = await aplicarConsolidacioInterEvolucioEmpresa(
+        input.any,
+        input.grup,
+        conceptsGestio,
+        { desMes: input.rang.des, finsMes: input.rang.fins }
+      );
+    }
     evEmpresaGestio = {
       ...evEmpresaRaw,
-      concepts: await aplicarVistaGestioEvolucioEmpresa(input.any, evEmpresaRaw.concepts),
+      concepts: conceptsGestio,
     };
   }
 

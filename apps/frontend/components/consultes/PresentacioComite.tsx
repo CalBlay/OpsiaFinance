@@ -124,7 +124,6 @@ export function PresentacioComite({
   return (
     <div className={styles.wrap}>
       <header className={styles.hero}>
-        <p className={styles.eyebrow}>Presentació comitè</p>
         <h2 className={styles.heroTitle}>{titol}</h2>
         <p className={styles.heroPeriode}>{periode}</p>
       </header>

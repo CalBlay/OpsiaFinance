@@ -1,0 +1,322 @@
+{
+  "generat": "2026-08-08T09:48:26.740Z",
+  "filtre": {
+    "any": 2026
+  },
+  "perimeter": {
+    "fdlcLn": {
+      "id": "cmrevpr2f0000cwsas1hd5lz7",
+      "codi": "LN00007",
+      "nom": "EMPRESA FDLC",
+      "ordre": 0,
+      "isActive": true,
+      "createdAt": "2026-07-10T11:55:29.224Z",
+      "updatedAt": "2026-07-10T11:55:29.224Z",
+      "centres": [
+        {
+          "codi": "CCH00001",
+          "nom": "FDLC HOTEL"
+        }
+      ]
+    },
+    "mirall": {
+      "id": "cmr2jj4rk0028qssa7aey5xdr",
+      "codi": "CCR00008",
+      "nom": "RESTAURANT FONT  DE LA CANYA",
+      "liniaNegociId": "cmr2jj3d20015qssaay90zep0",
+      "isActive": true,
+      "createdAt": "2026-07-01T20:41:10.880Z",
+      "ordre": 8,
+      "updatedAt": "2026-07-01T20:41:10.880Z",
+      "liniaNegoci": {
+        "codi": "LN00001",
+        "nom": "RESTAURANTS"
+      }
+    },
+    "nodesCandidats": [
+      {
+        "node": 3,
+        "descripcio": "PRESTACIO DE SEVEIS"
+      },
+      {
+        "node": 4,
+        "descripcio": "ALTRES INGRESSOS"
+      },
+      {
+        "node": 7,
+        "descripcio": "COMPRES"
+      },
+      {
+        "node": 8,
+        "descripcio": "ALTRES APROVISIONAMENTS"
+      },
+      {
+        "node": 9,
+        "descripcio": "CONSUMS INTERNS"
+      },
+      {
+        "node": 18,
+        "descripcio": "ARRENDAMENTS I CANONS"
+      },
+      {
+        "node": 20,
+        "descripcio": "SERVEIS PROFESSIONALS"
+      },
+      {
+        "node": 25,
+        "descripcio": "SUBMINISTRAMENTS"
+      },
+      {
+        "node": 26,
+        "descripcio": "ALTRES DESPESES"
+      },
+      {
+        "node": 29,
+        "descripcio": "MOVIMENTS INTERNS"
+      }
+    ]
+  },
+  "resumOrigenNode": [
+    {
+      "origen": "calblay",
+      "node": 4,
+      "descripcio": "ALTRES INGRESSOS",
+      "import": 58062.96
+    },
+    {
+      "origen": "calblay",
+      "node": 7,
+      "descripcio": "COMPRES",
+      "import": -3878729.55
+    },
+    {
+      "origen": "calblay",
+      "node": 8,
+      "descripcio": "ALTRES APROVISIONAMENTS",
+      "import": -646200.68
+    },
+    {
+      "origen": "calblay",
+      "node": 18,
+      "descripcio": "ARRENDAMENTS I CANONS",
+      "import": -841036.41
+    },
+    {
+      "origen": "calblay",
+      "node": 20,
+      "descripcio": "SERVEIS PROFESSIONALS",
+      "import": -418160.27
+    },
+    {
+      "origen": "calblay",
+      "node": 25,
+      "descripcio": "SUBMINISTRAMENTS",
+      "import": -209410.61
+    },
+    {
+      "origen": "calblay",
+      "node": 26,
+      "descripcio": "ALTRES DESPESES",
+      "import": -585011.43
+    },
+    {
+      "origen": "fdlc",
+      "node": 3,
+      "descripcio": "PRESTACIO DE SEVEIS",
+      "import": 63929.49
+    },
+    {
+      "origen": "fdlc",
+      "node": 4,
+      "descripcio": "ALTRES INGRESSOS",
+      "import": 93350.52
+    },
+    {
+      "origen": "fdlc",
+      "node": 7,
+      "descripcio": "COMPRES",
+      "import": -130.81
+    },
+    {
+      "origen": "fdlc",
+      "node": 8,
+      "descripcio": "ALTRES APROVISIONAMENTS",
+      "import": -45901.4
+    },
+    {
+      "origen": "fdlc",
+      "node": 20,
+      "descripcio": "SERVEIS PROFESSIONALS",
+      "import": -16136.04
+    },
+    {
+      "origen": "fdlc",
+      "node": 25,
+      "descripcio": "SUBMINISTRAMENTS",
+      "import": -17149.58
+    },
+    {
+      "origen": "fdlc",
+      "node": 26,
+      "descripcio": "ALTRES DESPESES",
+      "import": -11183.71
+    },
+    {
+      "origen": "mirall",
+      "node": 7,
+      "descripcio": "COMPRES",
+      "import": -35920.67
+    },
+    {
+      "origen": "mirall",
+      "node": 8,
+      "descripcio": "ALTRES APROVISIONAMENTS",
+      "import": -2537.57
+    }
+  ],
+  "parells": [
+    {
+      "periode": "2026-6",
+      "absImport": 11651.77,
+      "a": {
+        "origen": "calblay",
+        "node": 18,
+        "descripcio": "ARRENDAMENTS I CANONS",
+        "lnCodi": "LN00003",
+        "centreCodi": "CCB00005",
+        "import": -11651.77
+      },
+      "b": {
+        "origen": "fdlc",
+        "node": 4,
+        "descripcio": "ALTRES INGRESSOS",
+        "lnCodi": "LN00007",
+        "centreCodi": "(sense centre)",
+        "import": 11651.77
+      },
+      "signesOposats": true
+    },
+    {
+      "periode": "2026-5",
+      "absImport": 11651.77,
+      "a": {
+        "origen": "calblay",
+        "node": 18,
+        "descripcio": "ARRENDAMENTS I CANONS",
+        "lnCodi": "LN00003",
+        "centreCodi": "CCB00005",
+        "import": -11651.77
+      },
+      "b": {
+        "origen": "fdlc",
+        "node": 4,
+        "descripcio": "ALTRES INGRESSOS",
+        "lnCodi": "LN00007",
+        "centreCodi": "(sense centre)",
+        "import": 11651.77
+      },
+      "signesOposats": true
+    },
+    {
+      "periode": "2026-4",
+      "absImport": 11651.77,
+      "a": {
+        "origen": "calblay",
+        "node": 18,
+        "descripcio": "ARRENDAMENTS I CANONS",
+        "lnCodi": "LN00003",
+        "centreCodi": "CCB00005",
+        "import": -11651.77
+      },
+      "b": {
+        "origen": "fdlc",
+        "node": 4,
+        "descripcio": "ALTRES INGRESSOS",
+        "lnCodi": "LN00007",
+        "centreCodi": "(sense centre)",
+        "import": 11651.77
+      },
+      "signesOposats": true
+    },
+    {
+      "periode": "2026-3",
+      "absImport": 11651.77,
+      "a": {
+        "origen": "calblay",
+        "node": 18,
+        "descripcio": "ARRENDAMENTS I CANONS",
+        "lnCodi": "LN00003",
+        "centreCodi": "CCB00005",
+        "import": -11651.77
+      },
+      "b": {
+        "origen": "fdlc",
+        "node": 4,
+        "descripcio": "ALTRES INGRESSOS",
+        "lnCodi": "LN00007",
+        "centreCodi": "(sense centre)",
+        "import": 11651.77
+      },
+      "signesOposats": true
+    },
+    {
+      "periode": "2026-2",
+      "absImport": 11651.77,
+      "a": {
+        "origen": "calblay",
+        "node": 18,
+        "descripcio": "ARRENDAMENTS I CANONS",
+        "lnCodi": "LN00003",
+        "centreCodi": "CCB00005",
+        "import": -11651.77
+      },
+      "b": {
+        "origen": "fdlc",
+        "node": 4,
+        "descripcio": "ALTRES INGRESSOS",
+        "lnCodi": "LN00007",
+        "centreCodi": "(sense centre)",
+        "import": 11651.77
+      },
+      "signesOposats": true
+    },
+    {
+      "periode": "2026-1",
+      "absImport": 11651.77,
+      "a": {
+        "origen": "calblay",
+        "node": 18,
+        "descripcio": "ARRENDAMENTS I CANONS",
+        "lnCodi": "LN00003",
+        "centreCodi": "CCB00005",
+        "import": -11651.77
+      },
+      "b": {
+        "origen": "fdlc",
+        "node": 4,
+        "descripcio": "ALTRES INGRESSOS",
+        "lnCodi": "LN00007",
+        "centreCodi": "(sense centre)",
+        "import": 11651.77
+      },
+      "signesOposats": true
+    }
+  ],
+  "normesCandidatas": [
+    {
+      "tipus": "ELIMINAR_PARELL_INTER",
+      "calblayNode": 18,
+      "calblayDesc": "ARRENDAMENTS I CANONS",
+      "fdlcNode": 4,
+      "fdlcDesc": "ALTRES INGRESSOS",
+      "coincidencies": 6,
+      "nota": "Candidata empírica — validar abans d'activar"
+    }
+  ],
+  "nota": [
+    "LN00007 = empresa FDLC.",
+    "CCR00008 = centre restaurant Cal Blay (mirall serveis FDLC), no és el centre hotel FDLC.",
+    "Les normes del seed antic (node 26 lloguer) queden obsoletes: arrendaments i canons = node 18.",
+    "Validar cada candidat amb SAP / Excel abans d'activar a Settings."
+  ]
+}

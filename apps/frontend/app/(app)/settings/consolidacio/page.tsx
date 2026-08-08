@@ -15,7 +15,12 @@ export default async function ConsolidacioSettingsPage() {
   const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
 
   const [normesRaw, nodeLabels] = await Promise.all([
-    db.normaConsolidacio.findMany({ orderBy: [{ grup: "asc" }, { ordre: "asc" }] }),
+    db.normaConsolidacio.findMany({
+      orderBy: [{ grup: "asc" }, { ordre: "asc" }],
+      include: {
+        imports: { orderBy: [{ any: "desc" }, { mes: "asc" }] },
+      },
+    }),
     getNodeLabels(),
   ]);
 
@@ -34,6 +39,18 @@ export default async function ConsolidacioSettingsPage() {
     nodeOrigen: n.nodeOrigen,
     grupEmpresaDesti: n.grupEmpresaDesti,
     nodeDesti: n.nodeDesti,
+    nodesOrigen: n.nodesOrigen,
+    nodesDesti: n.nodesDesti,
+    fontImport: n.fontImport,
+    notaOrigen: n.notaOrigen,
+    notaDesti: n.notaDesti,
+    imports: n.imports.map((i) => ({
+      id: i.id,
+      any: i.any,
+      mes: i.mes,
+      import: Number(i.import_),
+      nota: i.nota,
+    })),
   }));
 
   return (
@@ -41,9 +58,10 @@ export default async function ConsolidacioSettingsPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>Normes de consolidació</h1>
         <p className={styles.subtitle}>
-          Regles d&apos;eliminació per al total consolidat. Cal Blay intra-empresa s&apos;aplica
-          avui a Consultes → Empresa. Les regles de grup empresarial (Cal Blay + FDLC) queden
-          preparades per a la futura pestanya Consolidat.
+          Regles d&apos;eliminació per al total consolidat. Intra Cal Blay: Empresa (Cal Blay) i
+          Consolidat. Inter-empresa (Cal Blay ↔ FDLC: lloguer, factures IC): només selector{" "}
+          <strong>Consolidat</strong> + vista <strong>Gestió</strong>, amb el mateix rang de mesos
+          de la consulta. Els imports fixos mensuals es consulten i editen a la taula de cada norma.
         </p>
       </header>
       <ConsolidacioPanel normes={normes} nodeLabels={nodeLabels} canEdit={canEdit} />

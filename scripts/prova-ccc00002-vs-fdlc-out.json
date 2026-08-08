@@ -1,0 +1,97 @@
+{
+  "any": 2026,
+  "tabla": [
+    {
+      "mes": 1,
+      "CCC00002_Vendes": 11074.55,
+      "CCR08_cost_7_8": -6029.21,
+      "FDLC_7_8": -7535.95,
+      "elim_min": 6029.21,
+      "vendes≥|CCR08|": true,
+      "vendes≥|FDLC|": true,
+      "vendes≥elim": true,
+      "sobra_vs_CCR08": 5045.34,
+      "sobra_vs_FDLC": 3538.6,
+      "sobra_vs_elim": 5045.34
+    },
+    {
+      "mes": 2,
+      "CCC00002_Vendes": 7581.5,
+      "CCR08_cost_7_8": -5391.24,
+      "FDLC_7_8": -5032.45,
+      "elim_min": 5032.45,
+      "vendes≥|CCR08|": true,
+      "vendes≥|FDLC|": true,
+      "vendes≥elim": true,
+      "sobra_vs_CCR08": 2190.26,
+      "sobra_vs_FDLC": 2549.05,
+      "sobra_vs_elim": 2549.05
+    },
+    {
+      "mes": 3,
+      "CCC00002_Vendes": 10013.07,
+      "CCR08_cost_7_8": -7302.36,
+      "FDLC_7_8": -6505.2,
+      "elim_min": 6505.2,
+      "vendes≥|CCR08|": true,
+      "vendes≥|FDLC|": true,
+      "vendes≥elim": true,
+      "sobra_vs_CCR08": 2710.71,
+      "sobra_vs_FDLC": 3507.87,
+      "sobra_vs_elim": 3507.87
+    },
+    {
+      "mes": 4,
+      "CCC00002_Vendes": 12193.54,
+      "CCR08_cost_7_8": -6684.68,
+      "FDLC_7_8": -8397.75,
+      "elim_min": 6684.68,
+      "vendes≥|CCR08|": true,
+      "vendes≥|FDLC|": true,
+      "vendes≥elim": true,
+      "sobra_vs_CCR08": 5508.86,
+      "sobra_vs_FDLC": 3795.79,
+      "sobra_vs_elim": 5508.86
+    },
+    {
+      "mes": 5,
+      "CCC00002_Vendes": 14374.24,
+      "CCR08_cost_7_8": -6424.69,
+      "FDLC_7_8": -12111.06,
+      "elim_min": 6424.69,
+      "vendes≥|CCR08|": true,
+      "vendes≥|FDLC|": true,
+      "vendes≥elim": true,
+      "sobra_vs_CCR08": 7949.55,
+      "sobra_vs_FDLC": 2263.18,
+      "sobra_vs_elim": 7949.55
+    },
+    {
+      "mes": 6,
+      "CCC00002_Vendes": 11390.92,
+      "CCR08_cost_7_8": -6626.06,
+      "FDLC_7_8": -6404.71,
+      "elim_min": 6404.71,
+      "vendes≥|CCR08|": true,
+      "vendes≥|FDLC|": true,
+      "vendes≥elim": true,
+      "sobra_vs_CCR08": 4764.86,
+      "sobra_vs_FDLC": 4986.21,
+      "sobra_vs_elim": 4986.21
+    },
+    {
+      "mes": 7,
+      "CCC00002_Vendes": 0,
+      "CCR08_cost_7_8": 0,
+      "FDLC_7_8": -45.09,
+      "elim_min": 0,
+      "vendes≥|CCR08|": true,
+      "vendes≥|FDLC|": false,
+      "vendes≥elim": true,
+      "sobra_vs_CCR08": 0,
+      "sobra_vs_FDLC": -45.09,
+      "sobra_vs_elim": 0
+    }
+  ],
+  "facturaMaig": 10414.38
+}

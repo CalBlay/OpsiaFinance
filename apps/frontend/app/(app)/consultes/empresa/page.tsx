@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import {
   type VistaCompte,
-  esAnyComplet,
+  aplicarConsolidacioInterEvolucioEmpresa,
   getAnysAmbDades,
   getComparativaEmpresa,
   getComparativaEmpresaParell,
@@ -9,7 +9,7 @@ import {
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import { grupPermetVistaGestio } from "@/lib/grups-empresa";
+import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { aplicarVistaGestioEvolucioEmpresa } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { EmpresaBoard } from "./EmpresaBoard";
@@ -40,32 +40,36 @@ export default async function ConsultaEmpresaPage({
   const rang = parseRangMesosFromSearchParams(sp);
   const potGestio = grupPermetVistaGestio(grup);
   const vista: VistaCompte = potGestio && sp.vista === "gestio" ? "gestio" : "directe";
-  const acumulatAnual = esAnyComplet(rang);
-  const esPresentacioCalblay = grup === "calblay";
   const isAdmin = session?.user?.role === "ADMIN";
   // Si l'usuari arriba en Directe, no bloquegem el paint amb la capa Gestió.
   const carregaGestioEager = potGestio && vista === "gestio";
 
-  const [parell, evFdlc, evEmpresaRaw, infoGestio] = await Promise.all([
+  const [parell, evEmpresaRaw, infoGestio] = await Promise.all([
     carregaGestioEager
       ? getComparativaEmpresaParell(anyActual, rang, grup)
       : getComparativaEmpresa(anyActual, rang, "directe", grup).then((directe) => ({
           directe,
           gestio: null,
         })),
-    grup === "fdlc" && acumulatAnual
-      ? getEvolucioMensual("empresa", null, anyActual, "fdlc")
-      : Promise.resolve(null),
-    esPresentacioCalblay ? getEvolucioMensual("empresa", null, anyActual) : Promise.resolve(null),
+    getEvolucioMensual("empresa", null, anyActual, grup),
     carregaGestioEager ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
   const evEmpresaDirecte = evEmpresaRaw;
   let evEmpresaGestio = evEmpresaRaw;
   if (evEmpresaRaw && carregaGestioEager) {
+    let conceptsGestio = await aplicarVistaGestioEvolucioEmpresa(anyActual, evEmpresaRaw.concepts);
+    if (grupAplicaConsolidacioInter(grup)) {
+      conceptsGestio = await aplicarConsolidacioInterEvolucioEmpresa(
+        anyActual,
+        grup,
+        conceptsGestio,
+        { desMes: rang.des, finsMes: rang.fins }
+      );
+    }
     evEmpresaGestio = {
       ...evEmpresaRaw,
-      concepts: await aplicarVistaGestioEvolucioEmpresa(anyActual, evEmpresaRaw.concepts),
+      concepts: conceptsGestio,
     };
   }
 
@@ -76,7 +80,7 @@ export default async function ConsultaEmpresaPage({
     rang,
     isAdmin,
     comp: parell.directe,
-    evFdlc,
+    evFdlc: null,
     evEmpresa: evEmpresaDirecte,
     infoGestio: null,
   });
@@ -90,7 +94,7 @@ export default async function ConsultaEmpresaPage({
           rang,
           isAdmin,
           comp: parell.gestio,
-          evFdlc,
+          evFdlc: null,
           evEmpresa: evEmpresaGestio,
           infoGestio,
         })

@@ -1,4 +1,5 @@
 import { esSubtotalPresentacio, recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
+import { construirParellsInterEmpresaLn } from "@/lib/consolidacio/parells";
 import { aplicarConsolidacio } from "@/lib/consolidacio/service";
 import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
 import { etiquetaCentre, etiquetaLiniaNegoci, ordenaPerCodi } from "@/lib/consultes-etiquetes";
@@ -18,6 +19,7 @@ import {
   type GrupEmpresa,
   etiquetaGrupEmpresa,
   filtraLiniesPerGrup,
+  grupAplicaConsolidacioInter,
   grupAplicaConsolidacioIntra,
   grupPermetVistaGestio,
 } from "@/lib/grups-empresa";
@@ -28,7 +30,13 @@ import {
   prismaWhereDadaPerLnInforme,
   prismaWhereDadaPerLnInformeIds,
 } from "@/lib/linia-informe";
-import { MESOS_CURTS, MESOS_LLARGS, type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
+import {
+  MESOS_CURTS,
+  MESOS_LLARGS,
+  type RangMesos,
+  esAnyComplet,
+  prismaPeriodFilter,
+} from "@/lib/periodes";
 import type { VistaCompte } from "@/lib/vista-compte";
 import type { Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
@@ -50,12 +58,21 @@ async function consolidarSiEmpresaAsync(
   scope: "empresa" | "linia" | "centre",
   concepts: ConceptePivot[],
   mode: "columnes-ln" | "temporal",
-  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT,
+  parellsInterEmpresa?: Map<string, ConceptePivot[]>,
+  periode?: { any: number; desMes: number; finsMes: number },
+  /** Normes GRUP_EMPRESARIAL (lloguer, factures IC). Només Consolidat · Gestió. */
+  inclouInterEmpresa = false
 ): Promise<ConceptePivot[]> {
   if (scope !== "empresa") return concepts;
-  const { grupAplicaConsolidacioIntra } = await import("@/lib/grups-empresa");
-  if (!grupAplicaConsolidacioIntra(grup)) return concepts;
-  return aplicarConsolidacio(concepts, "CALBLAY_INTRA", mode);
+  let rows = concepts;
+  if (grupAplicaConsolidacioIntra(grup)) {
+    rows = await aplicarConsolidacio(rows, "CALBLAY_INTRA", mode, undefined, periode);
+  }
+  if (inclouInterEmpresa && grupAplicaConsolidacioInter(grup) && parellsInterEmpresa) {
+    rows = await aplicarConsolidacio(rows, "GRUP_EMPRESARIAL", mode, parellsInterEmpresa, periode);
+  }
+  return rows;
 }
 
 const DADA_INFORME_SELECT = {
@@ -127,37 +144,45 @@ export const getDarrerPeriodAmbDades = cache(
   ): Promise<{
     any: number;
     mes: number;
-  } | null> => {
-    const filtreDades: Prisma.DadaResultatWhereInput =
-      grup === "fdlc"
-        ? {
-            OR: [
-              { liniaNegoci: { codi: FDLC_LN_CODI } },
-              { importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } } },
-            ],
-          }
-        : grup === "calblay"
-          ? {
-              AND: [
-                {
-                  OR: [{ liniaNegociId: null }, { liniaNegoci: { codi: { not: FDLC_LN_CODI } } }],
-                },
-                {
-                  NOT: {
-                    importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } },
-                  },
-                },
-              ],
-            }
-          : {};
+  } | null> =>
+    unstable_cache(
+      async () => {
+        const filtreDades: Prisma.DadaResultatWhereInput =
+          grup === "fdlc"
+            ? {
+                OR: [
+                  { liniaNegoci: { codi: FDLC_LN_CODI } },
+                  { importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } } },
+                ],
+              }
+            : grup === "calblay"
+              ? {
+                  AND: [
+                    {
+                      OR: [
+                        { liniaNegociId: null },
+                        { liniaNegoci: { codi: { not: FDLC_LN_CODI } } },
+                      ],
+                    },
+                    {
+                      NOT: {
+                        importacio: { formatInforme: { tipusInforme: "PYG_FDLC" } },
+                      },
+                    },
+                  ],
+                }
+              : {};
 
-    const dada = await db.dadaResultat.findFirst({
-      where: filtreDades,
-      select: { period: { select: { any: true, mes: true } } },
-      orderBy: [{ period: { any: "desc" } }, { period: { mes: "desc" } }],
-    });
-    return dada?.period ?? null;
-  }
+        const dada = await db.dadaResultat.findFirst({
+          where: filtreDades,
+          select: { period: { select: { any: true, mes: true } } },
+          orderBy: [{ period: { any: "desc" } }, { period: { mes: "desc" } }],
+        });
+        return dada?.period ?? null;
+      },
+      ["consultes-darrer-period", grup],
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+    )()
 );
 
 /** Línies de negoci amb els seus centres (per als selectors), ordre per codi. */
@@ -593,11 +618,43 @@ function cloneConceptePivot(rows: ConceptePivot[]): ConceptePivot[] {
 
 async function aplicarConsolidacioTotalsLn(
   conceptRows: ConceptePivot[],
-  grup: GrupEmpresa
+  grup: GrupEmpresa,
+  linies: { codi: string }[] = [],
+  periode?: { any: number; desMes: number; finsMes: number },
+  /** Normes GRUP_EMPRESARIAL. Només Consolidat · Gestió. */
+  inclouInterEmpresa = false
 ): Promise<ConceptePivot[]> {
-  if (!grupAplicaConsolidacioIntra(grup)) return conceptRows;
-  const consolidat = await aplicarConsolidacio(conceptRows, "CALBLAY_INTRA", "columnes-ln");
-  const totalPerNode = new Map(consolidat.map((r) => [r.node, r.total]));
+  if (
+    !grupAplicaConsolidacioIntra(grup) &&
+    !(inclouInterEmpresa && grupAplicaConsolidacioInter(grup))
+  ) {
+    return conceptRows;
+  }
+
+  let working = cloneConceptePivot(conceptRows);
+
+  if (grupAplicaConsolidacioIntra(grup)) {
+    working = await aplicarConsolidacio(
+      working,
+      "CALBLAY_INTRA",
+      "columnes-ln",
+      undefined,
+      periode
+    );
+  }
+
+  if (inclouInterEmpresa && grupAplicaConsolidacioInter(grup) && linies.length > 0) {
+    const parells = construirParellsInterEmpresaLn(working, linies);
+    working = await aplicarConsolidacio(
+      working,
+      "GRUP_EMPRESARIAL",
+      "columnes-ln",
+      parells,
+      periode
+    );
+  }
+
+  const totalPerNode = new Map(working.map((r) => [r.node, r.total]));
   return conceptRows.map((r) => ({
     ...r,
     total: totalPerNode.get(r.node) ?? r.valors.reduce((a, b) => a + b, 0),
@@ -608,7 +665,8 @@ async function aplicarConsolidacioTotalsLn(
  * Base SAP+ajustos (sense capa Gestió).
  * - Cache per petició (React cache): Directe i Gestió reutilitzen l'agregació.
  * - Cache cross-request (`unstable_cache`): canviar de pestanya no torna a escanejar la BD.
- * - Comparteix `carregarDadesEmpresaPerAny` amb Evolució → una sola lectura d'any a Empresa.
+ * - Any complet: comparteix `carregarDadesEmpresaPerAny` amb Evolució.
+ * - Rang parcial (p.ex. Inici = 1 mes): només carrega aquell període.
  */
 async function computeComparativaEmpresaBase(
   any: number,
@@ -617,13 +675,18 @@ async function computeComparativaEmpresaBase(
   grup: GrupEmpresa
 ): Promise<ComparativaEmpresa & { conceptDefs: ConcepteBase[] }> {
   const rang: RangMesos = { des, fins };
-  const { concepts, linies, lnIdsGrup, dades, ajustos } = await carregarDadesEmpresaPerAny(
-    any,
-    grup
-  );
+  const packed = esAnyComplet(rang)
+    ? await carregarDadesEmpresaPerAny(any, grup)
+    : await carregarDadesEmpresa(prismaPeriodFilter(any, rang), grup);
 
-  const dadesRang = dades.filter((d) => d.period.mes >= des && d.period.mes <= fins);
-  const ajustosRang = ajustos.filter((a) => a.period.mes >= des && a.period.mes <= fins);
+  const { concepts, linies, lnIdsGrup, dades, ajustos } = packed;
+
+  const dadesRang = esAnyComplet(rang)
+    ? dades
+    : dades.filter((d) => d.period.mes >= des && d.period.mes <= fins);
+  const ajustosRang = esAnyComplet(rang)
+    ? ajustos
+    : ajustos.filter((a) => a.period.mes >= des && a.period.mes <= fins);
 
   const lnIdx = new Map<string, number>();
   linies.forEach((l, i) => lnIdx.set(l.id, i));
@@ -676,7 +739,7 @@ const getComparativaEmpresaBase = cache(
   ): Promise<ComparativaEmpresa & { conceptDefs: ConcepteBase[] }> =>
     unstable_cache(
       () => computeComparativaEmpresaBase(any, des, fins, grup),
-      ["consultes-cmp-empresa-base", String(any), String(des), String(fins), grup],
+      ["consultes-cmp-empresa-base-v2", String(any), String(des), String(fins), grup],
       { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
     )()
 );
@@ -715,7 +778,17 @@ async function aplicarGestioComparativaEmpresa(
     conceptRows = aplicarReclassificacioMirallConsolidat(conceptRows, base.linies, mirall);
   }
 
-  conceptRows = await aplicarConsolidacioTotalsLn(conceptRows, grup);
+  conceptRows = await aplicarConsolidacioTotalsLn(
+    conceptRows,
+    grup,
+    base.linies,
+    {
+      any: base.any,
+      desMes: base.rang.des,
+      finsMes: base.rang.fins,
+    },
+    true /* inter-empresa: Consolidat · Gestió */
+  );
 
   return {
     any: base.any,
@@ -738,7 +811,13 @@ export async function getComparativaEmpresa(
     return aplicarGestioComparativaEmpresa(base, grup);
   }
 
-  const concepts = await aplicarConsolidacioTotalsLn(cloneConceptePivot(base.concepts), grup);
+  const concepts = await aplicarConsolidacioTotalsLn(
+    cloneConceptePivot(base.concepts),
+    grup,
+    base.linies,
+    { any: base.any, desMes: base.rang.des, finsMes: base.rang.fins },
+    false /* Directe: només intra */
+  );
   return {
     any: base.any,
     rang: base.rang,
@@ -759,8 +838,20 @@ export async function getComparativaEmpresaParell(
 ): Promise<{ directe: ComparativaEmpresa; gestio: ComparativaEmpresa | null }> {
   const base = await getComparativaEmpresaBase(any, rang.des, rang.fins, grup);
 
+  const periode = {
+    any: base.any,
+    desMes: base.rang.des,
+    finsMes: base.rang.fins,
+  };
+
   if (!grupPermetVistaGestio(grup)) {
-    const concepts = await aplicarConsolidacioTotalsLn(cloneConceptePivot(base.concepts), grup);
+    const concepts = await aplicarConsolidacioTotalsLn(
+      cloneConceptePivot(base.concepts),
+      grup,
+      base.linies,
+      periode,
+      false
+    );
     return {
       directe: {
         any: base.any,
@@ -774,7 +865,13 @@ export async function getComparativaEmpresaParell(
   }
 
   const [directeConcepts, gestio] = await Promise.all([
-    aplicarConsolidacioTotalsLn(cloneConceptePivot(base.concepts), grup),
+    aplicarConsolidacioTotalsLn(
+      cloneConceptePivot(base.concepts),
+      grup,
+      base.linies,
+      periode,
+      false
+    ),
     aplicarGestioComparativaEmpresa(base, grup),
   ]);
 
@@ -815,21 +912,108 @@ export async function getEvolucioMensual(
   return getEvolucioMensualEmpresa(any, grup);
 }
 
+/**
+ * Aplica normes inter-empresa (lloguer, factures IC) sobre una evolució ja amb capa Gestió.
+ * Respecta imports mensuals (1–12). Només té efecte amb grup Consolidat.
+ */
+export async function aplicarConsolidacioInterEvolucioEmpresa(
+  any: number,
+  grup: GrupEmpresa,
+  concepts: ConceptePivot[],
+  rangMesos: { desMes: number; finsMes: number } = { desMes: 1, finsMes: 12 }
+): Promise<ConceptePivot[]> {
+  if (!grupAplicaConsolidacioInter(grup)) return concepts;
+
+  const {
+    concepts: conceptDefs,
+    dades,
+    ajustos,
+    linies,
+  } = await carregarDadesEmpresaPerAny(any, grup);
+
+  const fdlcIds = new Set(linies.filter((l) => l.codi === FDLC_LN_CODI).map((l) => l.id));
+  const dadesCb = dades.filter((d) => {
+    const lnId = lnInformePerAgregacio(d);
+    return !!lnId && !fdlcIds.has(lnId);
+  });
+  const dadesFdlc = dades.filter((d) => {
+    const lnId = lnInformePerAgregacio(d);
+    return !!lnId && fdlcIds.has(lnId);
+  });
+  const ajustosCb = ajustos.filter((a) => {
+    const lnId = lnIdAjust(a);
+    return !!lnId && !fdlcIds.has(lnId);
+  });
+  const ajustosFdlc = ajustos.filter((a) => {
+    const lnId = lnIdAjust(a);
+    return !!lnId && fdlcIds.has(lnId);
+  });
+
+  const parells = new Map([
+    ["calblay", pivotMensualDesDeMoviments(conceptDefs, [...dadesCb, ...ajustosCb])],
+    ["fdlc", pivotMensualDesDeMoviments(conceptDefs, [...dadesFdlc, ...ajustosFdlc])],
+  ]);
+
+  return aplicarConsolidacio(concepts, "GRUP_EMPRESARIAL", "temporal", parells, {
+    any,
+    desMes: rangMesos.desMes,
+    finsMes: rangMesos.finsMes,
+  });
+}
+
 const getEvolucioMensualEmpresa = cache(
   async (any: number, grup: GrupEmpresa): Promise<EvolucioMensual> =>
     unstable_cache(
       async () => {
-        const { concepts, dades, ajustos, titol } = await carregarDadesEmpresaPerAny(any, grup);
+        const { concepts, dades, ajustos, linies, titol } = await carregarDadesEmpresaPerAny(
+          any,
+          grup
+        );
         const rows = pivotMensualDesDeMoviments(concepts, [...dades, ...ajustos]);
+
+        let parells: Map<string, ConceptePivot[]> | undefined;
+        if (grupAplicaConsolidacioInter(grup)) {
+          const fdlcIds = new Set(linies.filter((l) => l.codi === FDLC_LN_CODI).map((l) => l.id));
+          const dadesCb = dades.filter((d) => {
+            const lnId = lnInformePerAgregacio(d);
+            return !!lnId && !fdlcIds.has(lnId);
+          });
+          const dadesFdlc = dades.filter((d) => {
+            const lnId = lnInformePerAgregacio(d);
+            return !!lnId && fdlcIds.has(lnId);
+          });
+          const ajustosCb = ajustos.filter((a) => {
+            const lnId = lnIdAjust(a);
+            return !!lnId && !fdlcIds.has(lnId);
+          });
+          const ajustosFdlc = ajustos.filter((a) => {
+            const lnId = lnIdAjust(a);
+            return !!lnId && fdlcIds.has(lnId);
+          });
+
+          parells = new Map([
+            ["calblay", pivotMensualDesDeMoviments(concepts, [...dadesCb, ...ajustosCb])],
+            ["fdlc", pivotMensualDesDeMoviments(concepts, [...dadesFdlc, ...ajustosFdlc])],
+          ]);
+        }
+
         return {
           scope: "empresa" as const,
           titol,
           any,
-          concepts: await consolidarSiEmpresaAsync("empresa", rows, "temporal", grup),
+          concepts: await consolidarSiEmpresaAsync(
+            "empresa",
+            rows,
+            "temporal",
+            grup,
+            parells,
+            { any, desMes: 1, finsMes: 12 },
+            false /* Directe / base: només intra; inter a Gestió */
+          ),
           buit: dades.length === 0 && ajustos.length === 0,
         };
       },
-      ["consultes-evolucio-empresa", String(any), grup],
+      ["consultes-evolucio-empresa-v2", String(any), grup],
       { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
     )()
 );
@@ -1064,7 +1248,11 @@ export async function getComparativaMensualEntreAnys(
       const anysAmbDades: number[] = [];
       for (const year of anysOrdenats) {
         const rows = buildRows(concepts, perAnyConcepte.get(year) ?? new Map<string, number[]>());
-        perAny[year] = await consolidarSiEmpresaAsync(scope, rows, "temporal", grup);
+        perAny[year] = await consolidarSiEmpresaAsync(scope, rows, "temporal", grup, undefined, {
+          any: year,
+          desMes: 1,
+          finsMes: 12,
+        });
         if (perAny[year].some((r) => r.total !== 0)) anysAmbDades.push(year);
       }
 
@@ -1121,7 +1309,11 @@ export async function getComparativaTemporal(
           titol,
           granularitat,
           columnes,
-          concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal", grup),
+          concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal", grup, undefined, {
+            any,
+            desMes: 1,
+            finsMes: 12,
+          }),
           buit,
           periodeDesc: `Mes a mes · ${any}`,
         };

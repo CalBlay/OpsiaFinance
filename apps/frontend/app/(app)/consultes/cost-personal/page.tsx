@@ -10,7 +10,7 @@ import {
   getInformeCostPersonalLinies,
 } from "@/lib/cost-personal-centre/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
+import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { CostPersonalPresentacio } from "../presenters-dynamic";
 import { CostPersonalSelectors } from "./CostPersonalSelectors";
@@ -42,9 +42,7 @@ export default async function ConsultaCostPersonalPage({
     getGrupEmpresaActual(),
   ]);
 
-  const arbre = grupMostraConsultesLiniaCentre(grup)
-    ? exclouFdlcDeConsultaLinia(arbreRaw)
-    : arbreRaw;
+  const arbre = liniesPerConsultaDetall(arbreRaw, grup);
 
   const anyCalendari = new Date().getFullYear();
   const anyActual = sp.any
