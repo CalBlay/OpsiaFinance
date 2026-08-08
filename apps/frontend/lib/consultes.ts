@@ -288,8 +288,6 @@ export async function getCompteExplotacioCentreParell(
 
 const CENTRE_ALTRES_ID = "__altres__";
 
-export type { VistaCompte } from "@/lib/vista-compte";
-
 export async function getComparativaLn(
   liniaNegociId: string,
   any: number,
