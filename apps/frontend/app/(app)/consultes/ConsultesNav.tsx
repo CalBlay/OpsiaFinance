@@ -20,8 +20,8 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import styles from "./layout.module.css";
 
 const RESULTATS_TABS = [
@@ -56,8 +56,24 @@ function readGrupCookie(): GrupEmpresa {
   return parseGrupEmpresa(raw);
 }
 
+/** Conserva any/vista (i rang si n'hi ha) en canviar de pestanya. */
+function tabHref(
+  base: string,
+  params: { any: string | null; vista: string | null; des: string | null; fins: string | null }
+): string {
+  const qs = new URLSearchParams();
+  if (params.any) qs.set("any", params.any);
+  if (params.vista) qs.set("vista", params.vista);
+  if (params.des) qs.set("des", params.des);
+  if (params.fins) qs.set("fins", params.fins);
+  const q = qs.toString();
+  return q ? `${base}?${q}` : base;
+}
+
 export function ConsultesNav() {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [grup, setGrup] = useState<GrupEmpresa>("calblay");
 
   useEffect(() => {
@@ -69,22 +85,63 @@ export function ConsultesNav() {
 
   const restaurants = isRestaurantsPath(pathname);
   const mostraLiniaCentre = grupMostraConsultesLiniaCentre(grup);
-  const tabs = restaurants
-    ? RESTAURANTS_TABS
-    : RESULTATS_TABS.filter((t) => !("calBlay" in t && t.calBlay) || mostraLiniaCentre);
+  const tabs = useMemo(
+    () =>
+      restaurants
+        ? RESTAURANTS_TABS
+        : RESULTATS_TABS.filter((t) => !("calBlay" in t && t.calBlay) || mostraLiniaCentre),
+    [restaurants, mostraLiniaCentre]
+  );
   const title = restaurants ? "Restaurants" : "Resultats";
   const navLabel = restaurants ? "Consultes de restaurants" : "Consultes de resultats";
+
+  const sharedParams = useMemo(
+    () => ({
+      any: searchParams.get("any"),
+      vista: searchParams.get("vista"),
+      des: searchParams.get("des"),
+      fins: searchParams.get("fins"),
+    }),
+    [searchParams]
+  );
+
+  // Prefetch de pestanyes germanes en idle perquè el canvi sigui gairebé instantani.
+  useEffect(() => {
+    const targets = tabs
+      .map((tab) => tabHref(tab.href, sharedParams))
+      .filter((href) => {
+        const [basePath] = href.split("?");
+        return basePath ? !pathname.startsWith(basePath) : true;
+      });
+
+    if (targets.length === 0) return;
+
+    const run = () => {
+      for (const href of targets) router.prefetch(href);
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(run, { timeout: 1500 });
+      return () => window.cancelIdleCallback(id);
+    }
+    const t = window.setTimeout(run, 250);
+    return () => window.clearTimeout(t);
+  }, [tabs, sharedParams, pathname, router]);
 
   return (
     <header className={styles.moduleHeader}>
       <h2 className={styles.moduleTitle}>{title}</h2>
       <nav className={styles.tabs} aria-label={navLabel}>
         {tabs.map((tab) => {
+          const href = tabHref(tab.href, sharedParams);
           const isActive = pathname.startsWith(tab.href);
           return (
             <Link
               key={tab.href}
-              href={tab.href}
+              href={href}
+              prefetch
+              onMouseEnter={() => router.prefetch(href)}
+              onFocus={() => router.prefetch(href)}
               className={cn(styles.tab, isActive && styles.tabActive)}
               aria-current={isActive ? "page" : undefined}
             >

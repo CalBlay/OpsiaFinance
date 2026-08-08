@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { revalidatePath } from "next/cache";
@@ -17,6 +18,7 @@ async function getEditor() {
 }
 
 function refresh() {
+  revalidateConsultesDades();
   revalidatePath("/dades/ajustos");
   revalidatePath("/consultes/centre");
   revalidatePath("/consultes/linia");

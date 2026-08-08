@@ -16,6 +16,7 @@ import {
 import {
   type AmbitTemporal,
   type GranularitatTemporal,
+  MAX_ANYS_COMPARATIVA,
   MESOS_CURTS,
   getAnysAmbDades,
   getArbreSeleccio,
@@ -50,11 +51,13 @@ export default async function ComparativaPage({
   searchParams: Promise<{ scope?: string; id?: string; g?: string; mes?: string; mesos?: string }>;
 }) {
   const sp = await searchParams;
-  const [arbreRaw, anys, grup] = await Promise.all([
+  const [arbreRaw, anysTots, grup] = await Promise.all([
     getArbreSeleccio(),
     getAnysAmbDades(),
     getGrupEmpresaActual(),
   ]);
+  // Limita a N exercicis recents (anysTots ve en desc) per no escanejar tota l'història.
+  const anys = anysTots.slice(0, MAX_ANYS_COMPARATIVA);
   const potLiniaCentre = grupMostraConsultesLiniaCentre(grup);
   const arbre = exclouFdlcDeConsultaLinia(arbreRaw);
 

@@ -3,6 +3,7 @@ import {
   type VistaCompte,
   esAnyComplet,
   getAnysAmbDades,
+  getComparativaEmpresa,
   getComparativaEmpresaParell,
   getEvolucioMensual,
   parseRangMesosFromSearchParams,
@@ -37,25 +38,31 @@ export default async function ConsultaEmpresaPage({
   ]);
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
   const rang = parseRangMesosFromSearchParams(sp);
-  const vista: VistaCompte =
-    grupPermetVistaGestio(grup) && sp.vista === "gestio" ? "gestio" : "directe";
+  const potGestio = grupPermetVistaGestio(grup);
+  const vista: VistaCompte = potGestio && sp.vista === "gestio" ? "gestio" : "directe";
   const acumulatAnual = esAnyComplet(rang);
   const esPresentacioCalblay = grup === "calblay";
   const isAdmin = session?.user?.role === "ADMIN";
-  const potGestio = grupPermetVistaGestio(grup);
+  // Si l'usuari arriba en Directe, no bloquegem el paint amb la capa Gestió.
+  const carregaGestioEager = potGestio && vista === "gestio";
 
   const [parell, evFdlc, evEmpresaRaw, infoGestio] = await Promise.all([
-    getComparativaEmpresaParell(anyActual, rang, grup),
+    carregaGestioEager
+      ? getComparativaEmpresaParell(anyActual, rang, grup)
+      : getComparativaEmpresa(anyActual, rang, "directe", grup).then((directe) => ({
+          directe,
+          gestio: null,
+        })),
     grup === "fdlc" && acumulatAnual
       ? getEvolucioMensual("empresa", null, anyActual, "fdlc")
       : Promise.resolve(null),
     esPresentacioCalblay ? getEvolucioMensual("empresa", null, anyActual) : Promise.resolve(null),
-    potGestio ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
+    carregaGestioEager ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
   const evEmpresaDirecte = evEmpresaRaw;
   let evEmpresaGestio = evEmpresaRaw;
-  if (evEmpresaRaw && potGestio) {
+  if (evEmpresaRaw && carregaGestioEager) {
     evEmpresaGestio = {
       ...evEmpresaRaw,
       concepts: await aplicarVistaGestioEvolucioEmpresa(anyActual, evEmpresaRaw.concepts),
@@ -98,6 +105,7 @@ export default async function ConsultaEmpresaPage({
       vistaInicial={vista}
       directe={directe}
       gestio={gestio}
+      potCarregarGestio={potGestio && gestio == null}
     />
   );
 }

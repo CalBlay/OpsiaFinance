@@ -19,6 +19,7 @@ import { replaceVistaQuery } from "@/lib/vista-url";
 import { useEffect, useMemo, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { CentreSelectors } from "./CentreSelectors";
+import { carregarCentreGestioAction } from "./actions";
 
 type LnOpt = {
   id: string;
@@ -36,7 +37,8 @@ export function CentreBoard({
   vistaInicial,
   isAdmin,
   directe,
-  gestio,
+  gestio: gestioInicial,
+  potCarregarGestio = false,
 }: {
   arbre: LnOpt[];
   anys: number[];
@@ -47,12 +49,29 @@ export function CentreBoard({
   isAdmin: boolean;
   directe: CompteExplotacioCentre | null;
   gestio: CompteExplotacioCentre | null;
+  potCarregarGestio?: boolean;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
+  const [gestio, setGestio] = useState<CompteExplotacioCentre | null>(gestioInicial);
 
   useEffect(() => {
     setVista(vistaInicial);
   }, [vistaInicial]);
+
+  useEffect(() => {
+    setGestio(gestioInicial);
+  }, [gestioInicial]);
+
+  useEffect(() => {
+    if (!potCarregarGestio || !centreId || gestio) return;
+    let cancelled = false;
+    carregarCentreGestioAction(centreId, anyActual).then((data) => {
+      if (!cancelled && data) setGestio(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [potCarregarGestio, centreId, anyActual, gestio]);
 
   const compte = vista === "gestio" && gestio ? gestio : directe;
   const canEdit = isAdmin && vista === "directe";

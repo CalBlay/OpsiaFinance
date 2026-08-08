@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import {
   confirmarExecucioTraspassPersonal,
@@ -17,6 +18,13 @@ async function requireEditor() {
   return session.user;
 }
 
+function refreshConsultesTraspass() {
+  revalidateConsultesDades();
+  revalidatePath("/consultes/centre");
+  revalidatePath("/consultes/linia");
+  revalidatePath("/consultes/empresa");
+}
+
 export async function uploadHoresTreballAction(formData: FormData) {
   const user = await requireEditor();
   if (!user?.id) return { ok: false, missatge: "Sense permisos." };
@@ -29,9 +37,7 @@ export async function uploadHoresTreballAction(formData: FormData) {
     const result = await processarFitxerHoresTreball(buffer, file.name, user.id);
     revalidatePath("/dades/traspass-personal");
     revalidatePath(`/dades/traspass-personal/${result.periodId}`);
-    revalidatePath("/consultes/centre");
-    revalidatePath("/consultes/linia");
-    revalidatePath("/consultes/empresa");
+    refreshConsultesTraspass();
     return { ok: true, missatge: result.missatge, periodId: result.periodId };
   } catch (e) {
     return {
@@ -49,9 +55,7 @@ export async function confirmarTraspassPersonalAction(execucioId: string) {
     const { foraCentreSnapshot } = await confirmarExecucioTraspassPersonal(execucioId, user.id);
     revalidatePath("/dades/traspass-personal");
     revalidatePath("/dades/cost-salarial");
-    revalidatePath("/consultes/centre");
-    revalidatePath("/consultes/linia");
-    revalidatePath("/consultes/empresa");
+    refreshConsultesTraspass();
     revalidatePath("/consultes/cost-salarial");
     return {
       ok: true,
@@ -69,9 +73,7 @@ export async function confirmarTraspassPersonalAction(execucioId: string) {
 function revalidateTraspassos(periodId?: string) {
   revalidatePath("/dades/traspass-personal");
   if (periodId) revalidatePath(`/dades/traspass-personal/${periodId}`);
-  revalidatePath("/consultes/centre");
-  revalidatePath("/consultes/linia");
-  revalidatePath("/consultes/empresa");
+  refreshConsultesTraspass();
 }
 
 export async function tornarEsborranyTraspassPersonalAction(execucioId: string) {

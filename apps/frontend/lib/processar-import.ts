@@ -1,3 +1,4 @@
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { parseCompteResultats, periodeDesDelNomFitxer } from "@/lib/excel-parsers/compte-resultats";
 import { resolveLiniaNegociImport } from "@/lib/linia-informe";
@@ -191,8 +192,14 @@ export async function processarImportExcel(
   }
 
   await db.importacio.update({ where: { id: importId }, data: { estat: "CLASSIFICAT" } });
+  revalidateConsultesDades();
   revalidatePath(`/dades/${importId}`);
   revalidatePath("/dades");
+  revalidatePath("/consultes/empresa");
+  revalidatePath("/consultes/linia");
+  revalidatePath("/consultes/centre");
+  revalidatePath("/consultes/evolucio");
+  revalidatePath("/consultes/comparativa");
 
   const avis = codisNoTrobats.length
     ? ` Atenció: ${codisNoTrobats.length} codis de columna no s'han trobat a l'arbre (${[...new Set(codisNoTrobats)].join(", ")}). Importa l'arbre de dimensions o actualitza l'Excel; les dades es compten a la LN de l'informe però no es desglossen per centre.`

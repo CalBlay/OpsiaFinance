@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import {
   getAnysAmbDades,
   getArbreSeleccio,
+  getCompteExplotacioCentre,
   getCompteExplotacioCentreParell,
 } from "@/lib/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
@@ -57,7 +58,15 @@ export default async function ConsultaCentrePage({
     if (ln && !ln.centres.some((c) => c.id === centreId)) centreId = null;
   }
 
-  const parell = centreId ? await getCompteExplotacioCentreParell(centreId, anyActual) : null;
+  // Directe primer; Gestió només eager si ja s'ha demanat a la URL.
+  const parell = centreId
+    ? vista === "gestio"
+      ? await getCompteExplotacioCentreParell(centreId, anyActual)
+      : {
+          directe: await getCompteExplotacioCentre(centreId, anyActual, "directe"),
+          gestio: null,
+        }
+    : null;
 
   return (
     <CentreBoard
@@ -70,6 +79,7 @@ export default async function ConsultaCentrePage({
       isAdmin={session?.user?.role === "ADMIN"}
       directe={parell?.directe ?? null}
       gestio={parell?.gestio ?? null}
+      potCarregarGestio={!!centreId && vista === "directe"}
     />
   );
 }

@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { esSubtotalPresentacio } from "@/lib/compte-subtotals";
 import { type DetallCellaParams, type DetallCellaResult, getDetallCella } from "@/lib/consultes";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { revalidatePath } from "next/cache";
@@ -29,6 +30,7 @@ export interface AjustarImportConsultaInput {
 }
 
 function refreshConsultes() {
+  revalidateConsultesDades();
   revalidatePath("/consultes/centre");
   revalidatePath("/consultes/linia");
   revalidatePath("/consultes/empresa");

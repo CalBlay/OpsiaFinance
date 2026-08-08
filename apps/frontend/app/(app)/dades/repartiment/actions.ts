@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import {
   calcularExecucioRepartiment,
@@ -21,6 +22,7 @@ export async function calcularRepartimentAction(periodId: string) {
   if (!user) return { ok: false, missatge: "Sense permisos." };
   try {
     await calcularExecucioRepartiment(periodId);
+    revalidateConsultesDades();
     revalidatePath("/dades/repartiment");
     revalidatePath(`/dades/repartiment/${periodId}`);
     revalidatePath("/consultes/empresa");
@@ -36,12 +38,13 @@ export async function calcularRepartimentAction(periodId: string) {
 
 export async function confirmarRepartimentAction(execucioId: string) {
   const user = await requireEditor();
-  if (!user) return { ok: false, missatge: "Sense permisos." };
+  if (!user?.id) return { ok: false, missatge: "Sense permisos." };
   const execucio = await db.execucioRepartiment.findUnique({
     where: { id: execucioId },
     select: { periodId: true },
   });
-  await confirmarExecucioRepartiment(execucioId, user.id!);
+  await confirmarExecucioRepartiment(execucioId, user.id);
+  revalidateConsultesDades();
   revalidatePath("/dades/repartiment");
   if (execucio) revalidatePath(`/dades/repartiment/${execucio.periodId}`);
   revalidatePath("/consultes/empresa");

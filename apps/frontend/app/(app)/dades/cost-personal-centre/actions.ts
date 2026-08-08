@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { eliminarCarregaFitxer } from "@/lib/carrega-fitxer";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import {
   periodeDesDelNomFitxerCostPersonal,
   tipusFitxerCostPersonal,
@@ -22,6 +23,7 @@ async function getEditor() {
 }
 
 function refresh() {
+  revalidateConsultesDades();
   revalidatePath("/dades/cost-personal-centre");
   revalidatePath("/dades/cost-salarial");
   revalidatePath("/consultes/centre");

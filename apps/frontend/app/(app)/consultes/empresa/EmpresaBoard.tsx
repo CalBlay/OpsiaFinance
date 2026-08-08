@@ -18,6 +18,7 @@ import { replaceVistaQuery } from "@/lib/vista-url";
 import { useEffect, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { EmpresaSelectors } from "./EmpresaSelectors";
+import { carregarEmpresaGestioAction } from "./actions";
 import type { EmpresaVistaData } from "./empresa-vista-data";
 
 function etiquetaTitolEmpresa(grup: GrupEmpresa): string {
@@ -32,7 +33,8 @@ export function EmpresaBoard({
   grup,
   vistaInicial,
   directe,
-  gestio,
+  gestio: gestioInicial,
+  potCarregarGestio = false,
 }: {
   anys: number[];
   anyActual: number;
@@ -41,12 +43,30 @@ export function EmpresaBoard({
   vistaInicial: VistaCompte;
   directe: EmpresaVistaData;
   gestio: EmpresaVistaData | null;
+  potCarregarGestio?: boolean;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
+  const [gestio, setGestio] = useState<EmpresaVistaData | null>(gestioInicial);
 
   useEffect(() => {
     setVista(vistaInicial);
   }, [vistaInicial]);
+
+  useEffect(() => {
+    setGestio(gestioInicial);
+  }, [gestioInicial]);
+
+  // Prefetch Gestió en background després del primer paint Directe.
+  useEffect(() => {
+    if (!potCarregarGestio || gestio) return;
+    let cancelled = false;
+    carregarEmpresaGestioAction({ any: anyActual, rang, grup }).then((data) => {
+      if (!cancelled && data) setGestio(data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [potCarregarGestio, gestio, anyActual, rang, grup]);
 
   const data = vista === "gestio" && gestio ? gestio : directe;
   const nomEmpresa = etiquetaGrupEmpresa(grup);

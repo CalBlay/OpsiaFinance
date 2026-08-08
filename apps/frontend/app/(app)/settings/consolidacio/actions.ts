@@ -5,6 +5,7 @@ import {
   resetNormesConsolidacioSeed,
   syncNormesConsolidacioSeed,
 } from "@/lib/consolidacio/normes-default";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import type { GrupConsolidacio, TipusNormaConsolidacio } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -20,6 +21,7 @@ async function requireEditor(): Promise<boolean> {
 }
 
 function refresh() {
+  revalidateConsultesDades();
   revalidatePath("/settings/consolidacio");
   revalidatePath("/consultes/empresa");
   revalidatePath("/consultes/evolucio");

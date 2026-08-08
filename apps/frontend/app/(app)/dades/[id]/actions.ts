@@ -1,10 +1,11 @@
 "use server";
 
+import { unlink } from "node:fs/promises";
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { processarImportExcel } from "@/lib/processar-import";
 import type { EstatImport } from "@/types";
-import { unlink } from "fs/promises";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -30,6 +31,7 @@ export async function updateDadaResultatImportAction(
     data: { import_: nouValor },
   });
 
+  revalidateConsultesDades();
   revalidatePath(`/dades/${dada.importacioId}`);
   revalidatePath("/consultes/empresa");
   revalidatePath("/consultes/linia");

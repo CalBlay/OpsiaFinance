@@ -1,3 +1,4 @@
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { parsePygFdlc } from "@/lib/excel-parsers/pyg-fdlc";
 import { FDLC_LN_CODI, ensureFdlcSetup } from "@/lib/fdlc/setup";
@@ -137,10 +138,13 @@ export async function processarImportFdlc(
     data: { estat: "CLASSIFICAT", periodId: refPeriodId },
   });
 
+  revalidateConsultesDades();
   revalidatePath(`/dades/${imp.id}`);
   revalidatePath("/dades");
   revalidatePath("/consultes/empresa");
   revalidatePath("/consultes/centre");
+  revalidatePath("/consultes/evolucio");
+  revalidatePath("/consultes/comparativa");
 
   let avis = "";
   if (comptesNoMapats.length > 0) {
