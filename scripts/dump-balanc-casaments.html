@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ca">
+  <head>
+    <meta charset="utf-8" />
+    <title>Dump Balanç Casaments</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 24px; max-width: 1200px; }
+      pre { background: #0f172a; color: #e2e8f0; padding: 16px; overflow: auto; font-size: 12px; }
+      .hint { color: #475569; margin-bottom: 12px; }
+      input { margin: 8px 0 16px; }
+    </style>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  </head>
+  <body>
+    <h1>Dump estructural · Balanç Casaments</h1>
+    <p class="hint">Arrossega o selecciona el fitxer <code>12_2024 BALANÇ CASAMENTS Total.xlsx</code>. Es mostrarà el contingut a partir de la fila 40 (capçalera esperada ~49).</p>
+    <input id="file" type="file" accept=".xlsx,.xls" />
+    <pre id="out">Esperant fitxer…</pre>
+    <script>
+      const out = document.getElementById("out");
+      document.getElementById("file").addEventListener("change", async (ev) => {
+        const file = ev.target.files?.[0];
+        if (!file) return;
+        out.textContent = "Llegint…";
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array", cellDates: true });
+        const report = { file: file.name, sheets: wb.SheetNames, sheetsDetail: [] };
+        for (const name of wb.SheetNames) {
+          const ws = wb.Sheets[name];
+          const matrix = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null, raw: true });
+          const nonEmpty = [];
+          for (let i = 0; i < matrix.length; i++) {
+            const row = matrix[i] || [];
+            if (row.some((c) => c !== null && String(c).trim() !== "")) {
+              nonEmpty.push({ row: i + 1, cells: row.slice(0, 30) });
+            }
+          }
+          report.sheetsDetail.push({
+            name,
+            ref: ws["!ref"],
+            totalRows: matrix.length,
+            first15NonEmpty: nonEmpty.slice(0, 15),
+            rows40to110: matrix.slice(39, 110).map((row, idx) => ({
+              row: idx + 40,
+              cells: (row || []).slice(0, 30),
+            })),
+            row49: { row: 49, cells: (matrix[48] || []).slice(0, 30) },
+          });
+        }
+        out.textContent = JSON.stringify(report, null, 2);
+      });
+    </script>
+  </body>
+</html>

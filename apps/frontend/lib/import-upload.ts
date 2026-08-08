@@ -1,11 +1,15 @@
-import { join } from "path";
+import { mkdir, writeFile } from "node:fs/promises";
+import { join } from "node:path";
 import { db } from "@/lib/db";
 import { FDLC_LN_CODI, ensureFdlcSetup } from "@/lib/fdlc/setup";
-import { classificacioDesDelNomFitxer } from "@/lib/nom-fitxer";
+import { aliasLnDesDelNomFitxer, classificacioDesDelNomFitxer } from "@/lib/nom-fitxer";
 import { processarImportExcel } from "@/lib/processar-import";
 import { TIPUS_INFORME_LABELS, type TipusInforme } from "@/types";
-import { mkdir, writeFile } from "fs/promises";
 import { revalidatePath } from "next/cache";
+
+function esTipusExerciciAnual(tipus: TipusInforme | null | undefined): boolean {
+  return tipus === "PYG_FDLC" || tipus === "PYG_EXERCICI_LN";
+}
 
 const MESOS: Record<number, string> = {
   1: "Gener",
@@ -117,7 +121,8 @@ async function resoldreLiniaNegoci(
     return { id: ln.id, codi: ln.codi, label: `${ln.codi} · ${ln.nom}` };
   }
 
-  const codiLnFitxer = classificacioDesDelNomFitxer(nomFitxer)?.codiLn ?? null;
+  const codiLnFitxer =
+    classificacioDesDelNomFitxer(nomFitxer)?.codiLn ?? aliasLnDesDelNomFitxer(nomFitxer);
 
   let lnFromFile: { id: string; codi: string; nom: string } | null = null;
   if (codiLnFitxer) {
@@ -199,8 +204,8 @@ async function trobarImportDuplicada(
   });
 }
 
-/** FDLC: una importació per exercici (tots els mesos de l'Excel). */
-async function trobarImportFdlcPerExercici(
+/** Importació anual (FDLC o històric LN): una per exercici. */
+async function trobarImportExerciciPerAny(
   liniaNegociId: string,
   formatInformeId: string,
   any: number
@@ -240,17 +245,20 @@ export async function handleSingleImport(
   if (!tipusEnum) return { status: "error", message: "Has de seleccionar el tipus d'informe." };
   if (!anyStr) return { status: "error", message: "Has d'indicar l'any (exercici)." };
 
+  const esExerciciAnual = esTipusExerciciAnual(tipusEnum);
   const esFdlc = tipusEnum === "PYG_FDLC";
-  if (!esFdlc && !mesStr) return { status: "error", message: "Has d'indicar l'any i el mes." };
+  if (!esExerciciAnual && !mesStr) {
+    return { status: "error", message: "Has d'indicar l'any i el mes." };
+  }
 
   const any = Number.parseInt(anyStr, 10);
-  const mes = esFdlc ? 1 : Number.parseInt(mesStr, 10);
-  if (isNaN(any) || isNaN(mes) || mes < 1 || mes > 12)
+  const mes = esExerciciAnual ? 1 : Number.parseInt(mesStr, 10);
+  if (Number.isNaN(any) || Number.isNaN(mes) || mes < 1 || mes > 12)
     return { status: "error", message: "Any o mes no vàlids." };
 
-  const ext = file.name.split(".").pop()?.toLowerCase();
-  if (!["xlsx", "xls"].includes(ext ?? ""))
-    return { status: "error", message: "Només s'accepten fitxers Excel (.xlsx o .xls)." };
+  const extRaw = file.name.split(".").pop()?.toLowerCase();
+  const ext = extRaw === "xlsx" || extRaw === "xls" ? extRaw : null;
+  if (!ext) return { status: "error", message: "Només s'accepten fitxers Excel (.xlsx o .xls)." };
 
   const lnRes = await resoldreLiniaNegoci(liniaNegociId, file.name, null, tipusEnum);
   if ("error" in lnRes) return { status: "error", message: lnRes.error };
@@ -268,20 +276,24 @@ export async function handleSingleImport(
   });
 
   if (mode === "auto") {
-    const existent = esFdlc
-      ? await trobarImportFdlcPerExercici(lnRes.id, formatInforme.id, any)
+    const existent = esExerciciAnual
+      ? await trobarImportExerciciPerAny(lnRes.id, formatInforme.id, any)
       : await trobarImportDuplicada(period.id, lnRes.id, formatInforme.id);
     if (existent) {
       const suggestedName = await nomFitxerUnic(
         esFdlc
           ? `fdlc_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
-          : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
+          : esExerciciAnual
+            ? `historic_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
+            : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
       );
       return {
         status: "duplicate",
         existingId: existent.id,
         existingName: existent.nomFitxer,
-        existingPeriod: esFdlc ? `Exercici ${any}` : (existent.period?.nom ?? "sense període"),
+        existingPeriod: esExerciciAnual
+          ? `Exercici ${any}`
+          : (existent.period?.nom ?? "sense període"),
         existingLn: existent.liniaNegoci
           ? `${existent.liniaNegoci.codi} · ${existent.liniaNegoci.nom}`
           : "sense LN",
@@ -309,7 +321,7 @@ export async function handleSingleImport(
     if ("error" in lnResUpdate) return { status: "error", message: lnResUpdate.error };
 
     await db.dadaResultat.deleteMany({ where: { importacioId: targetId } });
-    const filePath = await desarFitxer(targetId, ext!, buffer);
+    const filePath = await desarFitxer(targetId, ext, buffer);
 
     await db.importacio.update({
       where: { id: targetId },
@@ -335,7 +347,9 @@ export async function handleSingleImport(
       newName ||
         (esFdlc
           ? `fdlc_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
-          : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`)
+          : esExerciciAnual
+            ? `historic_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
+            : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`)
     );
   }
 
@@ -352,7 +366,7 @@ export async function handleSingleImport(
     },
   });
 
-  const filePath = await desarFitxer(newImport.id, ext!, buffer);
+  const filePath = await desarFitxer(newImport.id, ext, buffer);
   if (filePath) {
     await db.importacio.update({ where: { id: newImport.id }, data: { rutaStorage: filePath } });
   }
@@ -371,8 +385,9 @@ export async function handleBulkFileItem(
   autoConfirmar = true
 ): Promise<BulkFileResult> {
   try {
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!["xlsx", "xls"].includes(ext ?? "")) {
+    const extRaw = file.name.split(".").pop()?.toLowerCase();
+    const ext = extRaw === "xlsx" || extRaw === "xls" ? extRaw : null;
+    if (!ext) {
       return {
         nom: file.name,
         periode: "—",
@@ -383,21 +398,35 @@ export async function handleBulkFileItem(
       };
     }
 
+    const esExerciciAnual = esTipusExerciciAnual(tipusEnum);
     const parsed = classificacioDesDelNomFitxer(file.name);
-    if (!parsed) {
+    const anyMatch = file.name.match(/20\d{2}/)?.[0];
+    const anyFitxer = parsed?.any ?? (anyMatch ? Number(anyMatch) : null);
+    const mesFitxer = esExerciciAnual ? 1 : (parsed?.mes ?? null);
+
+    if (
+      !anyFitxer ||
+      mesFitxer === null ||
+      mesFitxer < 1 ||
+      mesFitxer > 12 ||
+      (!esExerciciAnual && !parsed)
+    ) {
       return {
         nom: file.name,
         periode: "—",
         ln: null,
         ok: false,
         confirmat: false,
-        missatge: "No s'ha pogut deduir el mes/any del nom. Reanomena'l (p.ex. 01_2026_00).",
+        missatge: esExerciciAnual
+          ? "No s'ha pogut deduir l'any del nom. Inclou l'exercici (p.ex. 2024)."
+          : "No s'ha pogut deduir el mes/any del nom. Reanomena'l (p.ex. 01_2026_00).",
       };
     }
 
-    const lnRes = parsed.codiLn
-      ? await resoldreLiniaNegoci(null, file.name, null, tipusEnum)
-      : await resoldreLiniaNegoci(liniaNegociIdFallback, file.name, null, tipusEnum);
+    const lnRes =
+      parsed?.codiLn || aliasLnDesDelNomFitxer(file.name)
+        ? await resoldreLiniaNegoci(null, file.name, null, tipusEnum)
+        : await resoldreLiniaNegoci(liniaNegociIdFallback, file.name, null, tipusEnum);
     if ("error" in lnRes) {
       return {
         nom: file.name,
@@ -417,13 +446,21 @@ export async function handleBulkFileItem(
     });
 
     const period = await db.period.upsert({
-      where: { any_mes: { any: parsed.any, mes: parsed.mes } },
+      where: { any_mes: { any: anyFitxer, mes: mesFitxer } },
       update: {},
-      create: { any: parsed.any, mes: parsed.mes, nom: `${MESOS[parsed.mes]} ${parsed.any}` },
+      create: {
+        any: anyFitxer,
+        mes: mesFitxer,
+        nom: `${MESOS[mesFitxer]} ${anyFitxer}`,
+      },
     });
-    const periodeLabel = `${MESOS[parsed.mes]} ${parsed.any}`;
+    const periodeLabel = esExerciciAnual
+      ? `Exercici ${anyFitxer}`
+      : `${MESOS[mesFitxer]} ${anyFitxer}`;
 
-    const existent = await trobarImportDuplicada(period.id, lnRes.id, formatInforme.id);
+    const existent = esExerciciAnual
+      ? await trobarImportExerciciPerAny(lnRes.id, formatInforme.id, anyFitxer)
+      : await trobarImportDuplicada(period.id, lnRes.id, formatInforme.id);
 
     if (existent && politica === "ometre") {
       return {
@@ -442,7 +479,7 @@ export async function handleBulkFileItem(
     if (existent && politica === "actualitzar") {
       importId = existent.id;
       const lnResUpdate = await resoldreLiniaNegoci(
-        parsed.codiLn ? null : liniaNegociIdFallback,
+        parsed?.codiLn || aliasLnDesDelNomFitxer(file.name) ? null : liniaNegociIdFallback,
         file.name,
         (
           await db.importacio.findUnique({
@@ -463,7 +500,7 @@ export async function handleBulkFileItem(
         };
       }
       await db.dadaResultat.deleteMany({ where: { importacioId: importId } });
-      const filePath = await desarFitxer(importId, ext!, buffer);
+      const filePath = await desarFitxer(importId, ext, buffer);
       await db.importacio.update({
         where: { id: importId },
         data: {
@@ -492,7 +529,7 @@ export async function handleBulkFileItem(
         },
       });
       importId = nova.id;
-      const filePath = await desarFitxer(importId, ext!, buffer);
+      const filePath = await desarFitxer(importId, ext, buffer);
       if (filePath)
         await db.importacio.update({ where: { id: importId }, data: { rutaStorage: filePath } });
     }

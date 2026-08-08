@@ -183,13 +183,7 @@ export function CentreBoard({
             <EvolucioChart categories={MESOS_CURTS} series={chartSeries} />
           </div>
 
-          <DetallCompteCollapsible
-            caption={
-              canEdit
-                ? "Clic a una casella de detall per veure el desglossament i, si cal, crear un ajust."
-                : "Imports en euros. Les files ressaltades són subtotals i totals del compte."
-            }
-          >
+          <DetallCompteCollapsible>
             <PivotTableDrilldown
               columns={columns}
               rows={compte?.concepts ?? []}

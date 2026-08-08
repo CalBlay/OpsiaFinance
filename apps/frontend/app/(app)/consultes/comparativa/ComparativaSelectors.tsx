@@ -161,20 +161,22 @@ export function ComparativaSelectors({
                     <div className={styles.multiActions}>
                       <button
                         type="button"
-                        className={styles.multiActionBtn}
-                        onClick={() =>
+                        className={styles.multiActionBtnPrimary}
+                        onClick={() => {
+                          setMesosOpen(false);
                           router.push(
                             buildUrl({ mesos: Array.from({ length: 12 }, (_, i) => i + 1) })
-                          )
-                        }
+                          );
+                        }}
                       >
-                        Tots
+                        Seleccionar tot
                       </button>
                       <button
                         type="button"
                         className={styles.multiActionBtn}
                         onClick={() => {
                           const ara = new Date().getMonth() + 1;
+                          setMesosOpen(false);
                           router.push(
                             buildUrl({ mesos: Array.from({ length: ara }, (_, i) => i + 1) })
                           );

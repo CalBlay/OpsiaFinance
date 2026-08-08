@@ -1,0 +1,393 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  margin-bottom: 1.25rem;
+}
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem 1.5rem;
+  padding: 1.1rem 1.35rem;
+  border-radius: var(--opsia-cx-radius-lg, 1rem);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  background: var(--opsia-cx-card-bg, #fff);
+}
+
+.heroMain {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.heroEyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--opsia-green-700, #245956);
+}
+
+.heroTitle {
+  margin: 0;
+  font-size: var(--opsia-cx-heading-size, clamp(1.25rem, 2.4vw, 1.65rem));
+  font-weight: var(--opsia-cx-heading-weight, 500);
+  letter-spacing: var(--opsia-cx-heading-tracking, -0.03em);
+  color: var(--opsia-cx-heading, var(--opsia-ink-soft));
+  line-height: 1.2;
+}
+
+.heroPeriode {
+  margin: 0.35rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.heroHint {
+  margin: 0;
+  max-width: 18rem;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+}
+
+.insightRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  align-items: stretch;
+  max-width: 34rem;
+  justify-content: flex-end;
+}
+
+.insight {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 9.5rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  background: color-mix(in srgb, #fff 88%, transparent);
+}
+
+.insightPos {
+  border-color: color-mix(in srgb, var(--opsia-num-positive, #245956) 28%, transparent);
+  background: var(--opsia-num-positive-bg, #e8f2ef);
+}
+
+.insightNeg {
+  border-color: color-mix(in srgb, var(--color-destructive) 28%, transparent);
+  background: color-mix(in srgb, var(--color-destructive) 8%, #fff);
+}
+
+.insightLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+}
+
+.insightText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  color: var(--opsia-cx-ink, var(--opsia-ink-strong));
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 1100px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+
+  .insightRow {
+    justify-content: flex-start;
+    max-width: none;
+  }
+}
+
+.chartCard {
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
+  background: var(--opsia-cx-card-bg, #fff);
+  padding: 1rem 1.15rem 1.1rem;
+  min-width: 0;
+}
+
+.chartCardDense {
+  display: flex;
+  flex-direction: column;
+  padding: 0.55rem 0.6rem 0.4rem;
+  min-height: 24rem;
+}
+
+.chartCardBare {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+  min-height: 26rem;
+}
+
+.chartCardBare .chartHead {
+  margin-bottom: 0.1rem;
+  padding: 0 0.15rem;
+}
+
+.chartCardBare .chartTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+}
+
+.chartCardBare .yearSelect {
+  border: none;
+  background-color: transparent;
+  font-size: 0.95rem;
+  font-weight: 700;
+  padding: 0.15rem 1.4rem 0.15rem 0.2rem;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+}
+
+.chartCardWide {
+  grid-column: 1 / -1;
+}
+
+.chartBody {
+  width: 100%;
+  min-height: 200px;
+}
+
+.chartBodyFill {
+  flex: 1 1 auto;
+  min-height: 24rem;
+  height: 100%;
+  overflow: visible;
+}
+
+.chartTitle {
+  margin: 0;
+  font-size: var(--opsia-cx-panel-title-size, 0.95rem);
+  font-weight: var(--opsia-cx-panel-title-weight, 700);
+  letter-spacing: -0.02em;
+  color: var(--opsia-cx-ink, var(--opsia-ink-strong));
+}
+
+.chartHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.15rem;
+}
+
+.chartActions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.yearSelect {
+  appearance: none;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: 0.45rem;
+  background: var(--opsia-cx-card-bg, #fff);
+  color: var(--opsia-cx-ink, var(--color-foreground));
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.3rem 1.75rem 0.3rem 0.65rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%235c6b73' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.5rem center;
+  cursor: pointer;
+}
+
+.yearStatic {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+  font-variant-numeric: tabular-nums;
+}
+
+.emptyChart {
+  margin: 2rem 0;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+}
+
+.chartLead {
+  margin: 0.3rem 0 0.85rem;
+  font-size: var(--opsia-cx-panel-lead-size, 0.78rem);
+  line-height: 1.4;
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
+}
+
+.anyLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  list-style: none;
+  margin: 0 0 0.65rem;
+  padding: 0;
+  justify-content: flex-start;
+}
+
+.anyLegendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 0.45rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  background: color-mix(in srgb, #fff 92%, transparent);
+}
+
+.anyLegendActual {
+  border-color: color-mix(in srgb, var(--opsia-green-600) 40%, var(--opsia-cx-border));
+  background: color-mix(in srgb, var(--opsia-green-600) 10%, #fff);
+}
+
+.anySwatch {
+  width: 1.1rem;
+  height: 0.35rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.anyYear {
+  font-size: 0.92rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+  line-height: 1;
+}
+
+.anyTag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--opsia-green-700, #245956);
+}
+
+.modeToggle {
+  display: inline-flex;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: 0.5rem;
+  overflow: hidden;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0;
+  min-inline-size: 0;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.modeBtn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  padding: 0.28rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.modeBtnOn {
+  background: color-mix(in srgb, var(--opsia-green-600) 14%, #fff);
+  color: var(--opsia-green-700, #245956);
+  font-weight: 700;
+}
+
+.deltaList {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
+  gap: 0.45rem;
+}
+
+.deltaItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  background: color-mix(in srgb, #fff 90%, transparent);
+}
+
+.deltaPos {
+  border-color: color-mix(in srgb, var(--opsia-num-positive, #245956) 28%, transparent);
+  background: var(--opsia-num-positive-bg, #e8f2ef);
+}
+
+.deltaNeg {
+  border-color: color-mix(in srgb, var(--color-destructive) 28%, transparent);
+  background: color-mix(in srgb, var(--color-destructive) 8%, #fff);
+}
+
+.deltaName {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+}
+
+.deltaValues {
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+}
+
+.deltaPp {
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.deltaPos .deltaPp {
+  color: var(--opsia-num-positive, #245956);
+}
+
+.deltaNeg .deltaPp {
+  color: var(--color-destructive);
+}

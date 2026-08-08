@@ -71,17 +71,14 @@ function euroTip(value: number): string {
 
 function ChartCard({
   title,
-  lead,
   children,
 }: {
   title: string;
-  lead?: string;
   children: React.ReactNode;
 }) {
   return (
     <section className={styles.chartCard}>
       <h3 className={styles.chartTitle}>{title}</h3>
-      {lead && <p className={styles.chartLead}>{lead}</p>}
       <div className={styles.chartBody}>{children}</div>
     </section>
   );
@@ -145,10 +142,7 @@ export function PresentacioComite({
       </OpsiaKpiCardRow>
 
       <div className={styles.grid2}>
-        <ChartCard
-          title="Any · Ingressos i EBITDA"
-          lead="Evolució mes a mes. Ideal per veure la tendència abans d’entrar al detall."
-        >
+        <ChartCard title="Any · Ingressos i EBITDA">
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart data={dataMensual} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -184,10 +178,7 @@ export function PresentacioComite({
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard
-          title="Any · Costos clau"
-          lead="Personal, compres i gestió (imports en positiu per llegir-los millor)."
-        >
+        <ChartCard title="Any · Costos clau">
           <ResponsiveContainer width="100%" height={320}>
             <BarChart data={dataMensual} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -230,10 +221,7 @@ export function PresentacioComite({
       </div>
 
       <div className={styles.grid2}>
-        <ChartCard
-          title={`Per línia de negoci · ${periode}`}
-          lead="Compres, personal i gestió de cada negoci. Els imports de cost es mostren en positiu."
-        >
+        <ChartCard title={`Per línia de negoci · ${periode}`}>
           <ResponsiveContainer width="100%" height={Math.max(320, 48 + dataLn.length * 28)}>
             <BarChart
               data={dataLn}
@@ -281,10 +269,7 @@ export function PresentacioComite({
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard
-          title={`Resultat per negoci · ${periode}`}
-          lead="Ingressos i EBITDA de cada línia — la foto ràpida per al comitè."
-        >
+        <ChartCard title={`Resultat per negoci · ${periode}`}>
           <ResponsiveContainer width="100%" height={Math.max(320, 48 + dataLn.length * 28)}>
             <ComposedChart
               data={dataLn}

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { parseCompteResultats, periodeDesDelNomFitxer } from "@/lib/excel-parsers/compte-resultats";
 import { resolveLiniaNegociImport } from "@/lib/linia-informe";
 import { codiLnDelNomFitxer } from "@/lib/nom-fitxer";
+import { processarImportExerciciLn } from "@/lib/processar-import-exercici-ln";
 import { processarImportFdlc } from "@/lib/processar-import-fdlc";
 import { revalidatePath } from "next/cache";
 
@@ -42,6 +43,9 @@ export async function processarImportExcel(
 
   if (imp.formatInforme?.tipusInforme === "PYG_FDLC") {
     return processarImportFdlc(imp);
+  }
+  if (imp.formatInforme?.tipusInforme === "PYG_EXERCICI_LN") {
+    return processarImportExerciciLn(imp);
   }
 
   let periodId = imp.periodId;

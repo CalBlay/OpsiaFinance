@@ -14,6 +14,7 @@
       "role": "primary-metric",
       "format": "tabular-nums + €",
       "size": "var(--opsia-cx-kpi-size)",
+      "sizeLg": "var(--opsia-cx-kpi-size-lg)",
       "weight": 700,
       "colorByAccent": {
         "ingressos": "var(--opsia-green-700)",
@@ -27,12 +28,12 @@
       "role": "secondary-metric-prominent",
       "layout": "pct value (large) + hint text (small)",
       "pct": {
-        "size": "1.15rem–1.35rem",
+        "size": "1.2rem–1.45rem",
         "weight": 700,
         "color": "inherit from accent (or warm for cost ratios)"
       },
       "hint": {
-        "size": "0.72rem",
+        "size": "0.78rem",
         "weight": 500,
         "color": "var(--opsia-cx-ink-soft)",
         "examples": ["s/ ingressos", "sobre vendes"]
@@ -41,15 +42,24 @@
     "hint": {
       "role": "optional-caption",
       "when": "sense pct numèric (ex. «Explotació»)",
-      "size": "0.75rem",
+      "size": "0.8rem",
       "color": "var(--opsia-cx-ink-soft)"
+    },
+    "footer": {
+      "role": "comparative-banner",
+      "examples": ["+18,2% · +661.715 € vs 2025", "-3,9 pp vs 2025"]
     }
+  },
+  "sizes": {
+    "default": "Vista empresa / evolució amb 5 KPIs",
+    "lg": "Vistes direcció amb 2–3 KPIs (ex. Comparativa LN). Prop size=\"lg\" a OpsiaKpiCard i OpsiaKpiCardRow."
   },
   "surface": {
     "background": "var(--opsia-cx-card-bg)",
     "border": "1px solid var(--opsia-cx-border)",
     "radius": "var(--opsia-cx-radius)",
-    "padding": "0.95rem 1.05rem",
+    "padding": "1.1rem 1.2rem",
+    "paddingLg": "1.25rem 1.35rem",
     "accentTint": {
       "ingressos": "green mix 6%",
       "cost": "var(--opsia-cx-accent-cost-bg)",
@@ -59,8 +69,9 @@
   },
   "grid": {
     "className": "OpsiaKpiCardRow",
-    "columns": "repeat(auto-fit, minmax(150px, 1fr))",
-    "gap": "0.75rem"
+    "columns": "repeat(auto-fit, minmax(200px, 1fr))",
+    "columnsLg": "repeat(auto-fit, minmax(240px, 1fr))",
+    "gap": "0.9rem"
   },
   "sourceCss": "apps/frontend/components/consultes/OpsiaKpiCard.module.css",
   "sourceTsx": "apps/frontend/components/consultes/OpsiaKpiCard.tsx",

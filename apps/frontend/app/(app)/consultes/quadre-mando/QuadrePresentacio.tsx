@@ -105,33 +105,31 @@ export function QuadrePresentacio({
         <KpiTile
           label="Vendes TPV"
           value={fmtEuro(t.vendesTpv)}
-          hint={t.variacioPct != null ? `Δ ${fmtDelta(t.variacioPct)}` : "Línia restaurants"}
+          hint={t.variacioPct != null ? `Δ ${fmtDelta(t.variacioPct)}` : undefined}
         />
-        <KpiTile label="Personal %" value={fmtPct(t.laborPct)} hint="Cost Excel ÷ vendes TPV" />
-        <KpiTile label="Cost de compres %" value={fmtPct(t.foodPct)} hint="Compres compte ÷ TPV" />
+        <KpiTile label="Personal %" value={fmtPct(t.laborPct)} />
+        <KpiTile label="Cost de compres %" value={fmtPct(t.foodPct)} />
         <KpiTile
           label="Cost operatiu %"
           value={fmtPct(t.primePct)}
-          hint="Compres + personal · objectiu ≤ 60%"
+          hint="Objectiu ≤ 60%"
           accent={primeAccent(t.semafor)}
         />
         <KpiTile
           label="EBITDA"
           value={fmtEuro(t.ebitda)}
-          hint={t.ebitdaPct != null ? `${fmtPct(t.ebitdaPct)} s/ TPV` : "Compte per centre"}
+          hint={t.ebitdaPct != null ? `${fmtPct(t.ebitdaPct)} s/ TPV` : undefined}
         />
         <KpiTile
           label="Desviació TPV − compte"
           value={fmtEuro(t.gapTpvPl)}
-          hint={t.gapTpvPlPct != null ? fmtPct(t.gapTpvPlPct) : "Control de dada"}
+          hint={t.gapTpvPlPct != null ? fmtPct(t.gapTpvPlPct) : undefined}
           accent={t.gapTpvPlPct != null && Math.abs(t.gapTpvPlPct) >= 3 ? "warn" : "neutral"}
         />
       </div>
 
       <p className={styles.meta}>
         {t.centresAmbDades} de {t.centresTotals} restaurants amb dades · {data.periode}
-        {" · "}
-        Cost personal % = cost salarial Excel ÷ vendes TPV
       </p>
 
       <div className={styles.tableWrap}>
@@ -228,11 +226,7 @@ export function QuadrePresentacio({
           qCost={qCost}
           onClose={() => setSelectedId(null)}
         />
-      ) : (
-        <p className={styles.hintSelect}>
-          Fes clic a un restaurant per veure l&apos;anàlisi i els enllaços de detall.
-        </p>
-      )}
+      ) : null}
     </div>
   );
 }

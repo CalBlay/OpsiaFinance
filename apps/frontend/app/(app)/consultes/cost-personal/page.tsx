@@ -183,11 +183,7 @@ export default async function ConsultaCostPersonalPage({
             chartTitle={chartTitle}
           />
 
-          <DetallCompteCollapsible
-            defaultOpen={false}
-            title="Detall del compte"
-            caption="Clica una casella per veure l’origen de cada import."
-          >
+          <DetallCompteCollapsible defaultOpen={false} title="Detall del compte">
             <PivotTableDrilldown
               columns={informe.columns}
               rows={informe.rows}

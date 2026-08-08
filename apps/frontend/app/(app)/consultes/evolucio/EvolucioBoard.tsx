@@ -169,13 +169,7 @@ export function EvolucioBoard({
             <EvolucioChart categories={MESOS_CURTS} series={chartSeries} />
           </div>
 
-          <DetallCompteCollapsible
-            caption={
-              canEdit
-                ? "Clic a una casella per veure el detall i crear un ajust."
-                : "Imports en euros. Fes clic a un import per veure el detall. Les files ressaltades són subtotals i totals."
-            }
-          >
+          <DetallCompteCollapsible>
             <PivotTableDrilldown
               columns={columns}
               rows={ev?.concepts ?? []}

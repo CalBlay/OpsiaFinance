@@ -101,15 +101,7 @@ export function LiniaCentresLazy({
           </button>
         </div>
       ) : (
-        <DetallCompteCollapsible
-          defaultOpen
-          title="Desglossament per centres"
-          caption={
-            vista === "gestio"
-              ? "Detall per centre. Per analitzar un sol centre, ves a Consultes -> Per centre."
-              : "Detall per centre de la línia. Per analitzar un sol centre, ves a Consultes -> Per centre."
-          }
-        >
+        <DetallCompteCollapsible defaultOpen title="Desglossament per centres">
           {pending && !compActual ? (
             <p className={styles.subtitle}>Carregant centres...</p>
           ) : errorActual ? (

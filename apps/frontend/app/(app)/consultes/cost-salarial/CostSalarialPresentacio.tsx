@@ -526,11 +526,9 @@ function PresentacioRestaurantView(props: PresentacioRestaurantProps) {
 
         <section className={styles.panel}>
           <h3 className={styles.panelTitle}>Statement · partides</h3>
-          <p className={styles.panelLead}>
-            {props.compte === "gestio"
-              ? "Fora centre = traspassos (+destí −origen). Indemnitzacions només informatives (no al total)."
-              : "Fora centre = Excel. Clica per al detall."}
-          </p>
+          {props.compte === "gestio" ? (
+            <p className={styles.panelLead}>Indemnitzacions només informatives (no al total).</p>
+          ) : null}
           <StatementTable
             rows={rows}
             costTotal={props.costTotal}

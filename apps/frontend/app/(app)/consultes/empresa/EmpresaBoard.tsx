@@ -130,14 +130,7 @@ export function EmpresaBoard({
             />
           ) : null}
 
-          <DetallCompteCollapsible
-            caption={
-              data.canEdit
-                ? `${data.tableCaption} Clic a una casella per veure el detall i crear un ajust.`
-                : data.tableCaption
-            }
-            defaultOpen={false}
-          >
+          <DetallCompteCollapsible caption={data.tableCaption} defaultOpen={false}>
             <PivotTableDrilldown
               columns={data.columns}
               rows={data.pivotRows}

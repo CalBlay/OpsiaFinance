@@ -1,8 +1,13 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
-import { KpiComparatiuCards } from "@/components/consultes/KpiCards";
 import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
-import { EvolucioChart } from "@/components/consultes/charts-dynamic";
+import {
+  type KpiPesEmpresa,
+  type PesLnComparativa,
+  PresentacioComparativa,
+  type SerieComparativaAny,
+  type SerieComparativaMes,
+} from "@/components/consultes/PresentacioComparativa";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import {
@@ -20,30 +25,43 @@ import {
   MESOS_CURTS,
   getAnysAmbDades,
   getArbreSeleccio,
+  getComparativaEmpresa,
   getComparativaMensualEntreAnys,
   getComparativaTemporal,
 } from "@/lib/consultes";
+import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import {
   KPI_DEFINICIONS,
   type KpiComparatiuItem,
+  NODE_COMPRES,
+  NODE_COST_GESTIO,
+  NODE_COST_SALARIAL,
   NODE_EBITDA,
   NODE_VENDES,
 } from "@/lib/kpi-definitions";
-import { OPSIA_CHART, OPSIA_CHART_SERIES, OPSIA_GREEN, OPSIA_YELLOW } from "@/lib/opsia-colors";
 import { ComparativaSelectors } from "./ComparativaSelectors";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Comparativa temporal — OpsiaFinance" };
 
 const NODE_VENDES_KPI = NODE_VENDES;
-
-const ANY_COLORS = [...OPSIA_CHART_SERIES];
-const EBITDA_COLORS = [OPSIA_GREEN[400], OPSIA_GREEN[600], OPSIA_YELLOW[400], OPSIA_GREEN[500]];
-
 const KPI_COMPARATIU = KPI_DEFINICIONS;
+
+function valorNode(
+  find: (node: number) => { valors: number[] } | undefined,
+  node: number,
+  idx: number
+): number {
+  return find(node)?.valors[idx] ?? 0;
+}
+
+function pesPct(vendesLn: number, vendesEmp: number): number | null {
+  if (vendesEmp === 0) return null;
+  return (vendesLn / vendesEmp) * 100;
+}
 
 export default async function ComparativaPage({
   searchParams,
@@ -56,13 +74,13 @@ export default async function ComparativaPage({
     getAnysAmbDades(),
     getGrupEmpresaActual(),
   ]);
-  // Limita a N exercicis recents (anysTots ve en desc) per no escanejar tota l'història.
   const anys = anysTots.slice(0, MAX_ANYS_COMPARATIVA);
   const arbre = liniesPerConsultaDetall(arbreRaw, grup);
 
   const scope: AmbitTemporal =
     sp.scope === "linia" ? "linia" : sp.scope === "centre" ? "centre" : "empresa";
   const id = sp.id ?? null;
+  const esLn = scope === "linia";
 
   const granularitat: GranularitatTemporal =
     sp.g === "mensual" ? "mensual" : sp.g === "mes" ? "mes" : "anual";
@@ -70,9 +88,9 @@ export default async function ComparativaPage({
 
   const necessitaId = (scope === "linia" || scope === "centre") && !id;
 
-  const [comp, compMensual] =
+  const [comp, compMensual, compEmp, compMensualEmp] =
     necessitaId || anys.length === 0
-      ? [null, null]
+      ? [null, null, null, null]
       : await Promise.all([
           granularitat !== "mensual"
             ? getComparativaTemporal(
@@ -88,6 +106,21 @@ export default async function ComparativaPage({
             : Promise.resolve(null),
           granularitat === "mensual"
             ? getComparativaMensualEntreAnys(scope, id, anys, grup)
+            : Promise.resolve(null),
+          esLn && granularitat !== "mensual"
+            ? getComparativaTemporal(
+                "empresa",
+                null,
+                {
+                  granularitat,
+                  anys,
+                  mes: granularitat === "mes" ? mesActual : undefined,
+                },
+                grup
+              )
+            : Promise.resolve(null),
+          esLn && granularitat === "mensual"
+            ? getComparativaMensualEntreAnys("empresa", null, anys, grup)
             : Promise.resolve(null),
         ]);
 
@@ -123,6 +156,21 @@ export default async function ComparativaPage({
 
   const findRowAny = (year: number, node: number) =>
     compMensual?.perAny[year]?.find((c) => c.node === node);
+
+  const findRowEmp = (node: number) => compEmp?.concepts.find((c) => c.node === node);
+
+  const findRowAnyEmp = (year: number, node: number) =>
+    compMensualEmp?.perAny[year]?.find((c) => c.node === node);
+
+  const vendesEmpresaPerColumna = (idx: number): number => {
+    if (granularitat === "mensual") return 0;
+    return valorNode(findRowEmp, NODE_VENDES, idx);
+  };
+
+  const vendesEmpresaPerAny = (year: number): number => {
+    const row = findRowAnyEmp(year, NODE_VENDES);
+    return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
+  };
 
   const compLabel =
     granularitat === "mensual"
@@ -218,9 +266,11 @@ export default async function ComparativaPage({
     };
   }
 
+  const kpisDefs = esLn ? KPI_COMPARATIU.filter((k) => k.tipus === "vendes") : KPI_COMPARATIU;
+
   const kpisRaw =
     comp || compMensual
-      ? KPI_COMPARATIU.map((k) => ({ label: k.label, tipus: k.tipus, ...kpiComparatiu(k.node) }))
+      ? kpisDefs.map((k) => ({ label: k.label, tipus: k.tipus, ...kpiComparatiu(k.node) }))
       : ([] as Array<{
           label: string;
           tipus: KpiComparatiuItem["tipus"];
@@ -246,79 +296,100 @@ export default async function ComparativaPage({
     pctAnterior: k.pctAnterior,
   }));
 
-  const chartCategories =
-    granularitat === "mensual" ? KPI_COMPARATIU.map((k) => k.label) : columns.map((c) => c.label);
-
-  const mesChartCategories = mesosSeleccionats.map((m) => MESOS_CURTS[m - 1]);
-
-  const periodChartSeries =
+  const perAny: SerieComparativaAny[] =
     granularitat === "mensual" && compMensual
-      ? anysComparats.map((year, i) => ({
-          name: String(year),
-          type: "bar" as const,
-          color: ANY_COLORS[i % ANY_COLORS.length],
-          data: KPI_COMPARATIU.map((k) => {
-            const row = findRowAny(year, k.node);
+      ? anysComparats.map((year) => {
+          const vendes = (() => {
+            const row = findRowAny(year, NODE_VENDES);
             return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
-          }),
-        }))
-      : [];
-
-  const mesChartSeries =
-    granularitat === "mensual" && compMensual
-      ? anysComparats.flatMap((year, i) => {
-          const vendesRow = findRowAny(year, NODE_VENDES);
-          const ebitdaRow = findRowAny(year, NODE_EBITDA);
-          return [
-            {
-              name: `Vendes ${year}`,
-              type: "bar" as const,
-              color: ANY_COLORS[i % ANY_COLORS.length],
-              data: vendesRow
-                ? valorsMesos(vendesRow.valors, mesosSeleccionats)
-                : mesosSeleccionats.map(() => 0),
-            },
-            {
-              name: `EBITDA ${year}`,
-              type: "line" as const,
-              color: EBITDA_COLORS[i % EBITDA_COLORS.length],
-              data: ebitdaRow
-                ? valorsMesos(ebitdaRow.valors, mesosSeleccionats)
-                : mesosSeleccionats.map(() => 0),
-            },
-          ];
+          })();
+          const vendesEmpresa = esLn ? vendesEmpresaPerAny(year) : 0;
+          return {
+            label: String(year),
+            vendes,
+            ebitda: (() => {
+              const row = findRowAny(year, NODE_EBITDA);
+              return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
+            })(),
+            personal: (() => {
+              const row = findRowAny(year, NODE_COST_SALARIAL);
+              return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
+            })(),
+            compres: (() => {
+              const row = findRowAny(year, NODE_COMPRES);
+              return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
+            })(),
+            gestio: (() => {
+              const row = findRowAny(year, NODE_COST_GESTIO);
+              return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
+            })(),
+            vendesEmpresa: esLn ? vendesEmpresa : undefined,
+            pesEmpresa: esLn ? pesPct(vendes, vendesEmpresa) : undefined,
+          };
         })
-      : [];
+      : (comp?.columnes ?? []).map((col, idx) => {
+          const vendes = valorNode(findRow, NODE_VENDES, idx);
+          const vendesEmpresa = esLn ? vendesEmpresaPerColumna(idx) : 0;
+          return {
+            label: col.label,
+            vendes,
+            ebitda: valorNode(findRow, NODE_EBITDA, idx),
+            personal: valorNode(findRow, NODE_COST_SALARIAL, idx),
+            compres: valorNode(findRow, NODE_COMPRES, idx),
+            gestio: valorNode(findRow, NODE_COST_GESTIO, idx),
+            vendesEmpresa: esLn ? vendesEmpresa : undefined,
+            pesEmpresa: esLn ? pesPct(vendes, vendesEmpresa) : undefined,
+          };
+        });
 
-  const chartSeries =
-    granularitat === "mensual"
-      ? periodChartSeries
-      : comp
-        ? [
-            {
-              name: "Vendes",
-              type: "bar" as const,
-              color: OPSIA_CHART.vendes,
-              data: findRow(NODE_VENDES)?.valors ?? [],
-            },
-            {
-              name: "EBITDA",
-              type: "line" as const,
-              color: OPSIA_CHART.ebitda,
-              data: findRow(NODE_EBITDA)?.valors ?? [],
-            },
-          ]
-        : [];
+  const mensual: SerieComparativaMes[] | null =
+    granularitat === "mensual" && compMensual
+      ? mesosSeleccionats.map((m, i) => {
+          const row: SerieComparativaMes = { mes: MESOS_CURTS[m - 1] };
+          for (const year of anysComparats) {
+            const vendesRow = findRowAny(year, NODE_VENDES);
+            const ebitdaRow = findRowAny(year, NODE_EBITDA);
+            const vv = vendesRow ? valorsMesos(vendesRow.valors, mesosSeleccionats) : [];
+            const ee = ebitdaRow ? valorsMesos(ebitdaRow.valors, mesosSeleccionats) : [];
+            row[`v_${year}`] = vv[i] ?? 0;
+            if (!esLn) row[`e_${year}`] = ee[i] ?? 0;
+          }
+          return row;
+        })
+      : null;
 
-  const periodChartTitle = `Totals del període · ${periodeLabel} · ${anysComparats.join(" vs ")}`;
-  const mesChartTitle = `Vendes i EBITDA mes a mes · ${anysComparats.join(" vs ")}`;
+  const vendesKpi = kpis.find((k) => k.tipus === "vendes");
+  let pesEmpresa: KpiPesEmpresa | null = null;
+  if (esLn && vendesKpi) {
+    const empActual =
+      granularitat === "mensual" && anyTaula
+        ? vendesEmpresaPerAny(anyTaula)
+        : lastIdx >= 0
+          ? vendesEmpresaPerColumna(lastIdx)
+          : 0;
+    const anyAnterior =
+      granularitat === "mensual" && anysComparats.length >= 2
+        ? anysComparats[anysComparats.length - 2]
+        : undefined;
+    const empAnterior =
+      granularitat === "mensual" && anyAnterior !== undefined
+        ? vendesEmpresaPerAny(anyAnterior)
+        : prevIdx >= 0
+          ? vendesEmpresaPerColumna(prevIdx)
+          : null;
 
-  const chartTitle =
-    granularitat === "mensual"
-      ? periodChartTitle
-      : comp?.granularitat === "mes"
-        ? "Vendes i EBITDA · mateix mes entre anys"
-        : "Vendes i EBITDA per any";
+    pesEmpresa = {
+      pesActual: pesPct(vendesKpi.totalitat, empActual),
+      pesAnterior:
+        empAnterior !== null && vendesKpi.totalitatAnterior !== null
+          ? pesPct(vendesKpi.totalitatAnterior, empAnterior)
+          : null,
+      vendesEmpresa: empActual,
+      vendesEmpresaAnterior: empAnterior,
+      refLabel: vendesKpi.refLabel,
+      actualLabel: vendesKpi.actualLabel,
+    };
+  }
 
   const periodeDesc =
     granularitat === "mensual" && compMensual
@@ -328,14 +399,59 @@ export default async function ComparativaPage({
   const titol = granularitat === "mensual" ? compMensual?.titol : comp?.titol;
   const buit = granularitat === "mensual" ? compMensual?.buit : comp?.buit;
 
-  const tableCaption =
-    granularitat === "mensual"
-      ? `Imports en euros del període seleccionat (taula de ${anyTaula ?? "—"}). El gràfic compara ${anysComparats.join(" i ")} per als mateixos mesos.`
-      : comp?.granularitat === "mes"
-        ? "Imports en euros d'un mateix mes per any. Les files ressaltades són subtotals."
-        : "Imports en euros (acumulat anual de cada exercici). Les files ressaltades són subtotals.";
-
   const pivotRows = granularitat === "mensual" ? conceptsTaula : (comp?.concepts ?? []);
+
+  let pesLn: PesLnComparativa | null = null;
+  if (scope === "empresa" && !buit) {
+    const anysPesLn =
+      granularitat === "mensual"
+        ? anysComparats
+        : (comp?.columnes ?? []).map((c) => Number(c.label)).filter((y) => Number.isFinite(y));
+
+    const rangPesLn =
+      granularitat === "mensual" && mesosSeleccionats.length > 0
+        ? {
+            des: Math.min(...mesosSeleccionats),
+            fins: Math.max(...mesosSeleccionats),
+          }
+        : granularitat === "mes"
+          ? { des: mesActual, fins: mesActual }
+          : { des: 1, fins: 12 };
+
+    if (anysPesLn.length > 0) {
+      const cmpLnAnys = await Promise.all(
+        anysPesLn.map((y) => getComparativaEmpresa(y, rangPesLn, "directe", grup))
+      );
+      const ref = cmpLnAnys.find((c) => !c.buit && c.linies.length > 0) ?? cmpLnAnys[0];
+      if (ref && ref.linies.length > 0) {
+        const linies = ref.linies.map((l) => ({
+          key: l.id,
+          name: etiquetaGrafic(l),
+        }));
+        const perAny: PesLnComparativa["perAny"] = [];
+
+        for (const cmpY of cmpLnAnys) {
+          const vendesRow = cmpY.concepts.find((c) => c.node === NODE_VENDES);
+          if (!vendesRow) continue;
+          const segments: PesLnComparativa["perAny"][number]["segments"] = [];
+          cmpY.linies.forEach((ln, i) => {
+            const v = vendesRow.valors[i] ?? 0;
+            if (v !== 0) {
+              segments.push({ key: ln.id, name: etiquetaGrafic(ln), value: v });
+            }
+          });
+          perAny.push({ label: String(cmpY.any), segments });
+        }
+
+        if (perAny.some((p) => p.segments.length > 0)) {
+          pesLn = {
+            linies,
+            perAny,
+          };
+        }
+      }
+    }
+  }
 
   return (
     <div className={styles.page}>
@@ -377,7 +493,7 @@ export default async function ComparativaPage({
       {necessitaId ? (
         <div className={styles.prompt}>
           <h3>Selecciona {scope === "linia" ? "una línia" : "un centre"}</h3>
-          <p>Tria l'element que vols comparar al llarg del temps.</p>
+          <p>Tria l&apos;element que vols comparar al llarg del temps.</p>
         </div>
       ) : buit ? (
         <div className={styles.prompt}>
@@ -388,57 +504,34 @@ export default async function ComparativaPage({
         <>
           {granularitat === "anual" && columns.length === 1 && (
             <p className={styles.tableCaption} style={{ marginBottom: "1rem" }}>
-              Només hi ha dades d'un any ({columns[0].label}). Carrega més exercicis o canvia a
+              Només hi ha dades d&apos;un any ({columns[0].label}). Carrega més exercicis o canvia a
               granularitat per període.
             </p>
           )}
 
-          <KpiComparatiuCards
+          <PresentacioComparativa
+            titol={titol ?? "Comparativa"}
+            periode={periodeDesc ?? ""}
             kpis={kpis}
-            periodeLabel={granularitat === "mensual" ? periodeLabel : compLabel}
+            periodeLabelKpi={granularitat === "mensual" ? periodeLabel : compLabel}
+            perAny={perAny}
+            mensual={mensual}
+            anysMensual={anysComparats}
+            mode={granularitat}
+            ambit={esLn ? "linia" : "general"}
+            pesEmpresa={pesEmpresa}
+            pesLn={pesLn}
           />
 
-          {granularitat === "mensual" ? (
-            <div className={styles.chartGrid}>
-              <div className={styles.chartCard} style={{ marginBottom: 0 }}>
-                <h3 className={styles.chartTitle}>{mesChartTitle}</h3>
-                <EvolucioChart
-                  categories={mesChartCategories}
-                  series={mesChartSeries}
-                  height={320}
-                />
-              </div>
-              <div className={styles.chartCard} style={{ marginBottom: 0 }}>
-                <h3 className={styles.chartTitle}>{periodChartTitle}</h3>
-                <EvolucioChart
-                  categories={chartCategories}
-                  series={periodChartSeries}
-                  height={320}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className={styles.chartCard}>
-              <h3 className={styles.chartTitle}>{chartTitle}</h3>
-              <EvolucioChart categories={chartCategories} series={chartSeries} />
-            </div>
-          )}
-
-          {granularitat === "mensual" ? (
-            <DetallCompteCollapsible caption={tableCaption}>
-              <PivotTable
-                columns={columns}
-                rows={pivotRows}
-                showTotal
-                totalLabel="Període"
-                firstColLabel="Concepte"
-              />
-            </DetallCompteCollapsible>
-          ) : (
-            <DetallCompteCollapsible caption={tableCaption}>
-              <PivotTable columns={columns} rows={pivotRows} firstColLabel="Concepte" />
-            </DetallCompteCollapsible>
-          )}
+          <DetallCompteCollapsible title="Obrir compte d'explotació detallat">
+            <PivotTable
+              columns={columns}
+              rows={pivotRows}
+              showTotal={granularitat === "mensual"}
+              totalLabel="Període"
+              firstColLabel="Concepte"
+            />
+          </DetallCompteCollapsible>
         </>
       )}
     </div>

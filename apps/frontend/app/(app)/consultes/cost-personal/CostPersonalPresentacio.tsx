@@ -171,10 +171,7 @@ export function CostPersonalPresentacio({
       <section className={styles.rankCard}>
         <div className={styles.rankHead}>
           <h3 className={styles.rankTitle}>{chartTitle}</h3>
-          <p className={styles.rankLead}>
-            Ordenat de més a menys cost.
-            {ranked.some((r) => r.href) ? " Clica una fila per baixar de nivell." : null}
-          </p>
+          <p className={styles.rankLead}>Ordenat de més a menys cost.</p>
         </div>
 
         {ranked.length === 0 ? (

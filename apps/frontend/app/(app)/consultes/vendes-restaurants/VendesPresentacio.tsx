@@ -616,9 +616,7 @@ function RestaurantsDetall({
     <section className={styles.panel}>
       <header className={styles.panelHead}>
         <h3 className={styles.panelTitle}>Per restaurant</h3>
-        <p className={styles.panelLead}>
-          Clica un restaurant per obrir el seu quadre. Verd = puja {vsLabel}.
-        </p>
+        <p className={styles.panelLead}>Verd = puja {vsLabel}.</p>
       </header>
       <div className={styles.restList}>
         {data.files.map((f) => (
@@ -902,7 +900,6 @@ export function VendesComparativaPresentacio({
             {data.periode} · {data.centresAmbDades}/{data.centresTotals} restaurants
           </p>
         </div>
-        <p className={styles.heroHint}>Clica per aprofundir · restaurant o rànquing</p>
       </header>
 
       <div className={styles.metricStrip}>
@@ -1304,7 +1301,6 @@ export function VendesRestaurantPresentacio({
           <h2 className={styles.heroTitle}>{data.centre.etiqueta}</h2>
           <p className={styles.heroPeriode}>{data.periode}</p>
         </div>
-        <p className={styles.heroHint}>Clica qualsevol bloc per aprofundir</p>
       </header>
 
       <div className={styles.metricStrip}>

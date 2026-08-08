@@ -70,15 +70,17 @@
   --opsia-semafor-ambre: var(--opsia-orange-500);
   --opsia-semafor-groc: var(--opsia-yellow-500);
 
-  /* ─── Sèries de gràfic (ordre preferit Opsia) ──────────────────────────── */
-  --opsia-chart-1: var(--opsia-green-600); /* marca / EBITDA / resultat */
-  --opsia-chart-2: var(--opsia-yellow-500); /* ambre / compres / alerta */
-  --opsia-chart-3: var(--opsia-orange-500); /* taronja / cuina / calor */
-  --opsia-chart-4: var(--opsia-green-400); /* verd clar / variant */
-  --opsia-chart-5: var(--opsia-yellow-400);
-  --opsia-chart-6: var(--opsia-orange-400);
-  --opsia-chart-7: var(--opsia-green-300);
-  --opsia-chart-8: var(--opsia-yellow-300);
+  /* ─── Sèries de gràfic (contrast alt entre categories veïnes) ───────────── */
+  --opsia-chart-1: var(--opsia-green-700); /* teal fosc */
+  --opsia-chart-2: var(--opsia-yellow-500); /* ambre */
+  --opsia-chart-3: var(--opsia-orange-600); /* taronja mitjà-fosc */
+  --opsia-chart-4: var(--opsia-green-400); /* teal clar */
+  --opsia-chart-5: var(--opsia-ink-strong, #22313f); /* slate — trenca monocrom */
+  --opsia-chart-6: var(--opsia-yellow-700); /* or fosc */
+  --opsia-chart-7: var(--opsia-orange-400); /* taronja clar */
+  --opsia-chart-8: var(--opsia-green-500); /* teal mitjà */
+  --opsia-chart-9: var(--opsia-orange-800); /* terracota fosc */
+  --opsia-chart-10: var(--opsia-yellow-300); /* or clar */
 
   /* Aliases d’ús freqüent als mòduls de consultes */
   --opsia-chart-ebitda: var(--opsia-chart-1);

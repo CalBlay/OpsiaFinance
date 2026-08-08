@@ -1,0 +1,1233 @@
+{
+  "sheetName": "Hoja2",
+  "ref": "A1:O89",
+  "totalRows": 89,
+  "previewRows40to120": [
+    {
+      "row": 40,
+      "cells": [
+        "INGRESSOS EXCEPCIONALS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 41,
+      "cells": [
+        "DESPESES EXCEPCIONALS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 42,
+      "cells": ["RESULTAT EXCEPCIONAL", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]
+    },
+    {
+      "row": 43,
+      "cells": [
+        "AMORTITZACIONS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 44,
+      "cells": [
+        "RESULTAT ABANS D'IMPOSTOS",
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -5150,
+        -61800,
+        null
+      ]
+    },
+    {
+      "row": 45,
+      "cells": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 46,
+      "cells": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 47,
+      "cells": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 48,
+      "cells": [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 49,
+      "cells": [
+        "Resultats REALS 2024  Cons.",
+        "Gener",
+        "Febrer",
+        "Març",
+        "Abril",
+        "Maig",
+        "Juny",
+        "Juliol",
+        "Agost",
+        "Setembre",
+        "Octubre",
+        "Novembre",
+        "Desembre",
+        "Total",
+        null
+      ]
+    },
+    {
+      "row": 50,
+      "cells": [
+        "VENDES",
+        400807.07,
+        305074.72,
+        309310.91,
+        413164.78,
+        990808.84,
+        1742991.51,
+        910860.42,
+        204702.43,
+        1577705.43,
+        1206621.93,
+        676582.76,
+        609121.61,
+        9347752.409999998,
+        null
+      ]
+    },
+    {
+      "row": 51,
+      "cells": [
+        "PRESTACIO DE SERVEIS",
+        450,
+        null,
+        900,
+        450,
+        null,
+        1800,
+        1000,
+        null,
+        450,
+        877,
+        676.27,
+        null,
+        6603.27,
+        null
+      ]
+    },
+    {
+      "row": 52,
+      "cells": [
+        "ALTRES INGRESSOS",
+        0.01,
+        null,
+        1050.05,
+        9.89,
+        4000,
+        6000.68,
+        11773.52,
+        3625.03,
+        6760.01,
+        5535.7,
+        1110,
+        null,
+        39864.89,
+        null
+      ]
+    },
+    {
+      "row": 53,
+      "cells": [
+        "TOTAL INGRESSOS EXPLOTACI",
+        401257.08,
+        305074.72,
+        311260.95999999996,
+        413624.67000000004,
+        994808.84,
+        1750792.19,
+        923633.9400000001,
+        208327.46,
+        1584915.44,
+        1213034.63,
+        678369.03,
+        609121.61,
+        9394220.569999998,
+        null
+      ]
+    },
+    {
+      "row": 54,
+      "cells": [
+        "COMPRES",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 55,
+      "cells": [
+        "CONSUMS INTERNS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 56,
+      "cells": [
+        "ALTRES APROVISIONAMENTS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 57,
+      "cells": [
+        "MARGE BRUT DE LES VENDES",
+        400807.07,
+        305074.72,
+        309310.91,
+        413164.78,
+        990808.84,
+        1742991.51,
+        910860.42,
+        204702.43,
+        1577705.43,
+        1206621.93,
+        676582.76,
+        609121.61,
+        9347752.409999998,
+        null
+      ]
+    },
+    {
+      "row": 58,
+      "cells": [
+        "MARGES BRUT SERVEIS I AL.",
+        450.01,
+        0,
+        1950.05,
+        459.89,
+        4000,
+        7800.68,
+        12773.52,
+        3625.03,
+        7210.01,
+        6412.7,
+        1786.27,
+        0,
+        46468.16,
+        null
+      ]
+    },
+    {
+      "row": 59,
+      "cells": [
+        "MARGE BRUT TOTAL",
+        401257.08,
+        305074.72,
+        311260.95999999996,
+        413624.67000000004,
+        994808.84,
+        1750792.19,
+        923633.9400000001,
+        208327.46,
+        1584915.44,
+        1213034.63,
+        678369.03,
+        609121.61,
+        9394220.569999998,
+        1
+      ]
+    },
+    {
+      "row": 60,
+      "cells": [
+        "SOUS I SALARIS",
+        108593.23,
+        98919.04,
+        100493.6,
+        101209.1,
+        142015.57,
+        217591.58,
+        139095.16,
+        96077.16,
+        203735.2,
+        183528.14,
+        117986.51,
+        125947.34,
+        1635191.6300000004,
+        null
+      ]
+    },
+    {
+      "row": 61,
+      "cells": [
+        "INDEMNITZACIONS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        500,
+        null,
+        null,
+        null,
+        null,
+        null,
+        500,
+        null
+      ]
+    },
+    {
+      "row": 62,
+      "cells": [
+        "SEGURETAT SOCIAL",
+        24580.68,
+        24282.75,
+        24190.87,
+        21773.74,
+        23071.03,
+        26827.18,
+        22562.78,
+        23009.74,
+        25269.01,
+        24918.78,
+        25452.92,
+        22665.33,
+        288604.81,
+        null
+      ]
+    },
+    {
+      "row": 63,
+      "cells": [
+        "ALTRES DESPESES SOCIALS",
+        null,
+        null,
+        135,
+        302.33,
+        927.17,
+        265.98,
+        165.82,
+        null,
+        209.52,
+        110,
+        429.6,
+        506.8,
+        3052.22,
+        null
+      ]
+    },
+    {
+      "row": 64,
+      "cells": [
+        "COST SALARIAL TOTAL",
+        133173.91,
+        123201.79,
+        124819.47,
+        123285.17000000001,
+        166013.77000000002,
+        244684.74,
+        162323.76,
+        119086.90000000001,
+        229213.73,
+        208556.92,
+        143869.03,
+        149119.46999999997,
+        1927348.6600000004,
+        0.2051632326107924
+      ]
+    },
+    {
+      "row": 65,
+      "cells": [
+        "ARRENDAMENTS I CANONS",
+        35968.68,
+        22608.15,
+        28224.31,
+        25852.74,
+        57680.06,
+        80018.93,
+        64213.72,
+        20855.5,
+        123481.98,
+        45737.19,
+        29474.41,
+        25355.26,
+        559470.9299999999,
+        null
+      ]
+    },
+    {
+      "row": 66,
+      "cells": [
+        "REPARACIONS I CONSERVACIO",
+        833.2,
+        4330.42,
+        2237.12,
+        3826.32,
+        3577.87,
+        5682.04,
+        7034.24,
+        3511.16,
+        2212.69,
+        2022.23,
+        3017.4,
+        816.37,
+        39101.060000000005,
+        null
+      ]
+    },
+    {
+      "row": 67,
+      "cells": [
+        "SERVEIS PROFESSIONALS",
+        26029.18,
+        16321.07,
+        27228.43,
+        17996.63,
+        40687.39,
+        68061.31,
+        41644.04,
+        7767.47,
+        78040.61,
+        51595.34,
+        22668.47,
+        21533.4,
+        419573.33999999997,
+        null
+      ]
+    },
+    {
+      "row": 68,
+      "cells": [
+        "TRANSPORTS",
+        172.72,
+        64.73,
+        117.26,
+        219.79,
+        58.88,
+        445.06,
+        859.94,
+        99.67,
+        182.52,
+        219.23,
+        359.43,
+        460.19,
+        3259.42,
+        null
+      ]
+    },
+    {
+      "row": 69,
+      "cells": [
+        "PRIMES D'ASSEGURANCES",
+        96,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        96,
+        null
+      ]
+    },
+    {
+      "row": 70,
+      "cells": [
+        "SERVEIS BANCARIS",
+        92.06,
+        26.42,
+        105.36,
+        19.05,
+        610.15,
+        972.04,
+        285.67,
+        98.5,
+        56.9,
+        139.03,
+        null,
+        62.52,
+        2467.7000000000003,
+        null
+      ]
+    },
+    {
+      "row": 71,
+      "cells": [
+        "PUBLICITAT I PROPAGANDA",
+        277.32,
+        944.41,
+        100,
+        1413.59,
+        3818.38,
+        2616.43,
+        1089.2,
+        934.36,
+        1728.89,
+        2378.47,
+        3349.64,
+        1591.91,
+        20242.6,
+        null
+      ]
+    },
+    {
+      "row": 72,
+      "cells": [
+        "SUBMINISTRAMENTS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        390.39,
+        null,
+        null,
+        390.39,
+        null
+      ]
+    },
+    {
+      "row": 73,
+      "cells": [
+        "ALTRES DESPESES",
+        6708.8,
+        16079.59,
+        6353.83,
+        9482.68,
+        15567.52,
+        43905.72,
+        21716.25,
+        12098.35,
+        19188.96,
+        28086.34,
+        10534.81,
+        13691.02,
+        203413.86999999997,
+        null
+      ]
+    },
+    {
+      "row": 74,
+      "cells": [
+        "ALTRES TRIBUTS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        1059.64,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        1059.64,
+        null
+      ]
+    },
+    {
+      "row": 75,
+      "cells": [
+        "MOVIMENTS INTERNS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 76,
+      "cells": [
+        "DOTACIÓ PER INSOLVÈNCIES",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 77,
+      "cells": [
+        "TOTAL DESPESES S/SALARIS",
+        70177.95999999999,
+        60374.79000000001,
+        64366.310000000005,
+        58810.8,
+        122000.25000000001,
+        202761.16999999998,
+        136843.06,
+        45365.009999999995,
+        224892.55,
+        130568.22,
+        69404.16,
+        63510.67,
+        1249074.9499999997,
+        0.13296206329121776
+      ]
+    },
+    {
+      "row": 78,
+      "cells": [
+        "TOTAL DESPESES",
+        203351.87,
+        183576.58000000002,
+        189185.78,
+        182095.97000000003,
+        288014.02,
+        447445.91,
+        299166.82,
+        164451.91,
+        454106.28,
+        339125.14,
+        213273.19,
+        212630.13999999996,
+        3176423.6100000003,
+        null
+      ]
+    },
+    {
+      "row": 79,
+      "cells": [
+        "RESULTAT OPERATIU",
+        197905.21000000002,
+        121498.13999999996,
+        122075.17999999996,
+        231528.7,
+        706794.82,
+        1303346.28,
+        624467.1200000001,
+        43875.54999999999,
+        1130809.16,
+        873909.4899999999,
+        465095.84,
+        396491.47000000003,
+        6217796.959999998,
+        0.6618747040979898
+      ]
+    },
+    {
+      "row": 80,
+      "cells": [
+        "EBITDA",
+        197905.21000000002,
+        121498.13999999996,
+        122075.17999999996,
+        231393.86000000002,
+        706819.82,
+        1303346.28,
+        624267.1200000001,
+        43875.54999999999,
+        1130809.16,
+        873909.4899999999,
+        465095.84,
+        396491.47000000003,
+        6217487.119999998,
+        null
+      ]
+    },
+    {
+      "row": 81,
+      "cells": [
+        "INGRESSOS FINANCERS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 82,
+      "cells": [
+        "DESPESES FINANCERES",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 83,
+      "cells": ["RESULTAT FINANCER", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]
+    },
+    {
+      "row": 84,
+      "cells": [
+        "INGRESSOS EXCEPCIONALS",
+        null,
+        null,
+        null,
+        -134.84,
+        25,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        -109.84,
+        null
+      ]
+    },
+    {
+      "row": 85,
+      "cells": [
+        "DESPESES EXCEPCIONALS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        200,
+        null,
+        null,
+        null,
+        null,
+        null,
+        200,
+        null
+      ]
+    },
+    {
+      "row": 86,
+      "cells": [
+        "RESULTAT EXCEPCIONAL",
+        0,
+        0,
+        0,
+        -134.84,
+        25,
+        0,
+        -200,
+        0,
+        0,
+        0,
+        0,
+        0,
+        -309.84000000000003,
+        null
+      ]
+    },
+    {
+      "row": 87,
+      "cells": [
+        "AMORTITZACIONS",
+        4270.43,
+        4242.28,
+        4274.14,
+        4399.75,
+        4426.55,
+        4847.92,
+        4848.51,
+        4996.33,
+        5118.53,
+        5141.18,
+        5469.4,
+        5657.92,
+        57692.94,
+        null
+      ]
+    },
+    {
+      "row": 88,
+      "cells": [
+        "RESULTAT ABANS D'IMPOSTOS",
+        193634.78000000003,
+        117255.85999999996,
+        117801.03999999996,
+        226994.11000000002,
+        702393.2699999999,
+        1298498.36,
+        619418.6100000001,
+        38879.21999999999,
+        1125690.63,
+        868768.3099999998,
+        459626.44,
+        390833.55000000005,
+        6159794.179999998,
+        null
+      ]
+    },
+    {
+      "row": 89,
+      "cells": [
+        "RESULTAT ACUMULAT",
+        193634.78000000003,
+        310890.64,
+        428691.68,
+        655685.79,
+        1358079.06,
+        2656577.42,
+        3275996.0300000003,
+        3314875.2500000005,
+        4440565.880000001,
+        5309334.19,
+        5768960.630000001,
+        6159794.180000001,
+        6159794.180000001,
+        null
+      ]
+    }
+  ],
+  "row49": {
+    "row": 49,
+    "cells": [
+      "Resultats REALS 2024  Cons.",
+      "Gener",
+      "Febrer",
+      "Març",
+      "Abril",
+      "Maig",
+      "Juny",
+      "Juliol",
+      "Agost",
+      "Setembre",
+      "Octubre",
+      "Novembre",
+      "Desembre",
+      "Total",
+      null
+    ]
+  },
+  "firstNonEmptyRows": [
+    {
+      "row": 1,
+      "cells": [
+        "ESPAIS  Cons.",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 2,
+      "cells": [
+        "CASAMENTS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 3,
+      "cells": [
+        "PRESSUPOST 2024",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 4,
+      "cells": [
+        "  FECHA  01/01/2024 AL 31/12/2024",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ]
+    },
+    {
+      "row": 5,
+      "cells": [
+        null,
+        "Gener",
+        "Febrer",
+        "Març",
+        "Abril",
+        "Maig",
+        "Juny",
+        "Juliol",
+        "Agost",
+        "Setembre",
+        "Octubre",
+        "Novembre",
+        "Desembre",
+        "Total",
+        null
+      ]
+    },
+    {
+      "row": 6,
+      "cells": [
+        "VENDES",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 7,
+      "cells": [
+        "PRESTACIO DE SERVEIS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 8,
+      "cells": [
+        "ALTRES INGRESSOS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 9,
+      "cells": ["TOTAL INGRESSOS EXPLOTACI", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]
+    },
+    {
+      "row": 10,
+      "cells": [
+        "COMPRES",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 11,
+      "cells": [
+        "CONSUMS INTERNS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 12,
+      "cells": [
+        "ALTRES APROVISIONAMENTS",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        0,
+        null
+      ]
+    },
+    {
+      "row": 13,
+      "cells": ["MARGE BRUT DE LES VENDES", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]
+    },
+    {
+      "row": 14,
+      "cells": ["MARGES BRUT SERVEIS I AL.", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]
+    },
+    {
+      "row": 15,
+      "cells": ["MARGE BRUT TOTAL", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, null]
+    }
+  ]
+}

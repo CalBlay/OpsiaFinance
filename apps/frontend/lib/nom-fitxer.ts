@@ -52,7 +52,27 @@ export function codiLnDesDeSufix(sufix: number): string {
   return `LN${String(sufix).padStart(5, "0")}`;
 }
 
+/**
+ * Deduït LN a partir del text del nom (històrics tipus «BALANÇ CASAMENTS»).
+ * Retorna null si no hi ha coincidència clara.
+ */
+export function aliasLnDesDelNomFitxer(nomFitxer: string): string | null {
+  const n = nomFitxer.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase();
+
+  if (/\bCASAMENT/.test(n)) return "LN00003";
+  if (/\bCENTRAL\b|\bAGENDA\b/.test(n)) return "LN00000";
+  if (/\bRESTAURANT/.test(n)) return "LN00001";
+  if (/\bPRECUINAT/.test(n)) return "LN00004";
+  if (/\bFOOD\s*LOVER|FOODLOVER/.test(n)) return "LN00005";
+  if (/\bGREEN\s*VITA|GREENVITA/.test(n)) return "LN00006";
+  // «EMPRESA» sense FDLC → LN00002 (Empresa / Banquets)
+  if (/\bEMPRESA\b/.test(n) && !/\bFDLC\b/.test(n) && !/\bCASAMENT/.test(n)) {
+    return "LN00002";
+  }
+  return null;
+}
+
 /** Retorna el codi LN deduït només del nom del fitxer (sense consultar la BBDD). */
 export function codiLnDelNomFitxer(nomFitxer: string): string | null {
-  return classificacioDesDelNomFitxer(nomFitxer)?.codiLn ?? null;
+  return classificacioDesDelNomFitxer(nomFitxer)?.codiLn ?? aliasLnDesDelNomFitxer(nomFitxer);
 }

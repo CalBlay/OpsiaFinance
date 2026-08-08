@@ -151,13 +151,13 @@ export function IniciResumCharts({
       <div className={styles.grid}>
         <QuesitoCard
           title={titolIngressos}
-          lead={`% sobre el total · ${periodeLabel}`}
+          lead={periodeLabel}
           segments={pesIngressos}
           colors={PIE_COLORS}
         />
         <QuesitoCard
           title="Estructura de costos"
-          lead={`Personal · Compres · Gestió · ${periodeLabel}`}
+          lead={periodeLabel}
           segments={costos}
           colors={COST_COLORS}
         />

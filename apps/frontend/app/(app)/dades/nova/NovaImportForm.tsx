@@ -4,7 +4,11 @@ import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { FDLC_LN_CODI } from "@/lib/fdlc/constants";
-import { classificacioDesDelNomFitxer, codiLnDelNomFitxer } from "@/lib/nom-fitxer";
+import {
+  aliasLnDesDelNomFitxer,
+  classificacioDesDelNomFitxer,
+  codiLnDelNomFitxer,
+} from "@/lib/nom-fitxer";
 import { TIPUS_INFORME_LABELS, type TipusInforme } from "@/types";
 import {
   AlertTriangle,
@@ -25,7 +29,7 @@ export type LnOption = { id: string; codi: string; nom: string };
 
 const TIPUS_OPTIONS = Object.entries(TIPUS_INFORME_LABELS) as [TipusInforme, string][];
 
-const ANYS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
+const ANYS = Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - i);
 const MESOS = [
   [1, "Gener"],
   [2, "Febrer"],
@@ -61,9 +65,9 @@ function deduirLnLabel(nom: string, linies: LnOption[]): string | null {
 }
 
 function lnIdDesDelNom(nom: string, linies: LnOption[]): string {
-  const p = classificacioDesDelNomFitxer(nom);
-  if (!p?.codiLn) return "";
-  return linies.find((l) => l.codi === p.codiLn)?.id ?? "";
+  const codi = codiLnDelNomFitxer(nom) ?? aliasLnDesDelNomFitxer(nom);
+  if (!codi) return "";
+  return linies.find((l) => l.codi === codi)?.id ?? "";
 }
 
 export function NovaImportForm({ linies }: { linies: LnOption[] }) {
@@ -77,6 +81,8 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
   const [tipusInforme, setTipusInforme] = useState<TipusInforme | "">("");
 
   const esFdlc = tipusInforme === "PYG_FDLC";
+  const esExerciciAnual = tipusInforme === "PYG_FDLC" || tipusInforme === "PYG_EXERCICI_LN";
+  const esHistoricLn = tipusInforme === "PYG_EXERCICI_LN";
   const fdlcLn = linies.find((l) => l.codi === FDLC_LN_CODI);
 
   const bulkMode = files.length > 1;
@@ -632,6 +638,13 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                   actualitza la C. d&apos;explotació FDLC.
                 </p>
               )}
+              {esHistoricLn && (
+                <p className="col-span-full text-xs text-muted-foreground">
+                  Històric Cal Blay (Hoja1 des de la fila 49: Gener…Desembre). Un fitxer = un any
+                  per LN. Vendes a cada LN; Central amb totals de compres/salaris/gestió. Es carrega
+                  com a <strong>Directe</strong> (sense repartiment).
+                </p>
+              )}
               {lnMismatch && (
                 <p className="col-span-full text-xs text-amber-700">
                   El fitxer «{files[0]?.name}» indica {lnMismatch.codiFitxer}, però has seleccionat{" "}
@@ -657,7 +670,7 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                   ))}
                 </select>
               </div>
-              {!esFdlc && (
+              {!esExerciciAnual && (
                 <div className={styles.field}>
                   <label htmlFor="mes" className={styles.label}>
                     Mes <span className={styles.required}>*</span>

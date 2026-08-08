@@ -71,6 +71,7 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
   const deltaPositiu =
     deltaPrincipal === null ? null : k.tipus === "cost" ? deltaPrincipal < 0 : deltaPrincipal > 0;
   const pctSigned = k.tipus === "ebitda";
+  const deltaAbs = k.diferencia ?? (anterior !== null ? k.totalitat - anterior : null);
 
   return (
     <OpsiaKpiCard
@@ -79,33 +80,40 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
       periode={periodeLabel}
       accent={accentFromTipus(k.tipus, k.totalitat)}
       pct={k.tipus !== "vendes" ? k.pctActual : null}
-      pctHint={`sobre vendes${k.actualLabel ? ` · ${k.actualLabel}` : ""}`}
+      pctHint={`s/ vendes${k.actualLabel ? ` · ${k.actualLabel}` : ""}`}
       pctSigned={pctSigned}
       hint={k.tipus === "vendes" ? (k.actualLabel ?? undefined) : undefined}
       negImport
+      size="lg"
     >
       {teComparativa && deltaPrincipal !== null && deltaPositiu !== null && (
         <div
           className={cn(
             styles.kpiExecBanner,
+            styles.kpiExecBannerLg,
             deltaPositiu ? styles.kpiExecBannerPos : styles.kpiExecBannerNeg
           )}
         >
-          <DeltaIcon positiu={deltaPositiu} size={18} />
+          <DeltaIcon positiu={deltaPositiu} size={20} />
           <span className={styles.kpiExecBannerText}>
             {usaVarPct && varPct !== null ? (
               <>
                 {varPct > 0 ? "+" : ""}
                 {formatNum(varPct, 1)}%
-                <span className={styles.kpiExecBannerVs}>
-                  {k.tipus === "vendes" ? " vendes" : " EBITDA"} vs {k.refLabel}
-                </span>
+                {deltaAbs !== null && k.tipus === "vendes" ? (
+                  <>
+                    {" · "}
+                    {deltaAbs > 0 ? "+" : ""}
+                    {formatNum(deltaAbs)} €
+                  </>
+                ) : null}
+                <span className={styles.kpiExecBannerVs}> vs {k.refLabel}</span>
               </>
             ) : ppDiff !== null ? (
               <>
                 {ppDiff > 0 ? "+" : ""}
                 {formatNum(ppDiff, 1)} pp
-                <span className={styles.kpiExecBannerVs}> sobre vendes vs {k.refLabel}</span>
+                <span className={styles.kpiExecBannerVs}> s/ vendes vs {k.refLabel}</span>
               </>
             ) : null}
           </span>
@@ -113,7 +121,7 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
       )}
 
       {teComparativa && k.tipus !== "vendes" && k.pctAnterior !== null && k.pctActual !== null && (
-        <div className={styles.kpiExecCompare}>
+        <div className={cn(styles.kpiExecCompare, styles.kpiExecCompareLg)}>
           <div className={styles.kpiExecCompareItem}>
             <span className={styles.kpiExecCompareAny}>{k.refLabel}</span>
             <span className={styles.kpiExecComparePct}>{pctFmt(k.pctAnterior, pctSigned)}%</span>
@@ -129,7 +137,7 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
       )}
 
       {teComparativa && k.totalitatAnterior !== null && (
-        <div className={styles.kpiExecFoot}>
+        <div className={cn(styles.kpiExecFoot, styles.kpiExecFootLg)}>
           {k.refLabel}: <strong>{formatNum(k.totalitatAnterior)} €</strong>
           {k.tipus !== "vendes" && k.pctAnterior !== null && (
             <span className={styles.kpiExecFootPct}>
@@ -167,7 +175,7 @@ export function KpiComparatiuCards({
   periodeLabel: string;
 }) {
   return (
-    <OpsiaKpiCardRow>
+    <OpsiaKpiCardRow size="lg" className={styles.kpiComparatiuRow}>
       {kpis.map((k) => (
         <KpiCardComparatiu key={k.label} k={k} periodeLabel={periodeLabel} />
       ))}

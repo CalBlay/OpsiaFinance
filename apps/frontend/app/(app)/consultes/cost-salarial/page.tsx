@@ -195,10 +195,7 @@ export default async function ConsultaCostSalarialPage({
               }))}
             />
 
-            <DetallNumericCollapsible
-              title="Detall numèric · comparativa per restaurant"
-              caption="Imports en euros. % sobre vendes des del compte de resultats."
-            >
+            <DetallNumericCollapsible title="Detall numèric · comparativa per restaurant">
               <div className={local.tableWrap}>
                 <table className={local.table}>
                   <thead>
@@ -290,10 +287,7 @@ export default async function ConsultaCostSalarialPage({
             partidesCuina={informe.cuina.partides}
           />
 
-          <DetallNumericCollapsible
-            title={`Export / detall ampliat · ${informe.centre.etiqueta}`}
-            caption="La vista principal ja mostra el statement. Aquí pots revisar la mateixa taula per export o impressió."
-          >
+          <DetallNumericCollapsible title={`Export / detall ampliat · ${informe.centre.etiqueta}`}>
             <DetallNumericRestaurantTable
               centreId={informe.centre.id}
               centreLabel={informe.centre.etiqueta}

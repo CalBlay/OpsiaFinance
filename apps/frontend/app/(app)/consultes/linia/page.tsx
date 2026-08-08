@@ -196,15 +196,7 @@ export default async function ConsultaLiniaPage({
             <EvolucioChart categories={mesosCols} series={chartSeries} height={360} />
           </div>
 
-          <DetallCompteCollapsible
-            defaultOpen
-            title="Compte de la línia (total)"
-            caption={
-              canEdit
-                ? "Clic a una casella per veure el detall i crear un ajust a la LN."
-                : "Imports totals de la línia de negoci. Cada columna és un mes del període seleccionat."
-            }
-          >
+          <DetallCompteCollapsible defaultOpen title="Compte de la línia (total)">
             <PivotTableDrilldown
               columns={columnsMes}
               rows={rowsMes}

@@ -39,6 +39,8 @@ export type OpsiaKpiCardProps = {
   className?: string;
   /** Marca l’import en vermell si és negatiu. */
   negImport?: boolean;
+  /** Mida tipogràfica / padding. `lg` per a vistes direcció amb pocs KPIs. */
+  size?: "default" | "lg";
 };
 
 function formatPct(pct: number, signed: boolean): string {
@@ -62,6 +64,7 @@ export function OpsiaKpiCard({
   children,
   className,
   negImport,
+  size = "default",
 }: OpsiaKpiCardProps) {
   const dataAccent = accent === "ebitda" && import_ != null ? resolveEbitdaAccent(import_) : accent;
 
@@ -70,7 +73,10 @@ export function OpsiaKpiCard({
   const displayValue = value ?? (import_ != null ? <>{formatNum(import_)} €</> : null);
 
   return (
-    <div className={cn(styles.card, className)} data-accent={dataAccent}>
+    <div
+      className={cn(styles.card, size === "lg" && styles.cardLg, className)}
+      data-accent={dataAccent}
+    >
       <div className={styles.header}>
         <span className={styles.label}>{label}</span>
         {periode ? <span className={styles.periode}>{periode}</span> : null}
@@ -112,9 +118,11 @@ export function OpsiaKpiCard({
 export function OpsiaKpiCardRow({
   children,
   className,
+  size = "default",
 }: {
   children: ReactNode;
   className?: string;
+  size?: "default" | "lg";
 }) {
-  return <div className={cn(styles.row, className)}>{children}</div>;
+  return <div className={cn(styles.row, size === "lg" && styles.rowLg, className)}>{children}</div>;
 }

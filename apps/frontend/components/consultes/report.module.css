@@ -200,6 +200,19 @@
 .multiActionBtn:hover {
   text-decoration: underline;
 }
+.multiActionBtnPrimary {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--opsia-green-700, #245956);
+  background: color-mix(in srgb, var(--opsia-green-600) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--opsia-green-600) 28%, var(--color-border));
+  border-radius: 0.35rem;
+  cursor: pointer;
+  padding: 0.25rem 0.55rem;
+}
+.multiActionBtnPrimary:hover {
+  background: color-mix(in srgb, var(--opsia-green-600) 18%, #fff);
+}
 .multiOption {
   display: flex;
   align-items: flex-start;
@@ -311,6 +324,12 @@
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
+.kpiExecBannerLg {
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.95rem;
+  border-radius: 0.55rem;
+}
 .kpiExecBannerPos {
   background: var(--opsia-num-positive-bg);
   color: var(--opsia-num-positive);
@@ -335,6 +354,12 @@
   border-radius: 0.45rem;
   background: var(--color-muted);
 }
+.kpiExecCompareLg {
+  margin-top: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  gap: 0.65rem;
+  border-radius: 0.55rem;
+}
 .kpiExecCompareItem {
   display: flex;
   flex-direction: column;
@@ -348,11 +373,18 @@
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
+.kpiExecCompareLg .kpiExecCompareAny {
+  font-size: 0.72rem;
+}
 .kpiExecComparePct {
   font-size: 1rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   color: var(--color-muted-foreground);
+}
+.kpiExecCompareLg .kpiExecComparePct {
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
 }
 .kpiExecComparePctActual {
   color: var(--color-foreground);
@@ -362,11 +394,19 @@
   color: var(--color-muted-foreground);
   flex-shrink: 0;
 }
+.kpiExecCompareLg .kpiExecCompareArrow {
+  font-size: 1rem;
+}
 .kpiExecFoot {
   font-size: 0.72rem;
   color: var(--color-muted-foreground);
   margin-top: 0.15rem;
   font-variant-numeric: tabular-nums;
+}
+.kpiExecFootLg {
+  font-size: 0.9rem;
+  margin-top: 0.35rem;
+  line-height: 1.35;
 }
 .kpiExecFoot strong {
   color: var(--color-foreground);
@@ -374,6 +414,10 @@
 }
 .kpiExecFootPct {
   color: var(--color-muted-foreground);
+}
+.kpiComparatiuRow {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11.5rem), 1fr));
+  width: 100%;
 }
 .kpiExecFootMuted {
   display: flex;

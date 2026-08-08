@@ -48,9 +48,9 @@
   --opsia-cx-kpi: var(--opsia-cx-ink);
   --opsia-cx-kpi-warm: var(--opsia-accent-warm, #c59b57);
   --opsia-cx-kpi-warm-strong: var(--opsia-yellow-700, #866533);
-  --opsia-cx-kpi-size: clamp(1.15rem, 2.2vw, 1.45rem);
-  --opsia-cx-kpi-size-md: 1.45rem;
-  --opsia-cx-kpi-size-lg: clamp(1.55rem, 3vw, 2.1rem);
+  --opsia-cx-kpi-size: clamp(1.35rem, 2.6vw, 1.75rem);
+  --opsia-cx-kpi-size-md: 1.55rem;
+  --opsia-cx-kpi-size-lg: clamp(1.7rem, 3.2vw, 2.35rem);
   --opsia-cx-kpi-weight: 700; /* com “Finance” al logo; evitar 800 saturat */
   --opsia-cx-kpi-tracking: -0.03em;
 

@@ -11,7 +11,7 @@ export function DetallCompteCollapsible({
   defaultOpen = false,
   title = "Compte d'explotació detallat",
 }: {
-  caption: string;
+  caption?: string;
   children: ReactNode;
   /** Obre el compte detallat per defecte (p. ex. vista Gestió empresa). */
   defaultOpen?: boolean;
@@ -37,7 +37,7 @@ export function DetallCompteCollapsible({
       {obert && (
         <div className={styles.detallBody}>
           {children}
-          <p className={styles.tableCaption}>{caption}</p>
+          {caption ? <p className={styles.tableCaption}>{caption}</p> : null}
         </div>
       )}
     </div>

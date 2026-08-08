@@ -68,18 +68,21 @@ export const OPSIA_SEMAFOR = {
 } as const;
 
 /**
- * Sèrie per defecte de gràfics (verd → groc → taronja, matisos).
- * Evita índigos/roses genèrics fora de marca.
+ * Sèrie categòrica per a pastissos / stacked (moltes sèries).
+ * Ordre alternant famílies + contrast fort (ink) perquè no es confonguin
+ * dos tons veïns de la mateixa família.
  */
 export const OPSIA_CHART_SERIES = [
-  OPSIA_GREEN[600],
-  OPSIA_YELLOW[500],
-  OPSIA_ORANGE[500],
-  OPSIA_GREEN[400],
-  OPSIA_YELLOW[400],
-  OPSIA_ORANGE[400],
-  OPSIA_GREEN[300],
-  OPSIA_YELLOW[300],
+  OPSIA_GREEN[700], // teal fosc
+  OPSIA_YELLOW[500], // ambre
+  OPSIA_ORANGE[600], // taronja mitjà-fosc
+  OPSIA_GREEN[400], // teal clar
+  OPSIA_INK.strong, // slate / ink — trenca el monocrom verd-ambre
+  OPSIA_YELLOW[700], // or fosc
+  OPSIA_ORANGE[400], // taronja clar
+  OPSIA_GREEN[500], // teal mitjà
+  OPSIA_ORANGE[800], // terracota fosc
+  OPSIA_YELLOW[300], // or clar
 ] as const;
 
 export const OPSIA_CHART = {

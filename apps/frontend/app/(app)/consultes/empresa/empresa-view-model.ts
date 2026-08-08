@@ -146,12 +146,12 @@ export function buildEmpresaVistaData(opts: {
 
   const tableCaption =
     grup === "fdlc"
-      ? `Compte d'explotació FDLC — ${periodeLabel}.`
+      ? `Compte d'explotació FDLC — ${periodeLabel}`
       : grup === "consolidat"
         ? vista === "gestio"
-          ? `Consolidat · Gestió (${periodeLabel}): repartiment LN Cal Blay, Prestació FDLC→Vendes LN00001, i eliminacions inter-empresa (lloguer, factures IC) segons el rang de mesos.`
-          : `Consolidat · Directe (${periodeLabel}): dades SAP per LN. El total elimina dobles còmputs interns Cal Blay (sense eliminacions inter-empresa).`
-        : "Cada columna és una LN (mateix criteri que Evolució/Per línia). El total Empresa elimina dobles còmputs interns (consolidació).";
+          ? `Consolidat · Gestió — ${periodeLabel}`
+          : `Consolidat · Directe — ${periodeLabel}`
+        : `Empresa — ${periodeLabel}`;
 
   const chartTitle =
     grup === "consolidat"
@@ -165,11 +165,11 @@ export function buildEmpresaVistaData(opts: {
       ? `Empresa FDLC — ${periodePresentacio}`
       : grup === "consolidat"
         ? vista === "gestio"
-          ? `Cal Blay + FDLC · gestió (repartiment + eliminacions IC) — ${periodePresentacio}`
-          : `Cal Blay + FDLC · directe (SAP; sense eliminacions IC) — ${periodePresentacio}`
+          ? `Cal Blay + FDLC · Gestió — ${periodePresentacio}`
+          : `Cal Blay + FDLC · Directe — ${periodePresentacio}`
         : vista === "gestio"
-          ? `Gestió: mateix total que Directe, costos repartits entre LN — ${periodePresentacio}`
-          : `Directe: costos tal com venen (sovint concentrats a Central) — ${periodePresentacio}`;
+          ? `Gestió — ${periodePresentacio}`
+          : `Directe — ${periodePresentacio}`;
 
   const mesIni = rang.des - 1;
   const mesFi = rang.fins;
