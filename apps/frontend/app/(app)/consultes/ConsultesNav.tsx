@@ -124,8 +124,8 @@ export function ConsultesNav() {
       const id = window.requestIdleCallback(run, { timeout: 1500 });
       return () => window.cancelIdleCallback(id);
     }
-    const t = window.setTimeout(run, 250);
-    return () => window.clearTimeout(t);
+    const t = globalThis.setTimeout(run, 250);
+    return () => globalThis.clearTimeout(t);
   }, [tabs, sharedParams, pathname, router]);
 
   return (
