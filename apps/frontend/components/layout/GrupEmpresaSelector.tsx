@@ -34,9 +34,10 @@ export function GrupEmpresaSelector({ value }: { value: GrupEmpresa }) {
         void prefetchGrupIniciAction(g).catch(() => {});
       }
     };
-    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-      const id = window.requestIdleCallback(run, { timeout: 2500 });
-      return () => window.cancelIdleCallback(id);
+    const ric = window.requestIdleCallback?.bind(window);
+    if (ric) {
+      const id = ric(run, { timeout: 2500 });
+      return () => window.cancelIdleCallback?.(id);
     }
     const t = window.setTimeout(run, 400);
     return () => window.clearTimeout(t);
