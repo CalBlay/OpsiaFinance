@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  OpsiaKpiCard,
+  OpsiaKpiCardRow,
+  resolveEbitdaAccent,
+} from "@/components/consultes/OpsiaKpiCard";
 import type { KpiComparatiuItem, KpiInformeItem } from "@/lib/kpi-definitions";
 import { cn, formatNum } from "@/lib/utils";
 import { TrendingDown, TrendingUp } from "lucide-react";
@@ -20,87 +25,35 @@ function DeltaIcon({ positiu, size = 16 }: { positiu: boolean; size?: number }) 
   return <TrendingDown size={size} strokeWidth={2.5} />;
 }
 
-function KpiCardShell({
-  label,
-  periodeLabel,
-  tone,
-  children,
-}: {
-  label: string;
-  periodeLabel: string;
-  tone?: "ebitda-pos" | "ebitda-neg";
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        styles.kpiCardExec,
-        tone === "ebitda-pos" && styles.kpiCardExecEbitdaPos,
-        tone === "ebitda-neg" && styles.kpiCardExecEbitdaNeg
-      )}
-    >
-      <div className={styles.kpiExecHeader}>
-        <span className={styles.kpiExecLabel}>{label}</span>
-        <span className={styles.kpiExecPeriode}>{periodeLabel}</span>
-      </div>
-      {children}
-    </div>
-  );
-}
-
-function KpiImportBlock({ import_, neg }: { import_: number; neg?: boolean }) {
-  return (
-    <div className={cn(styles.kpiExecImport, neg && import_ < 0 && styles.kpiExecImportNeg)}>
-      {formatNum(import_)} €
-    </div>
-  );
-}
-
-function KpiPctSobreVendes({
-  pct,
-  hint,
-  signed = false,
-}: {
-  pct: number;
-  hint: string;
-  /** EBITDA: conserva el signe; costos: valor absolut. */
-  signed?: boolean;
-}) {
-  return (
-    <div className={styles.kpiExecPctRow}>
-      <span
-        className={cn(
-          styles.kpiExecPctVal,
-          signed && pct < 0 && styles.kpiExecPctNeg,
-          signed && pct > 0 && styles.kpiExecPctPos
-        )}
-      >
-        {pctFmt(pct, signed)}%
-      </span>
-      <span className={styles.kpiExecPctHint}>{hint}</span>
-    </div>
-  );
-}
-
-function ebitdaTone(import_: number): "ebitda-pos" | "ebitda-neg" {
-  return import_ < 0 ? "ebitda-neg" : "ebitda-pos";
+function accentFromTipus(
+  tipus: KpiInformeItem["tipus"] | KpiComparatiuItem["tipus"],
+  import_?: number
+): "ingressos" | "cost" | "ebitda-pos" | "ebitda-neg" | "neutral" {
+  if (tipus === "vendes") return "ingressos";
+  if (tipus === "cost") return "cost";
+  if (tipus === "ebitda") return resolveEbitdaAccent(import_ ?? 0);
+  return "neutral";
 }
 
 function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: string }) {
-  const tone = k.tipus === "ebitda" ? ebitdaTone(k.import_) : undefined;
   return (
-    <KpiCardShell label={k.label} periodeLabel={periodeLabel} tone={tone}>
-      <KpiImportBlock import_={k.import_} neg />
-      {k.tipus === "vendes" && k.nota && k.importSecundari !== undefined ? (
-        <div className={styles.kpiExecSub}>
-          {k.nota}: {formatNum(k.importSecundari)} €
-        </div>
-      ) : k.tipus === "vendes" ? (
-        <div className={styles.kpiExecSub}>Total del període</div>
-      ) : k.pctVendes !== null ? (
-        <KpiPctSobreVendes pct={k.pctVendes} hint="sobre vendes" signed={k.tipus === "ebitda"} />
-      ) : null}
-    </KpiCardShell>
+    <OpsiaKpiCard
+      label={k.label}
+      import_={k.import_}
+      periode={periodeLabel}
+      accent={accentFromTipus(k.tipus, k.import_)}
+      pct={k.tipus !== "vendes" ? k.pctVendes : null}
+      pctHint="sobre vendes"
+      pctSigned={k.tipus === "ebitda"}
+      hint={
+        k.tipus === "vendes"
+          ? k.nota && k.importSecundari !== undefined
+            ? `${k.nota}: ${formatNum(k.importSecundari)} €`
+            : "Total del període"
+          : undefined
+      }
+      negImport
+    />
   );
 }
 
@@ -117,23 +70,20 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
   const deltaPrincipal = usaVarPct ? varPct : ppDiff;
   const deltaPositiu =
     deltaPrincipal === null ? null : k.tipus === "cost" ? deltaPrincipal < 0 : deltaPrincipal > 0;
-  const tone = k.tipus === "ebitda" ? ebitdaTone(k.totalitat) : undefined;
   const pctSigned = k.tipus === "ebitda";
 
   return (
-    <KpiCardShell label={k.label} periodeLabel={periodeLabel} tone={tone}>
-      <KpiImportBlock import_={k.totalitat} neg />
-      {k.tipus !== "vendes" && k.pctActual !== null && (
-        <KpiPctSobreVendes
-          pct={k.pctActual}
-          hint={`sobre vendes · ${k.actualLabel ?? ""}`}
-          signed={pctSigned}
-        />
-      )}
-      {k.tipus === "vendes" && k.actualLabel && (
-        <div className={styles.kpiExecSub}>{k.actualLabel}</div>
-      )}
-
+    <OpsiaKpiCard
+      label={k.label}
+      import_={k.totalitat}
+      periode={periodeLabel}
+      accent={accentFromTipus(k.tipus, k.totalitat)}
+      pct={k.tipus !== "vendes" ? k.pctActual : null}
+      pctHint={`sobre vendes${k.actualLabel ? ` · ${k.actualLabel}` : ""}`}
+      pctSigned={pctSigned}
+      hint={k.tipus === "vendes" ? (k.actualLabel ?? undefined) : undefined}
+      negImport
+    >
       {teComparativa && deltaPrincipal !== null && deltaPositiu !== null && (
         <div
           className={cn(
@@ -189,7 +139,7 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
           )}
         </div>
       )}
-    </KpiCardShell>
+    </OpsiaKpiCard>
   );
 }
 
@@ -201,11 +151,11 @@ export function KpiInformeCards({
   periodeLabel: string;
 }) {
   return (
-    <div className={styles.kpiRowExec}>
+    <OpsiaKpiCardRow>
       {kpis.map((k) => (
         <KpiCardInforme key={k.label} k={k} periodeLabel={periodeLabel} />
       ))}
-    </div>
+    </OpsiaKpiCardRow>
   );
 }
 
@@ -217,10 +167,10 @@ export function KpiComparatiuCards({
   periodeLabel: string;
 }) {
   return (
-    <div className={styles.kpiRowExec}>
+    <OpsiaKpiCardRow>
       {kpis.map((k) => (
         <KpiCardComparatiu key={k.label} k={k} periodeLabel={periodeLabel} />
       ))}
-    </div>
+    </OpsiaKpiCardRow>
   );
 }

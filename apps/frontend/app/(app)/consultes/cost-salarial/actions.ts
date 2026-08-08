@@ -8,11 +8,13 @@ export async function fetchForaCentreDetallAction(params: {
   any: number;
   mes: number | null;
   departament?: "SALA" | "CUINA" | null;
+  compte?: "directe" | "gestio";
 }) {
   return getForaCentreDetall({
     centreId: params.centreId,
     any: params.any,
     mes: params.mes,
     departament: (params.departament as DepartamentSalarial | null | undefined) ?? null,
+    compte: params.compte ?? "directe",
   });
 }

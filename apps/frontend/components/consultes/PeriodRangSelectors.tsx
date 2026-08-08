@@ -1,12 +1,10 @@
 "use client";
 
+import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { MESOS_LLARGS, type RangMesos, normalitzaRangMesos } from "@/lib/periodes";
 
-/**
- * Selector Des de / Fins a + drecera «Tot l'any».
- * Pensat per usuaris no financers: triar un interval de mesos de l'any.
- */
+/** Selector Des de / Fins a + dreceres «Tot l'any» / «Fins ara». */
 export function PeriodRangSelectors({
   rang,
   onChange,
@@ -15,7 +13,6 @@ export function PeriodRangSelectors({
 }: {
   rang: RangMesos;
   onChange: (rang: RangMesos) => void;
-  /** Si és l'any en curs, mostra la drecera «Fins ara» (gener → mes actual). */
   anyActual: number;
   disabled?: boolean;
 }) {
@@ -36,7 +33,7 @@ export function PeriodRangSelectors({
     <>
       <div className={styles.field}>
         <label className={styles.fieldLabel} htmlFor={fromSelectId}>
-          Des de
+          {FILTRE.desDe}
         </label>
         <select
           id={fromSelectId}
@@ -45,7 +42,7 @@ export function PeriodRangSelectors({
           value={rang.des}
           disabled={disabled}
           onChange={(e) => setDes(Number(e.target.value))}
-          aria-label="Mes d'inici"
+          aria-label={FILTRE.desDe}
         >
           {MESOS_LLARGS.map((m, i) => (
             <option key={`${i + 1}-${m}`} value={i + 1}>
@@ -56,7 +53,7 @@ export function PeriodRangSelectors({
       </div>
       <div className={styles.field}>
         <label className={styles.fieldLabel} htmlFor={toSelectId}>
-          Fins a
+          {FILTRE.finsA}
         </label>
         <select
           id={toSelectId}
@@ -65,7 +62,7 @@ export function PeriodRangSelectors({
           value={rang.fins}
           disabled={disabled}
           onChange={(e) => setFins(Number(e.target.value))}
-          aria-label="Mes final"
+          aria-label={FILTRE.finsA}
         >
           {MESOS_LLARGS.map((m, i) => (
             <option key={`${i + 1}-${m}`} value={i + 1}>
@@ -83,20 +80,20 @@ export function PeriodRangSelectors({
             type="button"
             className={styles.periodPresetBtn}
             disabled={disabled}
-            onClick={() => onChange({ des: 1, fins: 12 })}
+            onClick={() => onChange(normalitzaRangMesos(1, 12))}
           >
             Tot l&apos;any
           </button>
-          {anyEnCurs && mesAra > 1 && (
+          {anyEnCurs ? (
             <button
               type="button"
               className={styles.periodPresetBtn}
               disabled={disabled}
-              onClick={() => onChange({ des: 1, fins: mesAra })}
+              onClick={() => onChange(normalitzaRangMesos(1, mesAra))}
             >
               Fins ara
             </button>
-          )}
+          ) : null}
         </div>
       </div>
     </>

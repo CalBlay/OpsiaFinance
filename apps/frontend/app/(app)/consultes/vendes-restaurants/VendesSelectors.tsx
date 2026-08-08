@@ -1,5 +1,11 @@
 "use client";
 
+import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import {
+  AMBIT_OPCIONS_RESTAURANTS,
+  FILTRE,
+  MES_TOT_ANY,
+} from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { etiquetaCentre } from "@/lib/consultes-etiquetes";
 import { MESOS_LLARGS } from "@/lib/periodes";
@@ -47,92 +53,97 @@ export function VendesSelectors({
       const c = next.centre !== undefined ? next.centre : centreId;
       if (c) params.set("centre", c);
     }
-    // Canviar filtres torna al quadre (sense detall)
     startTransition(() => {
       router.push(`/consultes/vendes-restaurants?${params}`);
     });
   };
 
   return (
-    <div className={styles.selectors} data-pending={pending ? "true" : undefined}>
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor="vendes-vista">
-          Vista
-        </label>
-        <select
-          id="vendes-vista"
-          className={styles.select}
-          value={vista}
-          onChange={(e) => {
-            const v = e.target.value as "comparativa" | "restaurant";
-            if (v === "restaurant") {
-              navega({ vista: "restaurant", centre: centreId ?? centres[0]?.id ?? null });
-            } else {
-              navega({ vista: "comparativa", centre: null });
-            }
-          }}
-        >
-          <option value="comparativa">Tota la línia (LN)</option>
-          <option value="restaurant">Detall restaurant</option>
-        </select>
-      </div>
-
-      {vista === "restaurant" && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor="vendes-restaurant">
-            Restaurant
-          </label>
-          <select
-            id="vendes-restaurant"
-            className={styles.select}
-            value={centreId ?? ""}
-            onChange={(e) => navega({ vista: "restaurant", centre: e.target.value })}
-          >
-            {centres.map((c) => (
-              <option key={c.id} value={c.id}>
-                {etiquetaCentre(c)}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor="vendes-any">
-          Any
-        </label>
-        <select
-          id="vendes-any"
-          className={styles.select}
-          value={any}
-          onChange={(e) => navega({ any: Number(e.target.value) })}
-        >
-          {anys.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor="vendes-periode">
-          Període
-        </label>
-        <select
-          id="vendes-periode"
-          className={styles.select}
-          value={mes}
-          onChange={(e) => navega({ mes: Number(e.target.value) })}
-        >
-          <option value={0}>Tot l&apos;any</option>
-          {MESOS_LLARGS.map((m, i) => (
-            <option key={m} value={i + 1}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
+    <ConsultaToolbar
+      pending={pending}
+      dates={
+        <>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="vendes-any">
+              {FILTRE.any}
+            </label>
+            <select
+              id="vendes-any"
+              className={styles.select}
+              value={any}
+              onChange={(e) => navega({ any: Number(e.target.value) })}
+            >
+              {anys.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="vendes-mes">
+              {FILTRE.mes}
+            </label>
+            <select
+              id="vendes-mes"
+              className={styles.select}
+              value={mes}
+              onChange={(e) => navega({ mes: Number(e.target.value) })}
+            >
+              <option value={0}>{MES_TOT_ANY}</option>
+              {MESOS_LLARGS.map((m, i) => (
+                <option key={m} value={i + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
+      }
+      camps={
+        <>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="vendes-ambit">
+              {FILTRE.ambit}
+            </label>
+            <select
+              id="vendes-ambit"
+              className={styles.select}
+              value={vista}
+              onChange={(e) => {
+                const v = e.target.value as "comparativa" | "restaurant";
+                if (v === "restaurant") {
+                  navega({ vista: "restaurant", centre: centreId ?? centres[0]?.id ?? null });
+                } else {
+                  navega({ vista: "comparativa", centre: null });
+                }
+              }}
+            >
+              <option value="comparativa">{AMBIT_OPCIONS_RESTAURANTS.comparativa}</option>
+              <option value="restaurant">{AMBIT_OPCIONS_RESTAURANTS.restaurant}</option>
+            </select>
+          </div>
+          {vista === "restaurant" ? (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor="vendes-restaurant">
+                {FILTRE.restaurant}
+              </label>
+              <select
+                id="vendes-restaurant"
+                className={styles.select}
+                value={centreId ?? ""}
+                onChange={(e) => navega({ vista: "restaurant", centre: e.target.value })}
+              >
+                {centres.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {etiquetaCentre(c)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+        </>
+      }
+    />
   );
 }

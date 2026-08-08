@@ -1,3 +1,4 @@
+import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { quadreToExportInforme } from "@/lib/export/restaurants";
@@ -40,20 +41,20 @@ export default async function QuadreMandoPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <div>
-          <h1 className={styles.title}>{title}</h1>
-          <p className={styles.subtitle}>
-            {nomesMirall
-              ? "FDLC només opera el mirall CCR00008 (Font de la Canya): vendes TPV, personal i compte."
-              : "Visió multiubicació: vendes TPV, personal (Excel), cost de compres i EBITDA (compte) en una sola lectura. Objectiu cost operatiu ≤ 60%."}
-          </p>
-        </div>
-        <div className={styles.headerActions}>
-          <QuadreSelectors anys={anys} any={anyActual} mes={mes} />
-          <ExportInformeButton informe={informe} />
-        </div>
-      </div>
+      <ConsultaHeader
+        title={title}
+        subtitle={
+          nomesMirall
+            ? "FDLC només opera el mirall CCR00008 (Font de la Canya): vendes TPV, personal i compte."
+            : "Visió multiubicació: vendes TPV, personal (Excel), cost de compres i EBITDA (compte) en una sola lectura. Objectiu cost operatiu ≤ 60%."
+        }
+        actions={
+          <>
+            <QuadreSelectors anys={anys} any={anyActual} mes={mes} />
+            <ExportInformeButton informe={informe} />
+          </>
+        }
+      />
 
       {data.buit ? (
         <div className={styles.prompt}>

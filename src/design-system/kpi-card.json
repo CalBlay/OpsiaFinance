@@ -1,0 +1,68 @@
+{
+  "name": "OpsiaKpiCard",
+  "description": "Targeta KPI corporativa per a totes les pantalles de consultes. Cada pantalla omple les dades; el disseny és únic.",
+  "composition": {
+    "order": ["label", "value", "pctRow", "hint", "footer"],
+    "label": {
+      "role": "eyebrow",
+      "transform": "uppercase",
+      "size": "var(--opsia-cx-label-size-md)",
+      "weight": 600,
+      "color": "var(--opsia-cx-label)"
+    },
+    "value": {
+      "role": "primary-metric",
+      "format": "tabular-nums + €",
+      "size": "var(--opsia-cx-kpi-size)",
+      "weight": 700,
+      "colorByAccent": {
+        "ingressos": "var(--opsia-green-700)",
+        "cost": "var(--opsia-cx-kpi-warm)",
+        "ebitda-pos": "var(--opsia-num-positive)",
+        "ebitda-neg": "var(--color-destructive)",
+        "neutral": "var(--opsia-cx-kpi)"
+      }
+    },
+    "pctRow": {
+      "role": "secondary-metric-prominent",
+      "layout": "pct value (large) + hint text (small)",
+      "pct": {
+        "size": "1.15rem–1.35rem",
+        "weight": 700,
+        "color": "inherit from accent (or warm for cost ratios)"
+      },
+      "hint": {
+        "size": "0.72rem",
+        "weight": 500,
+        "color": "var(--opsia-cx-ink-soft)",
+        "examples": ["s/ ingressos", "sobre vendes"]
+      }
+    },
+    "hint": {
+      "role": "optional-caption",
+      "when": "sense pct numèric (ex. «Explotació»)",
+      "size": "0.75rem",
+      "color": "var(--opsia-cx-ink-soft)"
+    }
+  },
+  "surface": {
+    "background": "var(--opsia-cx-card-bg)",
+    "border": "1px solid var(--opsia-cx-border)",
+    "radius": "var(--opsia-cx-radius)",
+    "padding": "0.95rem 1.05rem",
+    "accentTint": {
+      "ingressos": "green mix 6%",
+      "cost": "var(--opsia-cx-accent-cost-bg)",
+      "ebitda-pos": "green mix 8%",
+      "ebitda-neg": "destructive mix 8%"
+    }
+  },
+  "grid": {
+    "className": "OpsiaKpiCardRow",
+    "columns": "repeat(auto-fit, minmax(150px, 1fr))",
+    "gap": "0.75rem"
+  },
+  "sourceCss": "apps/frontend/components/consultes/OpsiaKpiCard.module.css",
+  "sourceTsx": "apps/frontend/components/consultes/OpsiaKpiCard.tsx",
+  "tokens": "apps/frontend/styles/opsia-consultes.css (--opsia-cx-*)"
+}

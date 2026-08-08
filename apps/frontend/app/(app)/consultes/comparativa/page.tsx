@@ -1,3 +1,4 @@
+import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
 import { KpiComparatiuCards } from "@/components/consultes/KpiCards";
 import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
@@ -30,6 +31,7 @@ import {
   NODE_EBITDA,
   NODE_VENDES,
 } from "@/lib/kpi-definitions";
+import { OPSIA_CHART, OPSIA_CHART_SERIES, OPSIA_GREEN, OPSIA_YELLOW } from "@/lib/opsia-colors";
 import { ComparativaSelectors } from "./ComparativaSelectors";
 
 export const dynamic = "force-dynamic";
@@ -37,8 +39,8 @@ export const metadata = { title: "Comparativa temporal — OpsiaFinance" };
 
 const NODE_VENDES_KPI = NODE_VENDES;
 
-const ANY_COLORS = ["#6366f1", "#0ea5e9", "#f59e0b", "#ec4899"];
-const EBITDA_COLORS = ["#4ade80", "#16a34a", "#84cc16", "#059669"];
+const ANY_COLORS = [...OPSIA_CHART_SERIES];
+const EBITDA_COLORS = [OPSIA_GREEN[400], OPSIA_GREEN[600], OPSIA_YELLOW[400], OPSIA_GREEN[500]];
 
 const KPI_COMPARATIU = KPI_DEFINICIONS;
 
@@ -299,13 +301,13 @@ export default async function ComparativaPage({
             {
               name: "Vendes",
               type: "bar" as const,
-              color: "#0ea5e9",
+              color: OPSIA_CHART.vendes,
               data: findRow(NODE_VENDES)?.valors ?? [],
             },
             {
               name: "EBITDA",
               type: "line" as const,
-              color: "#16a34a",
+              color: OPSIA_CHART.ebitda,
               data: findRow(NODE_EBITDA)?.valors ?? [],
             },
           ]
@@ -340,38 +342,40 @@ export default async function ComparativaPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <div>
-          <h1 className={styles.title}>Comparativa temporal</h1>
-          <p className={styles.subtitle}>
-            {titol && periodeDesc
-              ? `${titol} — ${periodeDesc}`
-              : "Tria un àmbit per comparar-lo al llarg del temps."}
-          </p>
-        </div>
-        <div className={styles.headerActions}>
-          <ComparativaSelectors
-            arbre={arbre}
-            scope={scope}
-            id={id}
-            granularitat={granularitat}
-            mes={mesActual}
-            mesosSeleccionats={mesosSeleccionats}
-            nomesEmpresa={!potLiniaCentre}
-          />
-          <ExportInformeButton
-            disabled={!!necessitaId || !!buit}
-            filename={slugFilename(`comparativa-${titol ?? scope}-${periodeDesc ?? granularitat}`)}
-            title="Comparativa temporal"
-            subtitle={titol && periodeDesc ? `${titol} — ${periodeDesc}` : undefined}
-            columns={columns}
-            rows={pivotRows}
-            showTotal={granularitat === "mensual"}
-            totalLabel="Període"
-            sheetName="Comparativa"
-          />
-        </div>
-      </div>
+      <ConsultaHeader
+        title="Comparativa temporal"
+        subtitle={
+          titol && periodeDesc
+            ? `${titol} — ${periodeDesc}`
+            : "Tria un àmbit per comparar-lo al llarg del temps."
+        }
+        actions={
+          <>
+            <ComparativaSelectors
+              arbre={arbre}
+              scope={scope}
+              id={id}
+              granularitat={granularitat}
+              mes={mesActual}
+              mesosSeleccionats={mesosSeleccionats}
+              nomesEmpresa={!potLiniaCentre}
+            />
+            <ExportInformeButton
+              disabled={!!necessitaId || !!buit}
+              filename={slugFilename(
+                `comparativa-${titol ?? scope}-${periodeDesc ?? granularitat}`
+              )}
+              title="Comparativa temporal"
+              subtitle={titol && periodeDesc ? `${titol} — ${periodeDesc}` : undefined}
+              columns={columns}
+              rows={pivotRows}
+              showTotal={granularitat === "mensual"}
+              totalLabel="Període"
+              sheetName="Comparativa"
+            />
+          </>
+        }
+      />
 
       {necessitaId ? (
         <div className={styles.prompt}>

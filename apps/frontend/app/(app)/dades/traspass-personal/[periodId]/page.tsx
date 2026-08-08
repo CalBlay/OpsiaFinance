@@ -39,18 +39,6 @@ export default async function TraspassPersonalDetallPage({
               motiu: string;
             }[])
           : [],
-        foraCentreSnapshot: execucioRaw.foraCentreSnapshotJson
-          ? (JSON.parse(execucioRaw.foraCentreSnapshotJson) as {
-              canvis: {
-                centreId: string;
-                centreCodi: string;
-                centreNom: string;
-                departament: "SALA" | "CUINA";
-                abans: number;
-                despres: number;
-              }[];
-            })
-          : null,
       }
     : null;
 

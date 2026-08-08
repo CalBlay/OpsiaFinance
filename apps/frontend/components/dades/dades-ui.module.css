@@ -162,9 +162,9 @@
 }
 
 .iconDanger:hover:not(:disabled) {
-  color: #b91c1c;
-  border-color: rgba(185, 28, 28, 0.35);
-  background: rgba(185, 28, 28, 0.06);
+  color: var(--color-destructive, #c0392b);
+  border-color: color-mix(in srgb, var(--color-destructive, #c0392b) 35%, transparent);
+  background: color-mix(in srgb, var(--color-destructive, #c0392b) 6%, transparent);
 }
 
 .newBtn {
@@ -204,13 +204,13 @@
 }
 
 .badgeOk {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--opsia-green-100);
+  color: var(--opsia-num-positive);
 }
 
 .badgeWarn {
-  background: #fef9c3;
-  color: #854d0e;
+  background: var(--opsia-yellow-100);
+  color: var(--opsia-yellow-700);
 }
 
 .badgeMuted {

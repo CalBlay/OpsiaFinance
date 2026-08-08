@@ -1,123 +1,581 @@
 .wrap {
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
+  gap: 1rem;
 }
 
-/* —— KPI strip (estil Power BI / cards executives) —— */
-.kpiStrip {
-  border: 1px solid var(--color-border);
-  border-radius: 0.85rem;
-  background: var(--color-card);
-  padding: 1.1rem 1.25rem 1.25rem;
-}
-
-.kpiHead {
-  margin-bottom: 1rem;
-}
-
-.kpiEyebrow {
-  margin: 0 0 0.25rem;
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  font-weight: 700;
-  color: var(--color-muted-foreground);
-}
-
-.kpiTitle {
-  margin: 0;
-  font-size: clamp(1.2rem, 2vw, 1.5rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--color-foreground);
-}
-
-.kpiCards {
+/* —— Hero scorecard (tokens --opsia-cx-*) —— */
+.hero {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 0.7fr);
+  grid-template-areas:
+    "head head"
+    "ratio side";
+  gap: 1rem 1.25rem;
+  align-items: stretch;
+  border: 1px solid var(--opsia-cx-border, var(--opsia-line-soft));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
+  background: var(--opsia-cx-card-bg, #fff);
+  padding: 1.15rem 1.25rem 1.2rem;
 }
 
-.kpiCard {
-  padding: 0.85rem 1rem;
-  border-radius: 0.6rem;
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
+.heroHead {
+  grid-area: head;
+  min-width: 0;
 }
 
-.kpiCard[data-accent="sala"] {
-  border-color: color-mix(in srgb, #0ea5e9 35%, var(--color-border));
-  background: color-mix(in srgb, #0ea5e9 6%, var(--color-background));
-}
-
-.kpiCard[data-accent="cuina"] {
-  border-color: color-mix(in srgb, #f59e0b 35%, var(--color-border));
-  background: color-mix(in srgb, #f59e0b 6%, var(--color-background));
-}
-
-.kpiLabel {
-  font-size: 0.68rem;
+.eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: var(--opsia-cx-label-size, 0.66rem);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-  color: var(--color-muted-foreground);
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  color: var(--opsia-cx-label, var(--opsia-ink-soft));
 }
 
-.kpiValue {
-  font-size: clamp(1.25rem, 2.2vw, 1.65rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-foreground);
+.heroTitle {
+  margin: 0;
+  font-size: var(--opsia-cx-heading-size, clamp(1.2rem, 2.2vw, 1.5rem));
+  font-weight: var(--opsia-cx-heading-weight, 500);
+  letter-spacing: var(--opsia-cx-heading-tracking, -0.04em);
+  color: var(--opsia-cx-heading, var(--opsia-ink-soft));
   line-height: 1.15;
 }
 
-.kpiHint {
+.heroSub {
+  margin: 0.2rem 0 0;
   font-size: 0.78rem;
-  color: var(--color-muted-foreground);
-  margin-top: 0.15rem;
+  font-weight: 400;
+  color: var(--opsia-cx-ink-muted);
+  font-variant-numeric: tabular-nums;
 }
 
-.chartCardWide {
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background: var(--color-card);
-  padding: 1rem 1.15rem 1.25rem;
+.ratioStrip {
+  grid-area: ratio;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
 }
 
-.chartTitle {
-  margin: 0;
-  font-size: 1.05rem;
+.ratioCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 0.9rem;
+  border-radius: var(--opsia-cx-radius-sm, 0.55rem);
+  background: var(--opsia-cx-surface, var(--opsia-bg-app));
+  border: 1px solid var(--opsia-cx-border, var(--opsia-line-soft));
+  min-width: 0;
+}
+
+.ratioCard[data-accent="cost"] {
+  border-color: var(--opsia-cx-accent-cost-border);
+  background: var(--opsia-cx-accent-cost-bg);
+}
+
+.ratioCard[data-accent="pct"] {
+  border-color: var(--opsia-cx-accent-pct-border);
+  background: var(--opsia-cx-accent-pct-bg);
+}
+
+.ratioLabel {
+  font-size: var(--opsia-cx-label-size, 0.66rem);
+  text-transform: uppercase;
+  letter-spacing: var(--opsia-cx-label-tracking, 0.07em);
+  font-weight: var(--opsia-cx-label-weight, 700);
+  color: var(--opsia-cx-label, var(--opsia-ink-soft));
+}
+
+.ratioValue {
+  font-size: var(--opsia-cx-kpi-size, clamp(1.15rem, 2.2vw, 1.45rem));
+  font-weight: var(--opsia-cx-kpi-weight, 800);
+  letter-spacing: var(--opsia-cx-kpi-tracking, -0.03em);
+  font-variant-numeric: tabular-nums;
+  color: var(--opsia-cx-kpi, var(--opsia-ink-strong));
+  line-height: 1.15;
+}
+
+.ratioCard[data-accent="cost"] .ratioValue {
+  color: var(--opsia-cx-kpi-warm, var(--opsia-accent-warm));
+}
+
+.ratioValueBig {
+  font-size: var(--opsia-cx-kpi-size-lg, clamp(1.55rem, 3vw, 2.1rem));
+  font-weight: var(--opsia-cx-kpi-weight, 800);
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  color: var(--opsia-cx-kpi-warm-strong, var(--opsia-yellow-700));
+  line-height: 1.05;
+}
+
+.ratioHint {
+  font-size: 0.72rem;
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
+}
+
+.heroSide {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--opsia-cx-radius-sm, 0.55rem);
+  background: var(--opsia-cx-surface, var(--opsia-bg-app));
+  border: 1px solid var(--opsia-cx-border, var(--opsia-line-soft));
+}
+
+.splitHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: var(--opsia-cx-label-size-md, 0.72rem);
+  font-weight: var(--opsia-cx-label-weight, 700);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
+}
+
+.splitVals {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.9rem;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.splitVals [data-tone="sala"] {
+  color: var(--opsia-chart-sala);
+}
+.splitVals [data-tone="cuina"] {
+  color: var(--opsia-chart-cuina);
+}
+
+.splitBar {
+  display: flex;
+  height: 10px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-border) 70%, transparent);
+}
+
+.splitBar > div {
+  height: 100%;
+  min-width: 0;
+}
+
+.splitLegend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.splitLegend i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  margin-right: 0.3rem;
+  vertical-align: middle;
+}
+
+/* —— Panels —— */
+.panel {
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
+  background: var(--opsia-cx-card-bg, var(--color-card));
+  padding: 0.9rem 1.05rem 1.05rem;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: var(--opsia-cx-panel-title-size, 0.95rem);
+  font-weight: var(--opsia-cx-panel-title-weight, 700);
   letter-spacing: -0.02em;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+}
+
+.panelLead {
+  margin: 0.2rem 0 0.75rem;
+  font-size: var(--opsia-cx-panel-lead-size, 0.78rem);
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+  line-height: 1.4;
+}
+
+/* —— Composition share bar —— */
+.shareBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.shareBar {
+  display: flex;
+  height: 14px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-border) 65%, transparent);
+}
+
+.shareSeg {
+  height: 100%;
+  min-width: 2px;
+}
+
+.shareLegend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.35rem 1rem;
+}
+
+.shareLegend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  gap: 0.4rem;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.shareLegend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.shareName {
+  color: var(--color-foreground);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sharePct {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
   color: var(--color-foreground);
 }
 
-.chartLead {
-  margin: 0.35rem 0 0.85rem;
-  font-size: 0.82rem;
+.shareEuro {
+  font-variant-numeric: tabular-nums;
   color: var(--color-muted-foreground);
-  line-height: 1.45;
-  max-width: 46rem;
+  text-align: right;
+}
+
+/* —— IBCS statement —— */
+.statementWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+
+.statement {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.82rem;
+}
+
+.statement th {
+  padding: 0.5rem 0.65rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 700;
+  color: var(--color-muted-foreground);
+  background: var(--color-muted);
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+}
+
+.statement td {
+  padding: 0.42rem 0.65rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+  color: var(--color-foreground);
+  vertical-align: middle;
+}
+
+.statement tbody tr:hover td {
+  background: color-mix(in srgb, var(--color-muted) 35%, transparent);
+}
+
+.statement tfoot td {
+  font-weight: 800;
+  background: color-mix(in srgb, var(--color-muted) 55%, transparent);
+  border-bottom: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.colLabel {
+  text-align: left;
+  width: 26%;
+}
+
+.statement[data-dept="0"] .colLabel {
+  width: 36%;
+}
+
+.statement[data-dept="0"] .colBar {
+  width: 28%;
+}
+
+.colNum {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  width: 12%;
+}
+
+.colPct {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  width: 9%;
+}
+
+.colBar {
+  width: 18%;
+  text-align: left;
+}
+
+.statement th.colNum,
+.statement th.colPct,
+.statement th.colBar {
+  text-align: right;
+}
+
+.statement th.colBar {
+  text-align: left;
+}
+
+.statement th.colLabel {
+  text-align: left;
+}
+
+.colNum[data-neg],
+.statement tr[data-neg] .colNum {
+  color: #64748b;
+}
+
+.microTrack {
+  display: flex;
+  height: 7px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--color-border) 70%, transparent);
+  overflow: hidden;
+}
+
+.microSeg {
+  height: 100%;
+  min-width: 0;
+}
+
+.microFill {
+  height: 100%;
+  border-radius: 99px;
+  background: var(--opsia-ink-soft);
+  min-width: 3px;
+}
+
+.microFill[data-neg] {
+  background: #94a3b8;
+}
+
+.cellBtn {
+  appearance: none;
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: var(--color-primary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cellBtn:hover {
+  color: var(--color-foreground);
+}
+
+/* —— Pastís + statement en fila —— */
+.splitRow {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.95fr) minmax(0, 1.55fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.splitRow > .panel {
+  min-width: 0;
+}
+
+/* —— Pastís partides (compacte, sense estirar) —— */
+.pieLayout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.pieChart {
+  width: 200px;
+  height: 200px;
+  flex-shrink: 0;
+}
+
+.pieLegend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1 1 12rem;
+  min-width: 11rem;
+  max-width: 18rem;
+}
+
+.pieLegend li {
+  display: grid;
+  grid-template-columns: 8px minmax(0, 1fr) 3.25rem 4.75rem;
+  gap: 0.35rem;
+  align-items: center;
+  font-size: 0.74rem;
+}
+
+.pieLegend i {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+}
+
+.pieName {
+  font-weight: 600;
+  color: var(--color-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.piePct {
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.pieEuro {
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-foreground);
+  text-align: right;
 }
 
 .emptyChart {
+  margin: 0;
+  padding: 1rem;
+  text-align: center;
   font-size: 0.85rem;
   color: var(--color-muted-foreground);
-  text-align: center;
-  padding: 2.5rem 1rem;
+}
+
+/* —— Restaurant ranking —— */
+.rankList {
+  list-style: none;
   margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.rankRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.rankMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.rankName {
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.rankTotal {
+  font-size: 0.82rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.rankTrack {
+  display: flex;
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-border) 70%, transparent);
+  max-width: 100%;
+}
+
+.rankTrack > div {
+  height: 100%;
+}
+
+.rankHints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 800px) {
+  .hero {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "head"
+      "ratio"
+      "side";
+  }
+
+  .ratioStrip {
+    grid-template-columns: 1fr;
+  }
+
+  .splitRow {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 801px) {
+  .splitRow {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media print {
   .wrap {
-    gap: 1rem;
+    gap: 0.75rem;
   }
-  .chartCardWide {
+  .panel,
+  .hero {
     break-inside: avoid;
   }
 }

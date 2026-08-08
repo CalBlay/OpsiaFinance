@@ -6,9 +6,9 @@
 
 /* —— Hero: una xifra, una història —— */
 .hero {
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  background: var(--color-card);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius-lg, 1rem);
+  background: var(--opsia-cx-card-bg, var(--color-card));
   padding: 1.25rem 1.4rem 1.35rem;
   display: flex;
   flex-direction: column;
@@ -25,19 +25,19 @@
 
 .eyebrow {
   margin: 0 0 0.3rem;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--opsia-cx-label-size-md, 0.72rem);
+  font-weight: var(--opsia-cx-label-weight, 700);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
 }
 
 .heroTitle {
   margin: 0;
-  font-size: clamp(1.25rem, 2.2vw, 1.65rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--color-foreground);
+  font-size: var(--opsia-cx-heading-size, clamp(1.25rem, 2.2vw, 1.65rem));
+  font-weight: var(--opsia-cx-heading-weight, 500);
+  letter-spacing: var(--opsia-cx-heading-tracking, -0.03em);
+  color: var(--opsia-cx-heading, var(--opsia-ink-soft));
   line-height: 1.2;
 }
 
@@ -48,7 +48,7 @@
   gap: 0.4rem;
   flex-wrap: wrap;
   font-size: 0.82rem;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
 }
 
 .badge {
@@ -59,9 +59,9 @@
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;
-  background: color-mix(in srgb, #6366f1 12%, var(--color-background));
-  color: color-mix(in srgb, #4338ca 70%, var(--color-foreground));
-  border: 1px solid color-mix(in srgb, #6366f1 25%, var(--color-border));
+  background: color-mix(in srgb, var(--opsia-green-500) 12%, var(--color-background));
+  color: color-mix(in srgb, var(--opsia-green-700) 70%, var(--color-foreground));
+  border: 1px solid color-mix(in srgb, var(--opsia-green-500) 25%, var(--color-border));
 }
 
 .metaSep {
@@ -75,22 +75,22 @@
 
 .heroMetricLabel {
   display: block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--opsia-cx-label-size-md, 0.7rem);
+  font-weight: var(--opsia-cx-label-weight, 700);
+  letter-spacing: var(--opsia-cx-label-tracking, 0.06em);
   text-transform: uppercase;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
 }
 
 .heroMetricValue {
   display: block;
   margin-top: 0.15rem;
-  font-size: clamp(1.75rem, 3.2vw, 2.35rem);
-  font-weight: 800;
+  font-size: var(--opsia-cx-kpi-size-lg, clamp(1.75rem, 3.2vw, 2.35rem));
+  font-weight: var(--opsia-cx-kpi-weight, 800);
   letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums;
   line-height: 1.05;
-  color: var(--color-foreground);
+  color: var(--opsia-cx-kpi-warm, var(--opsia-accent-warm));
 }
 
 .heroMetricHint {
@@ -98,7 +98,7 @@
   margin-top: 0.3rem;
   font-size: 0.82rem;
   font-weight: 600;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
 }
 
 /* —— Cost per mes —— */
@@ -132,9 +132,9 @@
 
 /* —— Rànquing —— */
 .rankCard {
-  border: 1px solid var(--color-border);
-  border-radius: 1rem;
-  background: var(--color-card);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius-lg, 1rem);
+  background: var(--opsia-cx-card-bg, var(--color-card));
   padding: 1.1rem 1.25rem 1.15rem;
 }
 
@@ -144,16 +144,16 @@
 
 .rankTitle {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
+  font-size: var(--opsia-cx-panel-title-size, 1.05rem);
+  font-weight: var(--opsia-cx-panel-title-weight, 700);
   letter-spacing: -0.02em;
-  color: var(--color-foreground);
+  color: var(--opsia-cx-ink, var(--color-foreground));
 }
 
 .rankLead {
   margin: 0.25rem 0 0;
   font-size: 0.82rem;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
   line-height: 1.4;
 }
 
@@ -224,7 +224,7 @@
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, #6366f1, #0ea5e9);
+  background: linear-gradient(90deg, var(--opsia-green-600), var(--opsia-green-400));
   min-width: 4px;
 }
 

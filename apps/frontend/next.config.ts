@@ -8,6 +8,14 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "50mb",
     },
+    /**
+     * Cache del router al client: en canviar de pestanya no es torna a demanar
+     * la RSC si s'ha visitat fa menys de 30s (abans era 0 → cada clic = fetch complet).
+     */
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
 };
 

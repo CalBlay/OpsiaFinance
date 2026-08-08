@@ -92,7 +92,7 @@ export const DADES_TABS: DadesTab[] = [
     label: "Cost salarial",
     title: "Cost salarial restaurants",
     description:
-      "Font pròpia de cost salarial per restaurant (Sala / Cuina). Cada mes afegeix només les línies noves a l’Excel i puja amb el botó + (per defecte ignora el que ja hi ha). Opció d’actualitzar existents si cal corregir.",
+      "Font pròpia de cost salarial per restaurant (Sala / Cuina). Cada mes afegeix només les línies noves a l’Excel i puja amb el botó + (per defecte ignora el que ja hi ha). Opció d’actualitzar existents si cal corregir. Comparativa Fora centre vs traspassos d’hores.",
     icon: Users,
     match: (p) => p.startsWith("/dades/cost-salarial"),
   },

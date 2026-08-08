@@ -103,7 +103,7 @@ function buildPrintHtml(informe: ExportInforme): string {
       background: #f1f5f9;
       font-size: 8.5pt;
       font-weight: 700;
-      color: #334155;
+      color: #5c6b73;
     }
     td.left, th.left {
       text-align: left;
@@ -114,7 +114,7 @@ function buildPrintHtml(informe: ExportInforme): string {
       font-weight: 700;
       background: #f8fafc;
     }
-    td.neg { color: #b91c1c; }
+    td.neg { color: #c0392b; }
     .footer {
       margin-top: 0.85rem;
       font-size: 8pt;

@@ -1,6 +1,7 @@
 "use client";
 
-import type { PartidaImport } from "@/lib/cost-salarial/consultes";
+import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
+import type { PartidaImport } from "@/lib/cost-salarial/partides";
 import { formatNum } from "@/lib/utils";
 import { useState } from "react";
 import { type ForaCentreDetallContext, ForaCentreDetallModal } from "./ForaCentreDetallModal";
@@ -16,6 +17,7 @@ export function DetallNumericRestaurantTable({
   centreLabel,
   any,
   mes,
+  compte,
   partidesTotals,
   partidesSala,
   partidesCuina,
@@ -27,6 +29,7 @@ export function DetallNumericRestaurantTable({
   centreLabel: string;
   any: number;
   mes: number | null;
+  compte: CompteCostSalarial;
   partidesTotals: PartidaImport[];
   partidesSala: PartidaImport[];
   partidesCuina: PartidaImport[];
@@ -36,7 +39,7 @@ export function DetallNumericRestaurantTable({
 }) {
   const [detall, setDetall] = useState<ForaCentreDetallContext | null>(null);
 
-  const openFora = (departament: "SALA" | "CUINA" | null, cellValue: number) => {
+  const openDetall = (departament: "SALA" | "CUINA" | null, cellValue: number) => {
     setDetall({
       centreId,
       centreLabel,
@@ -44,6 +47,7 @@ export function DetallNumericRestaurantTable({
       mes,
       departament,
       cellValue,
+      compte,
     });
   };
 
@@ -64,17 +68,21 @@ export function DetallNumericRestaurantTable({
             {partidesTotals.map((p, i) => {
               const sala = partidesSala[i]?.import_ ?? 0;
               const cuina = partidesCuina[i]?.import_ ?? 0;
-              const isFora = p.key === "foraCentre";
+              const clickable = p.key === "foraCentre";
+              const title =
+                compte === "gestio"
+                  ? "Veure detall de traspassos (+destí −origen)"
+                  : "Veure detall de Fora centre (Excel)";
               return (
                 <tr key={p.key}>
                   <td>{p.label}</td>
                   <td className={local.right}>
-                    {isFora ? (
+                    {clickable ? (
                       <button
                         type="button"
                         className={local.cellBtn}
-                        onClick={() => openFora(null, p.import_)}
-                        title="Veure detall de Fora centre"
+                        onClick={() => openDetall(null, p.import_)}
+                        title={title}
                       >
                         {formatNum(p.import_)}
                       </button>
@@ -84,12 +92,12 @@ export function DetallNumericRestaurantTable({
                   </td>
                   <td className={local.right}>{pctLabel(p.pct)}</td>
                   <td className={local.right}>
-                    {isFora ? (
+                    {clickable ? (
                       <button
                         type="button"
                         className={local.cellBtn}
-                        onClick={() => openFora("SALA", sala)}
-                        title="Detall Fora centre · Sala"
+                        onClick={() => openDetall("SALA", sala)}
+                        title={`${title} · Sala`}
                       >
                         {formatNum(sala)}
                       </button>
@@ -98,12 +106,12 @@ export function DetallNumericRestaurantTable({
                     )}
                   </td>
                   <td className={local.right}>
-                    {isFora ? (
+                    {clickable ? (
                       <button
                         type="button"
                         className={local.cellBtn}
-                        onClick={() => openFora("CUINA", cuina)}
-                        title="Detall Fora centre · Cuina"
+                        onClick={() => openDetall("CUINA", cuina)}
+                        title={`${title} · Cuina`}
                       >
                         {formatNum(cuina)}
                       </button>

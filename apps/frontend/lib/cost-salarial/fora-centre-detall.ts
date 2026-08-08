@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { parseForaCentreSnapshot } from "@/lib/traspass-personal/fora-centre";
 import type { DepartamentSalarial } from "@prisma/client";
 
 export type ForaCentreLiniaDetall = {
@@ -14,8 +15,10 @@ export type ForaCentreLiniaDetall = {
   hores: number;
   tarifaHora: number;
   import_: number;
-  /** true = valor ve de traspass confirmat; false = Excel cost salarial. */
+  /** excel = Fora centre; traspass = moviment confirmat (destí + / origen −). */
   font: "traspass" | "excel";
+  /** Només traspass: rol del restaurant respecte al moviment. */
+  rol?: "desti" | "origen";
 };
 
 export type ForaCentreDetallResultat = {
@@ -25,28 +28,49 @@ export type ForaCentreDetallResultat = {
   any: number;
   mes: number | null;
   departament: DepartamentSalarial | null;
-  /** Total mostrat a la casella (traspass si n'hi ha; si no, Excel). */
   total: number;
   totalSala: number;
   totalCuina: number;
-  /** Hi ha algun mes amb traspass confirmat per aquest centre. */
   teTraspassConfirmat: boolean;
+  /** directe = Excel; gestio = net traspassos (+destí −origen). */
+  compte: "directe" | "gestio";
   linies: ForaCentreLiniaDetall[];
 };
 
 type TotalsDept = { SALA: number; CUINA: number };
 
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+function emptyTotals(): TotalsDept {
+  return { SALA: 0, CUINA: 0 };
+}
+
+type MovSel = {
+  departament: DepartamentSalarial;
+  hores: unknown;
+  tarifaHora: unknown;
+  import_: unknown;
+  centreOrigenId: string;
+  centreDestiId: string;
+  centreOrigen: { codi: string; nom: string };
+  centreDesti: { codi: string; nom: string };
+};
+
 /**
- * Per cada període del filtre: si hi ha traspass confirmat amb destinació = restaurant,
- * Fora centre = suma d'imports d'entrada (substitueix l'Excel). Si no, es manté l'Excel.
+ * Directe = valor Excel Fora centre.
+ * Gestió = traspassos confirmats: +hores destí −hores origen (mateixa línia).
  */
 export async function resoldreForaCentreRestaurant(
   centreId: string,
   any: number,
   mes: number | null
 ): Promise<{
-  totals: TotalsDept;
+  excel: TotalsDept;
+  gestio: TotalsDept;
   teTraspassConfirmat: boolean;
+  liniesExcel: ForaCentreLiniaDetall[];
   liniesTraspass: ForaCentreLiniaDetall[];
 }> {
   const periods = await db.period.findMany({
@@ -54,11 +78,22 @@ export async function resoldreForaCentreRestaurant(
     select: { id: true, any: true, mes: true, nom: true },
   });
   if (!periods.length) {
-    return { totals: { SALA: 0, CUINA: 0 }, teTraspassConfirmat: false, liniesTraspass: [] };
+    return {
+      excel: emptyTotals(),
+      gestio: emptyTotals(),
+      teTraspassConfirmat: false,
+      liniesExcel: [],
+      liniesTraspass: [],
+    };
   }
 
   const periodIds = periods.map((p) => p.id);
   const periodById = new Map(periods.map((p) => [p.id, p]));
+
+  const centre = await db.centre.findUnique({
+    where: { id: centreId },
+    select: { codi: true, nom: true },
+  });
 
   const [excelRows, execucions] = await Promise.all([
     db.costSalarialRestaurant.findMany({
@@ -69,13 +104,18 @@ export async function resoldreForaCentreRestaurant(
       where: { estat: "CONFIRMAT", periodId: { in: periodIds } },
       select: {
         periodId: true,
+        foraCentreSnapshotJson: true,
         moviments: {
-          where: { centreDestiId: centreId },
+          where: {
+            OR: [{ centreDestiId: centreId }, { centreOrigenId: centreId }],
+          },
           select: {
             departament: true,
             hores: true,
             tarifaHora: true,
             import_: true,
+            centreOrigenId: true,
+            centreDestiId: true,
             centreOrigen: { select: { codi: true, nom: true } },
             centreDesti: { select: { codi: true, nom: true } },
           },
@@ -84,28 +124,34 @@ export async function resoldreForaCentreRestaurant(
     }),
   ]);
 
-  const excelByPeriodDept = new Map<string, number>();
+  const bdByPeriodDept = new Map<string, number>();
   for (const r of excelRows) {
-    excelByPeriodDept.set(`${r.periodId}|${r.departament}`, Number(r.foraCentre));
+    bdByPeriodDept.set(`${r.periodId}|${r.departament}`, Number(r.foraCentre));
   }
 
-  const traspassByPeriodDept = new Map<string, number>();
+  const excelDesDeSnapshot = new Map<string, number>();
+  const periodsLegacyOverwrite = new Set<string>();
+  const periodsAmbTraspass = new Set<string>();
+  const gestio = emptyTotals();
   const liniesTraspass: ForaCentreLiniaDetall[] = [];
-  // Qualsevol mes amb execució confirmada: Fora centre = traspass (0 si no hi ha entrada).
-  const periodsAmbTraspass = new Set(execucions.map((ex) => ex.periodId));
 
   for (const ex of execucions) {
+    periodsAmbTraspass.add(ex.periodId);
     const period = periodById.get(ex.periodId);
     if (!period) continue;
 
-    for (const m of ex.moviments) {
-      const key = `${ex.periodId}|${m.departament}`;
-      const add = Number(m.import_);
-      traspassByPeriodDept.set(
-        key,
-        Math.round(((traspassByPeriodDept.get(key) ?? 0) + add) * 100) / 100
-      );
-      liniesTraspass.push({
+    const snap = parseForaCentreSnapshot(ex.foraCentreSnapshotJson);
+    if (snap?.canvis.length) {
+      periodsLegacyOverwrite.add(ex.periodId);
+      for (const c of snap.canvis) {
+        if (c.centreId !== centreId) continue;
+        excelDesDeSnapshot.set(`${ex.periodId}|${c.departament}`, round2(c.abans));
+      }
+    }
+
+    for (const m of ex.moviments as MovSel[]) {
+      const importAbs = Number(m.import_);
+      const liniaBase = {
         mes: period.mes,
         any: period.any,
         periodNom: period.nom,
@@ -117,48 +163,84 @@ export async function resoldreForaCentreRestaurant(
         minuts: Math.round(Number(m.hores) * 60 * 100) / 100,
         hores: Number(m.hores),
         tarifaHora: Number(m.tarifaHora),
-        import_: add,
-        font: "traspass",
-      });
-    }
-  }
+        font: "traspass" as const,
+      };
 
-  const totals: TotalsDept = { SALA: 0, CUINA: 0 };
-  for (const p of periods) {
-    for (const dept of ["SALA", "CUINA"] as const) {
-      const key = `${p.id}|${dept}`;
-      if (periodsAmbTraspass.has(p.id)) {
-        totals[dept] += traspassByPeriodDept.get(key) ?? 0;
-      } else {
-        totals[dept] += excelByPeriodDept.get(key) ?? 0;
+      if (m.centreDestiId === centreId) {
+        gestio[m.departament] = round2(gestio[m.departament] + importAbs);
+        liniesTraspass.push({ ...liniaBase, import_: importAbs, rol: "desti" });
+      }
+      if (m.centreOrigenId === centreId) {
+        const neg = -importAbs;
+        gestio[m.departament] = round2(gestio[m.departament] + neg);
+        liniesTraspass.push({ ...liniaBase, import_: neg, rol: "origen" });
       }
     }
   }
 
-  totals.SALA = Math.round(totals.SALA * 100) / 100;
-  totals.CUINA = Math.round(totals.CUINA * 100) / 100;
+  const excel = emptyTotals();
+  const liniesExcel: ForaCentreLiniaDetall[] = [];
 
-  liniesTraspass.sort(
-    (a, b) =>
-      a.mes - b.mes ||
-      a.departament.localeCompare(b.departament) ||
-      a.origenNom.localeCompare(b.origenNom)
-  );
+  for (const p of periods) {
+    for (const dept of ["SALA", "CUINA"] as const) {
+      const key = `${p.id}|${dept}`;
+      const excelRaw = periodsLegacyOverwrite.has(p.id)
+        ? (excelDesDeSnapshot.get(key) ?? 0)
+        : (bdByPeriodDept.get(key) ?? 0);
+
+      excel[dept] += excelRaw;
+      if (Math.abs(excelRaw) >= 0.005) {
+        liniesExcel.push({
+          mes: p.mes,
+          any: p.any,
+          periodNom: p.nom,
+          departament: dept,
+          origenCodi: "—",
+          origenNom: "Excel cost salarial",
+          destiCodi: centre?.codi ?? "—",
+          destiNom: centre?.nom ?? "—",
+          minuts: 0,
+          hores: 0,
+          tarifaHora: 0,
+          import_: round2(excelRaw),
+          font: "excel",
+        });
+      }
+    }
+  }
+
+  excel.SALA = round2(excel.SALA);
+  excel.CUINA = round2(excel.CUINA);
+  gestio.SALA = round2(gestio.SALA);
+  gestio.CUINA = round2(gestio.CUINA);
+
+  const byLinia = (a: ForaCentreLiniaDetall, b: ForaCentreLiniaDetall) =>
+    a.mes - b.mes ||
+    a.departament.localeCompare(b.departament) ||
+    (a.rol ?? "").localeCompare(b.rol ?? "") ||
+    a.origenNom.localeCompare(b.origenNom);
+
+  liniesTraspass.sort(byLinia);
+  liniesExcel.sort((a, b) => a.mes - b.mes || a.departament.localeCompare(b.departament));
 
   return {
-    totals,
+    excel,
+    gestio,
     teTraspassConfirmat: periodsAmbTraspass.size > 0,
+    liniesExcel,
     liniesTraspass,
   };
 }
 
-/** Detall per modal (casella Import / Sala / Cuina de Fora centre). */
+/** Detall modal: Excel (directe) o moviments destí/origen (gestió). */
 export async function getForaCentreDetall(params: {
   centreId: string;
   any: number;
   mes: number | null;
   departament?: DepartamentSalarial | null;
+  compte?: "directe" | "gestio";
 }): Promise<ForaCentreDetallResultat | null> {
+  const compte = params.compte ?? "directe";
   const centre = await db.centre.findUnique({
     where: { id: params.centreId },
     select: { id: true, codi: true, nom: true },
@@ -166,57 +248,21 @@ export async function getForaCentreDetall(params: {
   if (!centre) return null;
 
   const resolved = await resoldreForaCentreRestaurant(params.centreId, params.any, params.mes);
+  const totals = compte === "gestio" ? resolved.gestio : resolved.excel;
+  let linies = compte === "gestio" ? resolved.liniesTraspass : resolved.liniesExcel;
 
-  let linies = resolved.liniesTraspass;
   if (params.departament) {
     linies = linies.filter((l) => l.departament === params.departament);
   }
 
-  // Si no hi ha traspass, mostra el valor Excel com a línia sintètica per transparència.
-  if (!resolved.teTraspassConfirmat) {
-    const periods = await db.period.findMany({
-      where: params.mes != null ? { any: params.any, mes: params.mes } : { any: params.any },
-      select: { id: true, any: true, mes: true, nom: true },
-    });
-    const rows = await db.costSalarialRestaurant.findMany({
-      where: {
-        centreId: params.centreId,
-        periodId: { in: periods.map((p) => p.id) },
-        ...(params.departament ? { departament: params.departament } : {}),
-      },
-      select: {
-        departament: true,
-        foraCentre: true,
-        period: { select: { any: true, mes: true, nom: true } },
-      },
-    });
-    linies = rows
-      .filter((r) => Math.abs(Number(r.foraCentre)) >= 0.005)
-      .map((r) => ({
-        mes: r.period.mes,
-        any: r.period.any,
-        periodNom: r.period.nom,
-        departament: r.departament,
-        origenCodi: "—",
-        origenNom: "Excel cost salarial",
-        destiCodi: centre.codi,
-        destiNom: centre.nom,
-        minuts: 0,
-        hores: 0,
-        tarifaHora: 0,
-        import_: Number(r.foraCentre),
-        font: "excel" as const,
-      }));
-  }
-
-  const totalSala = params.departament === "CUINA" ? 0 : resolved.totals.SALA;
-  const totalCuina = params.departament === "SALA" ? 0 : resolved.totals.CUINA;
+  const totalSala = params.departament === "CUINA" ? 0 : totals.SALA;
+  const totalCuina = params.departament === "SALA" ? 0 : totals.CUINA;
   const total =
     params.departament === "SALA"
-      ? resolved.totals.SALA
+      ? totals.SALA
       : params.departament === "CUINA"
-        ? resolved.totals.CUINA
-        : Math.round((resolved.totals.SALA + resolved.totals.CUINA) * 100) / 100;
+        ? totals.CUINA
+        : round2(totals.SALA + totals.CUINA);
 
   return {
     centreId: centre.id,
@@ -229,6 +275,7 @@ export async function getForaCentreDetall(params: {
     totalSala,
     totalCuina,
     teTraspassConfirmat: resolved.teTraspassConfirmat,
+    compte,
     linies,
   };
 }

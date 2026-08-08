@@ -70,18 +70,18 @@
 
 .heroTitle {
   margin: 0;
-  font-size: 1.15rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--opsia-ink-strong);
+  font-size: var(--opsia-cx-heading-size, 1.15rem);
+  font-weight: var(--opsia-cx-heading-weight, 500);
+  letter-spacing: var(--opsia-cx-heading-tracking, -0.03em);
+  color: var(--opsia-cx-heading, var(--opsia-ink-soft));
   line-height: 1.1;
 }
 
 .heroPeriode {
   margin: 0;
   font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--opsia-ink-soft);
+  font-weight: 500;
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
 }
 
 .heroHint {
@@ -361,7 +361,7 @@ button.panel:hover {
 .formesFill {
   height: 100%;
   border-radius: inherit;
-  background: var(--opsia-accent-primary, #0ea5e9);
+  background: var(--opsia-accent-primary, #2f6f6d);
 }
 
 .formesTickets {
@@ -384,26 +384,26 @@ button.panel:hover {
 
 .panelKicker {
   margin: 0 0 0.05rem;
-  font-size: 0.62rem;
-  font-weight: 700;
+  font-size: var(--opsia-cx-label-size, 0.62rem);
+  font-weight: var(--opsia-cx-label-weight, 700);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--opsia-accent-primary);
+  color: var(--opsia-cx-page-title, var(--opsia-accent-primary));
 }
 
 .panelTitle {
   margin: 0;
-  font-size: 0.92rem;
-  font-weight: 800;
+  font-size: var(--opsia-cx-panel-title-size, 0.92rem);
+  font-weight: var(--opsia-cx-panel-title-weight, 700);
   letter-spacing: -0.02em;
-  color: var(--opsia-ink-strong);
+  color: var(--opsia-cx-ink, var(--opsia-ink-strong));
 }
 
 .panelLead {
   margin: 0.2rem 0 0;
-  font-size: 0.8rem;
+  font-size: var(--opsia-cx-panel-lead-size, 0.8rem);
   line-height: 1.3;
-  color: var(--opsia-ink-soft);
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
 }
 
 .panelFoot {

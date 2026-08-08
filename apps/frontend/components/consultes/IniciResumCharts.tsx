@@ -1,24 +1,13 @@
 "use client";
 
 import type { VendesSegment } from "@/lib/consultes-grafics";
+import { OPSIA_CHART_SERIES, OPSIA_COST_SERIES } from "@/lib/opsia-colors";
 import { formatNum } from "@/lib/utils";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import styles from "./IniciResumCharts.module.css";
 
-const PIE_COLORS = [
-  "#0ea5e9",
-  "#6366f1",
-  "#16a34a",
-  "#f59e0b",
-  "#ec4899",
-  "#14b8a6",
-  "#8b5cf6",
-  "#f97316",
-  "#06b6d4",
-  "#84cc16",
-];
-
-const COST_COLORS = ["#6366f1", "#f59e0b", "#14b8a6"];
+const PIE_COLORS = [...OPSIA_CHART_SERIES];
+const COST_COLORS = [...OPSIA_COST_SERIES];
 
 type SliceLabelProps = {
   cx?: number;

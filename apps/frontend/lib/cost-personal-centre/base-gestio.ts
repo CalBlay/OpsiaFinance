@@ -22,6 +22,7 @@ import {
 import { db } from "@/lib/db";
 import type { RangMesos } from "@/lib/periodes";
 import { prismaPeriodFilter } from "@/lib/periodes";
+import { cache } from "react";
 
 /** Origen de la cel·la Gestió personal (sempre SAP+ajust; payroll no hi entra). */
 export type OrigenBasePersonal = "sap";
@@ -265,8 +266,41 @@ export async function carregarDeltasTraspassPersonalCentreMes(
 /**
  * Carrega la base Gestió de personal: SAP(+ajust) → traspass (per mes).
  * Sense nòmina/millores.
+ * Cache per petició (mateixa clau = un sol load en Directe+Gestió / LN+empresa).
  */
 export async function carregarBaseGestioPersonal(
+  filtre: FiltreBaseGestio
+): Promise<BaseGestioPersonal> {
+  const centreIdsKey = (filtre.centreIds ?? []).slice().sort().join(",");
+  return carregarBaseGestioPersonalCached(
+    filtre.any,
+    filtre.mes ?? null,
+    filtre.centreId ?? null,
+    filtre.liniaNegociId ?? null,
+    centreIdsKey || null
+  );
+}
+
+const carregarBaseGestioPersonalCached = cache(
+  async (
+    any: number,
+    mes: number | null,
+    centreId: string | null,
+    liniaNegociId: string | null,
+    centreIdsKey: string | null
+  ): Promise<BaseGestioPersonal> => {
+    const filtre: FiltreBaseGestio = {
+      any,
+      mes,
+      centreId: centreId ?? undefined,
+      liniaNegociId: liniaNegociId ?? undefined,
+      centreIds: centreIdsKey ? centreIdsKey.split(",") : undefined,
+    };
+    return carregarBaseGestioPersonalImpl(filtre);
+  }
+);
+
+async function carregarBaseGestioPersonalImpl(
   filtre: FiltreBaseGestio
 ): Promise<BaseGestioPersonal> {
   const mes = filtre.mes ?? null;

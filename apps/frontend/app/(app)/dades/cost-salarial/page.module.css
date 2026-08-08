@@ -19,8 +19,8 @@
   margin-bottom: 1rem;
 }
 .feedbackOk {
-  background: color-mix(in srgb, #16a34a 12%, transparent);
-  color: #15803d;
+  background: var(--opsia-num-positive-bg);
+  color: var(--opsia-num-positive);
 }
 .feedbackErr {
   background: color-mix(in srgb, var(--color-destructive) 12%, transparent);
@@ -108,10 +108,50 @@
   font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
-  margin-bottom: 1.25rem;
+  margin: 0;
 }
 .newBtn:hover {
   opacity: 0.92;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+.filterBar {
+  flex: 1 1 16rem;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.toolbarActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.dangerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  color: var(--color-destructive);
+  border: 1px solid color-mix(in srgb, var(--color-destructive) 35%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.dangerBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-destructive) 10%, transparent);
+}
+.dangerBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .form {

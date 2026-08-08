@@ -1,0 +1,122 @@
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  margin-bottom: 0.85rem;
+}
+
+.hint {
+  margin: 0 0 1rem;
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.4;
+  max-width: 52rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  min-width: 720px;
+}
+
+.table th,
+.table td {
+  padding: 0.4rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.table thead th {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+  background: color-mix(in srgb, var(--color-muted-foreground) 8%, var(--color-card, #fff));
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  text-align: right;
+}
+
+.table thead th.left {
+  text-align: left;
+}
+
+.right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.centre {
+  text-align: left;
+}
+
+.stickyCentre {
+  position: sticky;
+  left: 0;
+  background: var(--color-card, #fff);
+  z-index: 2;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.04);
+}
+
+.table thead th.stickyCentre {
+  z-index: 3;
+  left: 0;
+}
+
+.totalRow td {
+  font-weight: 700;
+  background: color-mix(in srgb, var(--opsia-accent-primary, #2f6f6d) 8%, transparent);
+  border-top: 2px solid var(--color-border);
+}
+
+.muted {
+  color: var(--color-muted-foreground);
+  font-weight: 400;
+}
+
+.diff {
+  color: var(--color-destructive);
+  font-weight: 600;
+}
+
+.ok {
+  color: var(--opsia-num-positive);
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.navLink {
+  padding: 0.35rem 0.75rem;
+  border-radius: 0.4rem;
+  text-decoration: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  color: inherit;
+  background: transparent;
+}
+
+.navLinkActive {
+  background: var(--opsia-accent-primary, #2f6f6d);
+  color: #fff;
+}

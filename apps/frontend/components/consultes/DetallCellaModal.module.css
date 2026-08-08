@@ -105,15 +105,15 @@
 }
 
 .repartiment {
-  color: #0f766e;
+  color: var(--opsia-green-600);
 }
 
 .mirall {
-  color: #a16207;
+  color: var(--opsia-yellow-700);
 }
 
 .traspass {
-  color: #1d4ed8;
+  color: var(--opsia-accent-secondary, #6e8ca0);
 }
 
 .tableWrap {
@@ -163,7 +163,7 @@
 }
 
 .pos {
-  color: #15803d;
+  color: var(--opsia-num-positive);
 }
 
 .motiu {
@@ -177,15 +177,15 @@
 }
 
 .repartimentRow {
-  background: color-mix(in srgb, #0f766e 6%, transparent);
+  background: color-mix(in srgb, var(--opsia-green-600) 6%, transparent);
 }
 
 .mirallRow {
-  background: color-mix(in srgb, #a16207 7%, transparent);
+  background: color-mix(in srgb, var(--opsia-yellow-700) 7%, transparent);
 }
 
 .traspassRow {
-  background: color-mix(in srgb, #1d4ed8 6%, transparent);
+  background: color-mix(in srgb, var(--opsia-accent-secondary, #6e8ca0) 6%, transparent);
 }
 
 .badge {
@@ -209,31 +209,31 @@
 }
 
 .badgeRepartiment {
-  background: color-mix(in srgb, #0f766e 18%, transparent);
-  color: #0f766e;
+  background: color-mix(in srgb, var(--opsia-green-600) 18%, transparent);
+  color: var(--opsia-green-600);
 }
 
 .badgeMirall {
-  background: color-mix(in srgb, #a16207 18%, transparent);
-  color: #a16207;
+  background: color-mix(in srgb, var(--opsia-yellow-700) 18%, transparent);
+  color: var(--opsia-yellow-700);
 }
 
 .badgeTraspass {
-  background: color-mix(in srgb, #1d4ed8 16%, transparent);
-  color: #1d4ed8;
+  background: color-mix(in srgb, var(--opsia-accent-secondary, #6e8ca0) 16%, transparent);
+  color: var(--opsia-accent-secondary, #6e8ca0);
 }
 
 .payroll {
-  color: #7c3aed;
+  color: var(--opsia-orange-600);
 }
 
 .payrollRow {
-  background: color-mix(in srgb, #7c3aed 6%, transparent);
+  background: color-mix(in srgb, var(--opsia-orange-600) 6%, transparent);
 }
 
 .badgePayroll {
-  background: color-mix(in srgb, #7c3aed 16%, transparent);
-  color: #7c3aed;
+  background: color-mix(in srgb, var(--opsia-orange-600) 16%, transparent);
+  color: var(--opsia-orange-600);
 }
 
 .editSection {

@@ -28,8 +28,8 @@
   margin-bottom: 1rem;
 }
 .feedbackOk {
-  background: color-mix(in srgb, #16a34a 12%, transparent);
-  color: #15803d;
+  background: var(--opsia-num-positive-bg);
+  color: var(--opsia-num-positive);
 }
 .feedbackErr {
   background: color-mix(in srgb, var(--color-destructive) 12%, transparent);

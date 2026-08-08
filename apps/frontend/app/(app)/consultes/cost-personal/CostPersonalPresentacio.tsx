@@ -1,6 +1,7 @@
 "use client";
 
 import type { BarraCostPersonal, MesCostPersonal } from "@/lib/cost-personal-centre/consultes";
+import { OPSIA_CHART } from "@/lib/opsia-colors";
 import { cn, formatNum } from "@/lib/utils";
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -143,7 +144,12 @@ export function CostPersonalPresentacio({
                   }}
                   contentStyle={tooltipStyle}
                 />
-                <Bar dataKey="cost" fill="#6366f1" radius={[4, 4, 0, 0]} maxBarSize={36}>
+                <Bar
+                  dataKey="cost"
+                  fill={OPSIA_CHART.personal}
+                  radius={[4, 4, 0, 0]}
+                  maxBarSize={36}
+                >
                   <LabelList
                     dataKey="pctLabel"
                     position="top"

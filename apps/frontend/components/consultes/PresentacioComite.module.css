@@ -7,114 +7,34 @@
 
 .hero {
   padding: 1.15rem 1.35rem 1.25rem;
-  border-radius: 1rem;
-  border: 1px solid var(--color-border);
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, #0ea5e9 8%, var(--color-card)) 0%,
-    var(--color-card) 55%,
-    color-mix(in srgb, #16a34a 6%, var(--color-card)) 100%
-  );
+  border-radius: var(--opsia-cx-radius-lg, 1rem);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  background: var(--opsia-cx-card-bg, var(--color-card));
 }
 
 .eyebrow {
   margin: 0 0 0.35rem;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: var(--opsia-cx-label-size-md, 0.72rem);
+  font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-label, var(--opsia-ink-soft));
 }
 
 .heroTitle {
   margin: 0;
-  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: var(--color-foreground);
+  font-size: var(--opsia-cx-heading-size, clamp(1.35rem, 2.4vw, 1.85rem));
+  font-weight: var(--opsia-cx-heading-weight, 500);
+  letter-spacing: var(--opsia-cx-heading-tracking, -0.03em);
+  color: var(--opsia-cx-heading, var(--opsia-ink-soft));
   line-height: 1.15;
 }
 
 .heroPeriode {
   margin: 0.35rem 0 0;
   font-size: 1rem;
-  font-weight: 600;
-  color: var(--color-muted-foreground);
-}
-
-.kpiRow {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 0.75rem;
-}
-
-.kpiCard {
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-  padding: 0.95rem 1.05rem;
-  border-radius: 0.75rem;
-  border: 1px solid var(--color-border);
-  background: var(--color-card);
-}
-
-.kpiCard[data-accent="ingressos"] {
-  border-color: color-mix(in srgb, #0ea5e9 40%, var(--color-border));
-  background: color-mix(in srgb, #0ea5e9 7%, var(--color-card));
-}
-
-.kpiCard[data-accent="ebitda"],
-.kpiCard[data-accent="ebitda-pos"] {
-  border-color: color-mix(in srgb, #16a34a 40%, var(--color-border));
-  background: color-mix(in srgb, #16a34a 10%, var(--color-card));
-}
-
-.kpiCard[data-accent="ebitda-neg"] {
-  border-color: color-mix(in srgb, #dc2626 40%, var(--color-border));
-  background: color-mix(in srgb, #dc2626 10%, var(--color-card));
-}
-
-.kpiCard[data-accent="cost"] {
-  border-color: color-mix(in srgb, #6366f1 28%, var(--color-border));
-  background: color-mix(in srgb, #6366f1 5%, var(--color-card));
-}
-
-.kpiLabel {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--color-muted-foreground);
-}
-
-.kpiValue {
-  font-size: clamp(1.2rem, 2vw, 1.55rem);
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.1;
-  color: var(--color-foreground);
-}
-
-.kpiValuePos {
-  color: #15803d;
-}
-
-.kpiValueNeg {
-  color: var(--color-destructive);
-}
-
-.kpiHint {
-  font-size: 0.75rem;
-  color: var(--color-muted-foreground);
-}
-
-.kpiHintPos {
-  color: #15803d;
-}
-
-.kpiHintNeg {
-  color: var(--color-destructive);
+  font-weight: 500;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
 }
 
 .grid2 {
@@ -123,33 +43,33 @@
   gap: 1rem;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 1100px) {
   .grid2 {
     grid-template-columns: 1fr;
   }
 }
 
-.chartCard,
-.chartWide {
-  border: 1px solid var(--color-border);
-  border-radius: 0.85rem;
-  background: var(--color-card);
+.chartCard {
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
+  background: var(--opsia-cx-card-bg, #fff);
   padding: 1rem 1.15rem 1.1rem;
+  min-width: 0;
 }
 
 .chartTitle {
   margin: 0;
-  font-size: 1.05rem;
-  font-weight: 800;
+  font-size: var(--opsia-cx-panel-title-size, 0.95rem);
+  font-weight: var(--opsia-cx-panel-title-weight, 700);
   letter-spacing: -0.02em;
-  color: var(--color-foreground);
+  color: var(--opsia-cx-ink, var(--opsia-ink-strong));
 }
 
 .chartLead {
   margin: 0.3rem 0 0.85rem;
-  font-size: 0.85rem;
+  font-size: var(--opsia-cx-panel-lead-size, 0.78rem);
   line-height: 1.4;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
 }
 
 .chartBody {

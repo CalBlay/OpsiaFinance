@@ -37,17 +37,6 @@ type Alerta = {
   motiu: string;
 };
 
-type ForaCentreSnapshot = {
-  canvis: {
-    centreId: string;
-    centreCodi: string;
-    centreNom: string;
-    departament: "SALA" | "CUINA";
-    abans: number;
-    despres: number;
-  }[];
-};
-
 export function TraspassExecucioPanel({
   periodId: _periodId,
   periodNom,
@@ -62,7 +51,6 @@ export function TraspassExecucioPanel({
     nomFitxer: string | null;
     moviments: Moviment[];
     alertes: Alerta[];
-    foraCentreSnapshot: ForaCentreSnapshot | null;
   } | null;
   canEdit: boolean;
 }) {
@@ -129,10 +117,14 @@ export function TraspassExecucioPanel({
       return;
     }
     setEditId(m.id);
-    setEditMinuts(String(m.minuts ?? Math.round((m.hores || 0) * 60)).replace(".", ","));
-    setEditHores(String(m.hores).replace(".", ","));
-    setEditTarifa(String(m.tarifaHora).replace(".", ","));
-    setEditImport(String(m.import_).replace(".", ","));
+    setEditMinuts(
+      Number(m.minuts ?? Math.round((m.hores || 0) * 60))
+        .toFixed(2)
+        .replace(".", ",")
+    );
+    setEditHores(Number(m.hores).toFixed(2).replace(".", ","));
+    setEditTarifa(Number(m.tarifaHora).toFixed(2).replace(".", ","));
+    setEditImport(Number(m.import_).toFixed(2).replace(".", ","));
   };
 
   const parseNum = (raw: string) => Number(raw.replace(/\s/g, "").replace(",", "."));
@@ -230,8 +222,8 @@ export function TraspassExecucioPanel({
             {feedback && <p className={styles.helpText}>{feedback}</p>}
             {canEdit && execucio.estat === "CONFIRMAT" && (
               <p className={styles.helpText}>
-                Estat confirmat: per editar o recalcular, fes «Tornar a esborrany» i torna a pujar
-                l&apos;Excel d&apos;hores (editar una cel·la no recalcula el fitxer).
+                Confirmat: a Consultes → Cost salarial els imports de destí sumen a la partida
+                «Traspassos (hores destí)». Per editar, fes «Tornar a esborrany».
               </p>
             )}
             {canEdit && execucio.estat === "BORRADOR" && (
@@ -370,10 +362,10 @@ export function TraspassExecucioPanel({
                             </>
                           ) : (
                             <>
-                              <td className={styles.num}>{formatNum(m.minuts)}</td>
-                              <td className={styles.num}>{formatNum(m.hores)}</td>
-                              <td className={styles.num}>{formatNum(m.tarifaHora)} €</td>
-                              <td className={styles.num}>{formatNum(m.import_)} €</td>
+                              <td className={styles.num}>{formatNum(m.minuts, 2)}</td>
+                              <td className={styles.num}>{formatNum(m.hores, 2)}</td>
+                              <td className={styles.num}>{formatNum(m.tarifaHora, 2)} €</td>
+                              <td className={styles.num}>{formatNum(m.import_, 2)} €</td>
                               {canEdit && (
                                 <td className={styles.rowActions}>
                                   <button
@@ -424,59 +416,12 @@ export function TraspassExecucioPanel({
             )}
           </section>
 
-          {execucio.estat === "CONFIRMAT" &&
-            execucio.foraCentreSnapshot &&
-            execucio.foraCentreSnapshot.canvis.length > 0 && (
-              <section className={styles.card}>
-                <h2 className={styles.cardTitle}>Fora centre · substitució (antic → nou)</h2>
-                <p className={styles.helpText}>
-                  En confirmar, s&apos;ha substituït el camp Fora centre del cost salarial
-                  restaurants (només destinataris LN restaurants). Es mostra el valor anterior i el
-                  nou calculat des dels traspassos.
-                </p>
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Restaurant</th>
-                      <th>Dept.</th>
-                      <th className={styles.num}>Abans</th>
-                      <th className={styles.num}>Nou</th>
-                      <th className={styles.num}>Δ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {execucio.foraCentreSnapshot.canvis.map((c) => {
-                      const delta = c.despres - c.abans;
-                      return (
-                        <tr key={`${c.centreId}-${c.departament}`}>
-                          <td>
-                            {c.centreCodi} · {c.centreNom}
-                          </td>
-                          <td>{c.departament === "CUINA" ? "Cuina" : "Sala"}</td>
-                          <td className={styles.num}>{formatNum(c.abans)} €</td>
-                          <td className={styles.num}>{formatNum(c.despres)} €</td>
-                          <td className={styles.num}>
-                            {delta > 0 ? "+" : ""}
-                            {formatNum(delta)} €
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </section>
-            )}
-
           {execucio.alertes.length > 0 && (
             <section className={styles.card}>
-              <h2 className={styles.cardTitle}>Alertes / diagnòstic ({execucio.alertes.length})</h2>
+              <h2 className={styles.cardTitle}>Sense mapeig ({execucio.alertes.length})</h2>
               <p className={styles.helpText}>
-                Files sense mapeig, o agregats molt grans amb exemples de files Excel (per detectar
-                mapeigs erronis). Afegeix textos a{" "}
-                <Link href="/settings/traspass-personal">
-                  Configuració → Traspassos de personal
-                </Link>
-                .
+                Files de l&apos;Excel que no s&apos;han pogut mapear. Afegeix el text a Configuració
+                → Traspassos personal i torna a importar.
               </p>
               <table className={styles.table}>
                 <thead>
@@ -491,7 +436,7 @@ export function TraspassExecucioPanel({
                 <tbody>
                   {execucio.alertes.slice(0, 50).map((a, i) => (
                     <tr key={`${a.fila}-${i}`}>
-                      <td>{a.fila}</td>
+                      <td>{a.fila > 0 ? a.fila : "—"}</td>
                       <td>{a.empleado}</td>
                       <td>{a.organizaciones}</td>
                       <td>{a.proyecto}</td>

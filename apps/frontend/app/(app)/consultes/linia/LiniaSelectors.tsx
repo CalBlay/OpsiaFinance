@@ -1,10 +1,13 @@
 "use client";
 
+import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import { ConsultaVistaSelect } from "@/components/consultes/ConsultaVistaSelect";
 import { PeriodRangSelectors } from "@/components/consultes/PeriodRangSelectors";
+import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
-import type { VistaCompte } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { type RangMesos, rangToQuery } from "@/lib/periodes";
+import type { VistaCompte } from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -47,6 +50,12 @@ export function LiniaSelectors({
     setLocalVista(vista);
   }, [lnId, any, rang, vista]);
 
+  useEffect(() => {
+    if (!lnId) return;
+    const other: VistaCompte = vista === "gestio" ? "directe" : "gestio";
+    router.prefetch(`/consultes/linia?ln=${lnId}&any=${any}${rangToQuery(rang)}&vista=${other}`);
+  }, [router, lnId, any, rang, vista]);
+
   const go = (nextLn: string, nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
     if (!nextLn) return;
     setLocalLn(nextLn);
@@ -62,77 +71,69 @@ export function LiniaSelectors({
   };
 
   return (
-    <div
-      className={styles.selectors}
-      data-pending={isPending ? "true" : undefined}
-      aria-busy={isPending}
-    >
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={lineSelectId}>
-          Línia de negoci
-        </label>
-        <select
-          id={lineSelectId}
-          className={styles.select}
-          value={localLn}
-          disabled={isPending}
-          onChange={(e) => go(e.target.value, localAny, localRang, localVista)}
-        >
-          <option value="" disabled>
-            Selecciona una línia…
-          </option>
-          {linies.map((ln) => (
-            <option key={ln.id} value={ln.id}>
-              {etiquetaLiniaNegoci(ln)}
+    <ConsultaToolbar
+      pending={isPending}
+      dates={
+        <>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor={yearSelectId}>
+              {FILTRE.any}
+            </label>
+            <select
+              id={yearSelectId}
+              className={styles.select}
+              style={{ minWidth: 100 }}
+              value={localAny}
+              disabled={isPending}
+              onChange={(e) => go(localLn, Number(e.target.value), localRang, localVista)}
+            >
+              {anys.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <PeriodRangSelectors
+            rang={localRang}
+            anyActual={localAny}
+            disabled={isPending}
+            onChange={(next) => go(localLn, localAny, next, localVista)}
+          />
+        </>
+      }
+      camps={
+        <div className={styles.field}>
+          <label className={styles.fieldLabel} htmlFor={lineSelectId}>
+            {FILTRE.linia}
+          </label>
+          <select
+            id={lineSelectId}
+            className={styles.select}
+            value={localLn}
+            disabled={isPending}
+            onChange={(e) => go(e.target.value, localAny, localRang, localVista)}
+          >
+            <option value="" disabled>
+              Selecciona…
             </option>
-          ))}
-        </select>
-      </div>
-
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={yearSelectId}>
-          Any
-        </label>
-        <select
-          id={yearSelectId}
-          className={styles.select}
-          style={{ minWidth: 100 }}
-          value={localAny}
-          disabled={isPending}
-          onChange={(e) => go(localLn, Number(e.target.value), localRang, localVista)}
-        >
-          {anys.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <PeriodRangSelectors
-        rang={localRang}
-        anyActual={localAny}
-        disabled={isPending}
-        onChange={(next) => go(localLn, localAny, next, localVista)}
-      />
-
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={viewSelectId}>
-          Vista
-        </label>
-        <select
+            {linies.map((ln) => (
+              <option key={ln.id} value={ln.id}>
+                {etiquetaLiniaNegoci(ln)}
+              </option>
+            ))}
+          </select>
+        </div>
+      }
+      vista={
+        <ConsultaVistaSelect
           id={viewSelectId}
-          className={styles.select}
-          style={{ minWidth: 160 }}
           value={localVista}
           disabled={isPending}
-          onChange={(e) => go(localLn, localAny, localRang, e.target.value as VistaCompte)}
-        >
-          <option value="directe">Directe (SAP)</option>
-          <option value="gestio">Gestió (tractat)</option>
-        </select>
-        {isPending && <span className={styles.filterPending}>Actualitzant…</span>}
-      </div>
-    </div>
+          pendingHint={isPending}
+          onChange={(v) => go(localLn, localAny, localRang, v)}
+        />
+      }
+    />
   );
 }

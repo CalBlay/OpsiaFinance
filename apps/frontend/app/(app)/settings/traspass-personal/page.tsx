@@ -1,9 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import {
-  backfillDepartamentsMapeig,
-  ensureConfigTraspassPersonal,
-} from "@/lib/traspass-personal/service";
+import { ensureConfigTraspassPersonal } from "@/lib/traspass-personal/service";
 import { TraspassPersonalSettingsPanel } from "./TraspassPersonalSettingsPanel";
 import styles from "./page.module.css";
 
@@ -15,8 +12,6 @@ export default async function TraspassPersonalSettingsPage() {
   const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
 
   const tarifaHora = await ensureConfigTraspassPersonal();
-  // Una passada: omple SALA/CUINA als mapeigs antics a partir del text.
-  await backfillDepartamentsMapeig();
 
   const [mapeigs, centres] = await Promise.all([
     db.mapeigTextCentreTreball.findMany({
@@ -35,8 +30,9 @@ export default async function TraspassPersonalSettingsPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>Traspassos de personal</h1>
         <p className={styles.subtitle}>
-          Tarifa hora i mapeig text → centre + departament (Sala/Cuina). Font de veritat per
-          llistats i consultes. Importa l&apos;excel o edita manualment.
+          Tarifa hora i mapeig text → centre + departament (Sala/Cuina). Cada text ha de coincidir
+          amb Organizaciones o Proyecto (text sencer o part abans de la coma). Importa l&apos;excel
+          o edita manualment.
         </p>
       </header>
       <TraspassPersonalSettingsPanel

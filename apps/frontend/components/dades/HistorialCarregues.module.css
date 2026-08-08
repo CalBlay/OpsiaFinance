@@ -135,7 +135,7 @@
 }
 
 .danger:hover:not(:disabled) {
-  color: #b91c1c;
+  color: var(--color-destructive, #c0392b);
   border-color: rgba(185, 28, 28, 0.35);
   background: rgba(185, 28, 28, 0.06);
 }

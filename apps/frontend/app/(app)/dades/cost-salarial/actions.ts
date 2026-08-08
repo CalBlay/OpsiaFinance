@@ -156,10 +156,54 @@ export async function deleteCostSalarialAction(id: string): Promise<Result> {
 export async function deleteCarregaCostSalarialAction(carregaId: string): Promise<Result> {
   const userId = await getEditor();
   if (!userId) return ERR("Sense permisos.");
-  const { eliminarCarregaFitxer } = await import("@/lib/carrega-fitxer");
-  const r = await eliminarCarregaFitxer(carregaId);
+
+  const carrega = await db.carregaFitxer.findUnique({
+    where: { id: carregaId },
+    select: {
+      id: true,
+      nomFitxer: true,
+      periodId: true,
+      costsSalarials: { select: { periodId: true } },
+    },
+  });
+  if (!carrega) return ERR("Càrrega no trobada.");
+
+  // Períodes tocats per aquesta càrrega (el fitxer pot ser acumulatiu multi-mes).
+  const periodIds = new Set<string>();
+  if (carrega.periodId) periodIds.add(carrega.periodId);
+  for (const r of carrega.costsSalarials) periodIds.add(r.periodId);
+
+  // Cascade esborra les files amb aquest carregaId.
+  await db.carregaFitxer.delete({ where: { id: carregaId } });
+
+  // Registres orfes del mateix període (sense carregaId: manuals antics o imports
+  // anteriors a l’historial) — en esborrar el fitxer, l’usuari espera netejar el període.
+  let orfes = 0;
+  if (periodIds.size) {
+    const r = await db.costSalarialRestaurant.deleteMany({
+      where: { carregaId: null, periodId: { in: [...periodIds] } },
+    });
+    orfes = r.count;
+  }
+
   refresh();
-  return r.ok ? OK(r.missatge) : ERR(r.missatge);
+  const extra = orfes
+    ? ` · ${orfes} registre${orfes === 1 ? "" : "s"} orfe${orfes === 1 ? "" : "s"}`
+    : "";
+  return OK(`S'ha eliminat «${carrega.nomFitxer}» i les seves dades${extra}.`);
+}
+
+/** Esborra TOTS els registres de Cost salarial restaurants (tots els períodes). */
+export async function deleteTotsCostSalarialAction(): Promise<Result> {
+  const userId = await getEditor();
+  if (!userId) return ERR("Sense permisos.");
+
+  const r = await db.costSalarialRestaurant.deleteMany({});
+  // Historial de càrregues sense dades vinculades
+  await db.carregaFitxer.deleteMany({ where: { tipus: "COST_SALARIAL" } });
+  refresh();
+  if (!r.count) return OK("No hi havia registres a esborrar.");
+  return OK(`S'han eliminat tots els registres (${r.count}).`);
 }
 
 export async function updateNotesCarregaCostAction(

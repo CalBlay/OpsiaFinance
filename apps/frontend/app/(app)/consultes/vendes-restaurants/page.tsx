@@ -1,3 +1,4 @@
+import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import {
@@ -12,8 +13,8 @@ import {
   getComparativaVendes,
   getInformeVendesRestaurant,
 } from "@/lib/vendes-restaurants/consultes";
+import { VendesComparativaPresentacio, VendesRestaurantPresentacio } from "../presenters-dynamic";
 import type { DetallVendes } from "./VendesPresentacio";
-import { VendesComparativaPresentacio, VendesRestaurantPresentacio } from "./VendesPresentacio";
 import boardStyles from "./VendesPresentacio.module.css";
 import { VendesSelectors } from "./VendesSelectors";
 
@@ -90,17 +91,17 @@ export default async function ConsultaVendesRestaurantsPage({
 
   const [comparativa, informe] = await Promise.all([
     vista === "comparativa"
-      ? getComparativaVendes(anyActual, mes, nomesMirall)
+      ? getComparativaVendes(anyActual, mes, nomesMirall, { totalsOnly: true })
       : Promise.resolve(null),
     vista === "restaurant" && centreId
-      ? getInformeVendesRestaurant(centreId, anyActual, mes)
+      ? getInformeVendesRestaurant(centreId, anyActual, mes, { totalsOnly: true })
       : Promise.resolve(null),
   ]);
 
+  // El board sempre encaixa; el detall (?detall=) es gestiona al client sense refetch.
   const fitBoard =
-    !detall &&
-    ((vista === "comparativa" && !!comparativa && !comparativa.buit) ||
-      (vista === "restaurant" && !!informe && !informe.buit));
+    (vista === "comparativa" && !!comparativa && !comparativa.buit) ||
+    (vista === "restaurant" && !!informe && !informe.buit);
 
   const exportInforme =
     vista === "comparativa" && comparativa && !comparativa.buit
@@ -111,29 +112,29 @@ export default async function ConsultaVendesRestaurantsPage({
 
   return (
     <div className={`${styles.page} ${fitBoard ? boardStyles.pageFit : ""}`}>
-      <div className={`${styles.headerRow} ${fitBoard ? boardStyles.headerFit : ""}`}>
-        <div>
-          <h1 className={`${styles.title} ${fitBoard ? boardStyles.titleFit : ""}`}>
-            Vendes · restaurants
-          </h1>
-          {!fitBoard ? (
-            <p className={styles.subtitle}>
-              Lectura ràpida per al comitè: totals, tendència, mix i el que més es ven.
-            </p>
-          ) : null}
-        </div>
-        <div className={styles.headerActions}>
-          <VendesSelectors
-            centres={centres}
-            anys={anys}
-            any={anyActual}
-            mes={mes}
-            centreId={centreId}
-            vista={vista}
-          />
-          <ExportInformeButton informe={exportInforme} />
-        </div>
-      </div>
+      <ConsultaHeader
+        className={fitBoard ? boardStyles.headerFit : undefined}
+        titleClassName={fitBoard ? boardStyles.titleFit : undefined}
+        title="Vendes · restaurants"
+        subtitle={
+          fitBoard
+            ? undefined
+            : "Lectura ràpida per al comitè: totals, tendència, mix i el que més es ven."
+        }
+        actions={
+          <>
+            <VendesSelectors
+              centres={centres}
+              anys={anys}
+              any={anyActual}
+              mes={mes}
+              centreId={centreId}
+              vista={vista}
+            />
+            <ExportInformeButton informe={exportInforme} />
+          </>
+        }
+      />
 
       {vista === "comparativa" ? (
         !comparativa || comparativa.buit ? (

@@ -1,26 +1,30 @@
+/**
+ * Import de l'Excel de mapeig (Configuració → Traspassos personal).
+ *
+ * Columnes:
+ *   A = text (tal com surt a Organizaciones / Proyecto)
+ *   B = codi centre (CCR… / CCC…)
+ *   C = nom centre (opcional, desambiguar)
+ *   D = SALA | CUINA (opcional; si falta s'infereix del text)
+ */
+
 import type { DepartamentSalarial } from "@prisma/client";
 import { type WorkBook, read, utils } from "xlsx";
 import { inferDepartamentSalarial, parseDepartamentSalarialLabel } from "./departament";
 
-export interface FilaMapeigExcel {
+export type FilaMapeigExcel = {
   text: string;
   codiCentre: string;
   nomCentre: string;
-  /** Si ve de columna D o s'ha pogut inferir del text. */
   departament: DepartamentSalarial | null;
-}
-
-export interface ResultatImportMapeig {
-  files: FilaMapeigExcel[];
-}
+};
 
 function cell(row: unknown[], i: number): string {
   const v = row[i];
-  if (v === null || v === undefined) return "";
+  if (v == null) return "";
   return String(v).trim();
 }
 
-/** Detecta si una fila sembla capçalera. */
 function esCapçalera(row: unknown[]): boolean {
   const a = cell(row, 0).toLowerCase();
   const b = cell(row, 1).toLowerCase();
@@ -34,17 +38,12 @@ function esCapçalera(row: unknown[]): boolean {
   );
 }
 
-/**
- * Llegeix l'excel de mapeig:
- *   A = text, B = codi centre, C = nom centre (opcional),
- *   D = departament SALA|CUINA (opcional; si falta s'infereix del text).
- */
-export function parseExcelMapeigCentres(buffer: Buffer): ResultatImportMapeig {
+export function parseExcelMapeigCentres(buffer: Buffer): { files: FilaMapeigExcel[] } {
   const wb: WorkBook = read(buffer);
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) return { files: [] };
+  const name = wb.SheetNames[0];
+  if (!name) return { files: [] };
 
-  const matrix = utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], {
+  const matrix = utils.sheet_to_json<unknown[]>(wb.Sheets[name], {
     header: 1,
     defval: null,
     raw: false,
@@ -53,17 +52,21 @@ export function parseExcelMapeigCentres(buffer: Buffer): ResultatImportMapeig {
   const files: FilaMapeigExcel[] = [];
   for (let i = 0; i < matrix.length; i++) {
     const row = matrix[i] ?? [];
+    if (i === 0 && esCapçalera(row)) continue;
+
     const text = cell(row, 0);
     const codiCentre = cell(row, 1).toUpperCase();
     const nomCentre = cell(row, 2);
     if (!text || !codiCentre) continue;
-    if (i === 0 && esCapçalera(row)) continue;
     if (!/^CC[A-Z]\d{5}$/i.test(codiCentre) && !/^LN\d{5}$/i.test(codiCentre)) continue;
 
     const deptCol = parseDepartamentSalarialLabel(cell(row, 3));
-    const departament = deptCol ?? inferDepartamentSalarial(text);
-
-    files.push({ text, codiCentre, nomCentre, departament });
+    files.push({
+      text,
+      codiCentre,
+      nomCentre,
+      departament: deptCol ?? inferDepartamentSalarial(text),
+    });
   }
 
   return { files };

@@ -1,0 +1,92 @@
+/*
+ * Opsia Finance — Colors corporatius (dades, gràfics i números)
+ *
+ * Font de veritat per a verd / groc / taronja en presentacions i consultes.
+ * Derivats de la paleta base (teal #2F6F6D, ambre #C59B57): matisos càlids
+ * i desaturats, sense negre pur ni verds/taronges “Tailwind neon”.
+ *
+ * Regles:
+ *  - Text fort → --opsia-ink-strong (#22313F), mai #000.
+ *  - Positiu / amunt → família verd.
+ *  - Atenció / ambre → família groc.
+ *  - Calor / sèries càlides (ex. cuina) → família taronja.
+ *  - Fills de gràfic: *‑400 / *‑500. Text de números: *‑700.
+ *  - Fons suaus: *‑50 / *‑100 + color-mix.
+ */
+
+:root {
+  /* ─── Verd (èxit, EBITDA, deltas positius, semàfor verd) ───────────────── */
+  --opsia-green-50: #f2f7f5;
+  --opsia-green-100: #e0ece9;
+  --opsia-green-200: #b9d2cc;
+  --opsia-green-300: #87b3aa;
+  --opsia-green-400: #5a9a8f;
+  --opsia-green-500: #3d8579;
+  --opsia-green-600: #2f6f6d; /* = accent-primary / brand */
+  --opsia-green-700: #245956; /* text números positius */
+  --opsia-green-800: #1a4442;
+
+  /* ─── Groc / or (alerta suau, ambre corporatiu, compres) ───────────────── */
+  --opsia-yellow-50: #fbf7ef;
+  --opsia-yellow-100: #f5edd9;
+  --opsia-yellow-200: #e8d5a8;
+  --opsia-yellow-300: #d9bc7a;
+  --opsia-yellow-400: #d0ae68;
+  --opsia-yellow-500: #c59b57; /* = accent-warm / brand */
+  --opsia-yellow-600: #a67f3f;
+  --opsia-yellow-700: #866533; /* text números / labels ambre */
+  --opsia-yellow-800: #6b5028;
+
+  /* ─── Taronja (cuina, calor, sèries càlides, semàfor ambre fort) ───────── */
+  --opsia-orange-50: #faf4ef;
+  --opsia-orange-100: #f3e4d4;
+  --opsia-orange-200: #e5c4a0;
+  --opsia-orange-300: #d4a070;
+  --opsia-orange-400: #c98a52;
+  --opsia-orange-500: #b8733d;
+  --opsia-orange-600: #9a5f32;
+  --opsia-orange-700: #7c4c28;
+  --opsia-orange-800: #5f3a1f;
+
+  /* ─── Semàntics — números i deltas ─────────────────────────────────────── */
+  --opsia-num-positive: var(--opsia-green-700);
+  --opsia-num-positive-fill: var(--opsia-green-500);
+  --opsia-num-positive-bg: color-mix(in srgb, var(--opsia-green-600) 12%, transparent);
+
+  --opsia-num-warning: var(--opsia-yellow-700);
+  --opsia-num-warning-fill: var(--opsia-yellow-500);
+  --opsia-num-warning-bg: color-mix(in srgb, var(--opsia-yellow-500) 14%, transparent);
+
+  --opsia-num-warm: var(--opsia-orange-700);
+  --opsia-num-warm-fill: var(--opsia-orange-500);
+  --opsia-num-warm-bg: color-mix(in srgb, var(--opsia-orange-500) 12%, transparent);
+
+  /* Neutre: slate corporatiu, no negre */
+  --opsia-num-neutral: var(--opsia-ink-soft, #5c6b73);
+  --opsia-num-strong: var(--opsia-ink-strong, #22313f);
+
+  /* ─── Semàfor (quadre de mando, KPIs) ───────────────────────────────────── */
+  --opsia-semafor-verd: var(--opsia-green-500);
+  --opsia-semafor-ambre: var(--opsia-orange-500);
+  --opsia-semafor-groc: var(--opsia-yellow-500);
+
+  /* ─── Sèries de gràfic (ordre preferit Opsia) ──────────────────────────── */
+  --opsia-chart-1: var(--opsia-green-600); /* marca / EBITDA / resultat */
+  --opsia-chart-2: var(--opsia-yellow-500); /* ambre / compres / alerta */
+  --opsia-chart-3: var(--opsia-orange-500); /* taronja / cuina / calor */
+  --opsia-chart-4: var(--opsia-green-400); /* verd clar / variant */
+  --opsia-chart-5: var(--opsia-yellow-400);
+  --opsia-chart-6: var(--opsia-orange-400);
+  --opsia-chart-7: var(--opsia-green-300);
+  --opsia-chart-8: var(--opsia-yellow-300);
+
+  /* Aliases d’ús freqüent als mòduls de consultes */
+  --opsia-chart-ebitda: var(--opsia-chart-1);
+  --opsia-chart-ingressos: var(--opsia-green-400);
+  --opsia-chart-vendes: var(--opsia-green-400);
+  --opsia-chart-personal: var(--opsia-green-500);
+  --opsia-chart-compres: var(--opsia-chart-2);
+  --opsia-chart-gestio: var(--opsia-orange-400);
+  --opsia-chart-cuina: var(--opsia-chart-3);
+  --opsia-chart-sala: var(--opsia-green-500);
+}

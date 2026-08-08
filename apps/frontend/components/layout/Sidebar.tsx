@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkPending } from "@/components/ui/LinkPending";
 import { potAdministrar } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
@@ -42,6 +43,7 @@ export function Sidebar({ role }: { role: UserRole }) {
             className={cn(styles.navItem, pathname === "/" && styles.active)}
             aria-current={pathname === "/" ? "page" : undefined}
           >
+            <LinkPending />
             <Home size={17} strokeWidth={1.9} className={styles.icon} />
             <span>Inici</span>
           </Link>
@@ -52,6 +54,7 @@ export function Sidebar({ role }: { role: UserRole }) {
             className={cn(styles.navItem, isResultatsActive(pathname) && styles.active)}
             aria-current={isResultatsActive(pathname) ? "page" : undefined}
           >
+            <LinkPending />
             <BarChart3 size={17} strokeWidth={1.9} className={styles.icon} />
             <span>Resultats</span>
           </Link>
@@ -62,6 +65,7 @@ export function Sidebar({ role }: { role: UserRole }) {
             className={cn(styles.navItem, isRestaurantsActive(pathname) && styles.active)}
             aria-current={isRestaurantsActive(pathname) ? "page" : undefined}
           >
+            <LinkPending />
             <ShoppingBag size={17} strokeWidth={1.9} className={styles.icon} />
             <span>Restaurants</span>
           </Link>
@@ -85,6 +89,7 @@ export function Sidebar({ role }: { role: UserRole }) {
                     )}
                     aria-current={isActive ? "page" : undefined}
                   >
+                    <LinkPending />
                     <item.icon size={17} strokeWidth={1.9} className={styles.icon} />
                     <span>{item.label}</span>
                   </Link>

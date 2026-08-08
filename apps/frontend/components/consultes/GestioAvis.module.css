@@ -9,21 +9,21 @@
 }
 
 .avísWarn {
-  background: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background: var(--opsia-yellow-100);
+  border: 1px solid var(--opsia-yellow-300);
+  color: var(--opsia-yellow-700);
 }
 
 .avísInfo {
-  background: #eff6ff;
-  border: 1px solid #93c5fd;
-  color: #1e40af;
+  background: color-mix(in srgb, var(--opsia-accent-secondary, #6e8ca0) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--opsia-accent-secondary, #6e8ca0) 35%, transparent);
+  color: var(--opsia-ink-strong, #22313f);
 }
 
 .avísOk {
-  background: #f0fdf4;
-  border: 1px solid #86efac;
-  color: #166534;
+  background: var(--opsia-green-50);
+  border: 1px solid var(--opsia-green-200);
+  color: var(--opsia-num-positive);
 }
 
 .avísWarn a,

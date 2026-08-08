@@ -30,16 +30,48 @@ function parseDept(raw: string): DepartamentSalarial | null {
   return null;
 }
 
-export async function updateTarifaHoraAction(tarifaHora: number): Promise<Result> {
+export async function updateTarifaHoraAction(
+  tarifaHora: number,
+  aplicarA: "tots" | "nous" = "nous"
+): Promise<Result> {
   if (!(await requireEditor())) return ERR("No tens permisos.");
   if (!Number.isFinite(tarifaHora) || tarifaHora <= 0) return ERR("Tarifa no vàlida.");
+
+  const tarifa = Math.round(tarifaHora * 100) / 100;
   await ensureConfigTraspassPersonal();
   await db.configTraspassPersonal.update({
     where: { id: "default" },
-    data: { tarifaHora },
+    data: { tarifaHora: tarifa },
   });
+
+  let actualitzats = 0;
+  if (aplicarA === "tots") {
+    const moviments = await db.movimentTraspassPersonal.findMany({
+      select: { id: true, hores: true },
+    });
+    for (const m of moviments) {
+      const hores = Number(m.hores);
+      const import_ = Math.round(hores * tarifa * 100) / 100;
+      await db.movimentTraspassPersonal.update({
+        where: { id: m.id },
+        data: { tarifaHora: tarifa, import_ },
+      });
+      actualitzats++;
+    }
+  }
+
   refresh();
-  return OK("Tarifa actualitzada.");
+  revalidatePath("/consultes/cost-salarial");
+  revalidatePath("/dades/cost-salarial");
+
+  if (aplicarA === "tots") {
+    return OK(
+      `Tarifa ${tarifa.toFixed(2).replace(".", ",")} €/h desada i aplicada a ${actualitzats} moviment(s) ja carregats.`
+    );
+  }
+  return OK(
+    `Tarifa ${tarifa.toFixed(2).replace(".", ",")} €/h desada. Només s'aplicarà als nous fitxers.`
+  );
 }
 
 export async function createMapeigAction(

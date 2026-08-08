@@ -14,9 +14,14 @@ import type {
   NivellRankingVendes,
   RankingsCategoria,
 } from "@/lib/vendes-restaurants/consultes";
+import { replaceSearchParam } from "@/lib/vista-url";
 import { ArrowLeft, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import {
+  carregarRankingsComparativaVendesAction,
+  carregarRankingsInformeVendesAction,
+} from "../actions-perf";
 import { VendesCalendari } from "./VendesCalendari";
 import styles from "./VendesPresentacio.module.css";
 
@@ -80,6 +85,26 @@ function buildUrl(opts: {
   }
   if (opts.detall) params.set("detall", opts.detall);
   return `/consultes/vendes-restaurants?${params}`;
+}
+
+function teRankingsComparativa(data: ComparativaVendes): boolean {
+  return (
+    data.teFamilies ||
+    data.teSubfamilies ||
+    data.productes.mix.menjar.base > 0 ||
+    data.productes.mix.beguda.base > 0 ||
+    data.productes.tots.base.top10.length > 0
+  );
+}
+
+function teRankingsInforme(data: InformeVendesRestaurant): boolean {
+  return (
+    data.teFamilies ||
+    data.teSubfamilies ||
+    data.productes.mix.menjar.base > 0 ||
+    data.productes.mix.beguda.base > 0 ||
+    data.productes.tots.base.top10.length > 0
+  );
 }
 
 function Tile({
@@ -629,8 +654,8 @@ function RestaurantsDetall({
 }
 
 export function VendesComparativaPresentacio({
-  data,
-  detall,
+  data: dataInicial,
+  detall: detallInicial,
   any,
   mes,
 }: {
@@ -642,6 +667,33 @@ export function VendesComparativaPresentacio({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [nivell, setNivell] = useState<NivellRankingVendes>("articles");
+  const [detall, setDetall] = useState<DetallVendes>(detallInicial);
+  const [data, setData] = useState(dataInicial);
+  const [rankingsPending, setRankingsPending] = useState(!teRankingsComparativa(dataInicial));
+
+  useEffect(() => {
+    setDetall(detallInicial);
+  }, [detallInicial]);
+
+  useEffect(() => {
+    setData(dataInicial);
+    if (teRankingsComparativa(dataInicial)) {
+      setRankingsPending(false);
+      return;
+    }
+    let cancelled = false;
+    setRankingsPending(true);
+    void carregarRankingsComparativaVendesAction(any, mes).then((full) => {
+      if (cancelled) return;
+      setData(full);
+      setRankingsPending(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dataInicial, any, mes]);
+
+  const busy = pending || rankingsPending;
   const vsLabel = data.ambit === "any" ? "vs any ant." : "vs mes ant.";
 
   const rankingSrc =
@@ -665,27 +717,37 @@ export function VendesComparativaPresentacio({
         ? "OK"
         : `${data.totals.desviacioPl >= 0 ? "+" : ""}${formatNum(data.totals.desviacioPl)} €`;
 
+  const setDetallLocal = (next?: string) => {
+    const v = (next ?? "") as DetallVendes;
+    setDetall(v);
+    replaceSearchParam("detall", v || null);
+  };
+
   const go = (next: {
     vista?: "comparativa" | "restaurant";
     centreId?: string;
     detall?: string;
   }) => {
-    startTransition(() => {
-      router.push(
-        buildUrl({
-          any,
-          mes,
-          vista: next.vista ?? "comparativa",
-          centreId: next.centreId,
-          detall: next.detall,
-        })
-      );
-    });
+    if (next.vista === "restaurant" || next.centreId) {
+      startTransition(() => {
+        router.push(
+          buildUrl({
+            any,
+            mes,
+            vista: next.vista ?? "comparativa",
+            centreId: next.centreId,
+            detall: next.detall,
+          })
+        );
+      });
+      return;
+    }
+    setDetallLocal(next.detall);
   };
 
   if (detall === "evolucio" || detall === "calendari") {
     return (
-      <div className={styles.wrap} data-pending={pending ? "true" : undefined}>
+      <div className={styles.wrap} data-pending={busy ? "true" : undefined}>
         <BackBar
           titol={data.ambit === "any" ? "Evolució mensual · LN" : "Calendari diari · LN"}
           onBack={() => go({})}
@@ -703,7 +765,7 @@ export function VendesComparativaPresentacio({
 
   if (detall === "restaurants") {
     return (
-      <div className={styles.wrap} data-pending={pending ? "true" : undefined}>
+      <div className={styles.wrap} data-pending={busy ? "true" : undefined}>
         <BackBar titol="Restaurants · LN" onBack={() => go({})} />
         <RestaurantsDetall
           data={data}
@@ -716,7 +778,7 @@ export function VendesComparativaPresentacio({
 
   if (detall === "mix-prod") {
     return (
-      <div className={styles.wrap} data-pending={pending ? "true" : undefined}>
+      <div className={styles.wrap} data-pending={busy ? "true" : undefined}>
         <BackBar titol="Mix menjar / beguda · LN" onBack={() => go({})} />
         <section className={styles.panel}>
           <MixVisual mix={data.productes.mix} />
@@ -821,7 +883,7 @@ export function VendesComparativaPresentacio({
   if (detall && rankingDetall[detall]) {
     const d = rankingDetall[detall];
     return (
-      <div className={styles.wrap} data-pending={pending ? "true" : undefined}>
+      <div className={styles.wrap} data-pending={busy ? "true" : undefined}>
         <BackBar titol={d.title} onBack={() => go({})} />
         <RankingPanel title={d.title} lead={d.lead} bloc={d.bloc} vsLabel={vsLabel} />
       </div>
@@ -832,7 +894,7 @@ export function VendesComparativaPresentacio({
   const topRest = [...data.files].filter((f) => f.teDades).sort((a, b) => b.base - a.base);
 
   return (
-    <div className={styles.board} data-pending={pending ? "true" : undefined}>
+    <div className={styles.board} data-pending={busy ? "true" : undefined}>
       <header className={styles.hero}>
         <div className={styles.heroText}>
           <h2 className={styles.heroTitle}>LN Restaurants</h2>
@@ -1021,8 +1083,8 @@ export function VendesComparativaPresentacio({
 }
 
 export function VendesRestaurantPresentacio({
-  data,
-  detall,
+  data: dataInicial,
+  detall: detallInicial,
   any,
   mes,
 }: {
@@ -1031,9 +1093,33 @@ export function VendesRestaurantPresentacio({
   any: number;
   mes: number;
 }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
   const [nivell, setNivell] = useState<NivellRankingVendes>("articles");
+  const [detall, setDetall] = useState<DetallVendes>(detallInicial);
+  const [data, setData] = useState(dataInicial);
+  const [rankingsPending, setRankingsPending] = useState(!teRankingsInforme(dataInicial));
+
+  useEffect(() => {
+    setDetall(detallInicial);
+  }, [detallInicial]);
+
+  useEffect(() => {
+    setData(dataInicial);
+    if (teRankingsInforme(dataInicial)) {
+      setRankingsPending(false);
+      return;
+    }
+    let cancelled = false;
+    setRankingsPending(true);
+    void carregarRankingsInformeVendesAction(dataInicial.centre.id, any, mes).then((full) => {
+      if (cancelled) return;
+      setData(full);
+      setRankingsPending(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dataInicial, any, mes]);
+
   const vsLabel = data.ambit === "any" ? "vs any ant." : "vs mes ant.";
 
   const rankingSrc =
@@ -1058,20 +1144,13 @@ export function VendesRestaurantPresentacio({
         : `${data.desviacioPl >= 0 ? "+" : ""}${formatNum(data.desviacioPl)} €`;
 
   const go = (detallNext?: string) => {
-    startTransition(() => {
-      router.push(
-        buildUrl({
-          any,
-          mes,
-          vista: "restaurant",
-          centreId: data.centre.id,
-          detall: detallNext,
-        })
-      );
-    });
+    const v = (detallNext ?? "") as DetallVendes;
+    setDetall(v);
+    replaceSearchParam("detall", v || null);
   };
 
   const back = () => go();
+  const pending = rankingsPending;
 
   if (detall === "calendari" || detall === "evolucio") {
     return (

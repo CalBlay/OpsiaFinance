@@ -12,6 +12,7 @@ import {
   balanceZeroSumCentral,
   validarZeroSumDeltas,
 } from "@/lib/repartiment/gestio-consultes";
+import type { InfoGestioConsulta } from "@/lib/repartiment/info-gestio";
 import { calcularMoviments, movimentsADeltas } from "@/lib/repartiment/motor";
 import { CODI_LN_CENTRAL } from "@/lib/repartiment/nodes";
 import {
@@ -26,6 +27,7 @@ import {
   suportPersonalPrecuinatsDesDeCentres,
 } from "@/lib/repartiment/personal-precuinats";
 import type { NormaRepartiment } from "@prisma/client";
+import { cache } from "react";
 
 export function validarZeroSumMoviments(
   moviments: { liniaNegociDestiId: string; concepteNode: number; importCalculat: number }[],
@@ -313,8 +315,22 @@ export async function confirmarExecucioRepartiment(execucioId: string, userId: s
  * → Directe i Gestió tenen el mateix total empresa; només canvia el pes per LN.
  *
  * Carrega normes/grups/dades/execucions en batch (no N recàlculs amb 2× P&L cadascun).
+ * Cache per petició (clau = periodIds ordenats).
  */
 export async function getDeltasGestioPerLn(
+  periodIds: string[]
+): Promise<Map<string, Map<string, Map<number, number>>>> {
+  if (!periodIds.length) return new Map();
+  const key = [...periodIds].sort().join(",");
+  return getDeltasGestioPerLnCached(key);
+}
+
+const getDeltasGestioPerLnCached = cache(async (periodIdsKey: string) => {
+  const periodIds = periodIdsKey.split(",").filter(Boolean);
+  return getDeltasGestioPerLnImpl(periodIds);
+});
+
+async function getDeltasGestioPerLnImpl(
   periodIds: string[]
 ): Promise<Map<string, Map<string, Map<number, number>>>> {
   if (!periodIds.length) return new Map();
@@ -389,13 +405,7 @@ export function sumarDeltasGestio(
   return sum;
 }
 
-export interface InfoGestioConsulta {
-  mesosAmbDades: number;
-  mesosConfirmats: number;
-  teGestio: boolean;
-  nomsConfirmats: string[];
-  nomsPendents: string[];
-}
+export type { InfoGestioConsulta } from "@/lib/repartiment/info-gestio";
 
 /** Estat del repartiment confirmat per al avís de consulta gestió. */
 export async function getInfoGestioConsulta(

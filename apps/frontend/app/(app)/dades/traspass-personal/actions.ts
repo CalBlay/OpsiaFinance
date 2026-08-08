@@ -53,13 +53,9 @@ export async function confirmarTraspassPersonalAction(execucioId: string) {
     revalidatePath("/consultes/linia");
     revalidatePath("/consultes/empresa");
     revalidatePath("/consultes/cost-salarial");
-    const n = foraCentreSnapshot.canvis.length;
     return {
       ok: true,
-      missatge:
-        n > 0
-          ? `Traspassos confirmats. S'ha actualitzat Fora centre a ${n} fila${n !== 1 ? "es" : ""} de cost salarial.`
-          : "Traspassos confirmats. Ja es reflecteixen a la vista Gestió.",
+      missatge: "Traspassos confirmats.",
       foraCentreSnapshot,
     };
   } catch (e) {

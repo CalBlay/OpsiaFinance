@@ -1,21 +1,11 @@
 "use client";
 
 import type { VendesSegment } from "@/lib/consultes-grafics";
+import { OPSIA_CHART_SERIES } from "@/lib/opsia-colors";
 import { formatNum } from "@/lib/utils";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
-const COLORS = [
-  "#0ea5e9",
-  "#6366f1",
-  "#16a34a",
-  "#f59e0b",
-  "#ec4899",
-  "#14b8a6",
-  "#8b5cf6",
-  "#f97316",
-  "#06b6d4",
-  "#84cc16",
-];
+const COLORS = [...OPSIA_CHART_SERIES];
 
 type SliceLabelProps = {
   cx?: number;

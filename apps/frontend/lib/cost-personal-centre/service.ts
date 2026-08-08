@@ -98,7 +98,7 @@ const TOKENS_GENERICS_MAPEIG = new Set([
 ]);
 
 /** Fallback: encaixa per nom de centre al text (DECORACIÓ ↔ mapeig «…DECORAC…»). */
-function resolMapeigPerText(text: string, mapeigs: MapeigRow[]): MapeigRow | null {
+function _resolMapeigPerText(text: string, mapeigs: MapeigRow[]): MapeigRow | null {
   if (esFilaResumOTotal(text)) return null;
   const clau = text
     .normalize("NFD")
@@ -191,7 +191,6 @@ export async function importarCostPersonalCentreDesDeBuffer(
     nomFitxer: string;
     mida?: number;
     creatPer: string;
-    syncRestaurants?: boolean;
     /** NOMINA (defecte) o MILLORES — detectat pel nom del fitxer. */
     origen?: OrigenCostPersonalCentre;
   }
@@ -354,10 +353,8 @@ export async function importarCostPersonalCentreDesDeBuffer(
     await db.costPersonalCentre.createMany({ data: rows.slice(i, i + BATCH) });
   }
 
-  // Les millores no toquen el sync de restaurants (només la nòmina).
-  if (origen === "NOMINA" && opts.syncRestaurants !== false) {
-    await syncCostSalarialRestaurantsDesDePayroll(periodId, [...agregats.values()]);
-  }
+  // Cost salarial restaurants és font pròpia (Excel Sala/Cuina + partides).
+  // No el sobreescrivim des de la nòmina: esborrava incentius/hores/baixes/etc.
 
   const nCentres = new Set([...agregats.values()].map((a) => a.centreId)).size;
   return {
@@ -372,71 +369,6 @@ export async function importarCostPersonalCentreDesDeBuffer(
     carregaId,
     origen,
   };
-}
-
-/** Actualitza CostSalarialRestaurant (LN00001) amb brut del payroll; conserva foraCentre. */
-async function syncCostSalarialRestaurantsDesDePayroll(
-  periodId: string,
-  agregats: Agregat[]
-): Promise<void> {
-  const ln = await db.liniaNegoci.findUnique({
-    where: { codi: "LN00001" },
-    select: { id: true },
-  });
-  if (!ln) return;
-
-  const restaurantIds = new Set(
-    (
-      await db.centre.findMany({
-        where: { liniaNegociId: ln.id, isActive: true },
-        select: { id: true },
-      })
-    ).map((c) => c.id)
-  );
-
-  for (const a of agregats) {
-    if (!restaurantIds.has(a.centreId)) continue;
-    if (a.departamentSalarial !== "SALA" && a.departamentSalarial !== "CUINA") continue;
-
-    const existent = await db.costSalarialRestaurant.findUnique({
-      where: {
-        periodId_centreId_departament: {
-          periodId,
-          centreId: a.centreId,
-          departament: a.departamentSalarial,
-        },
-      },
-      select: { id: true, foraCentre: true },
-    });
-
-    const data = {
-      totalSalari: a.importBrut,
-      incentiusMensual: 0,
-      incentiuTrimestral: 0,
-      horesExtres: 0,
-      altres: 0,
-      baixes: 0,
-      indemnitzacions: 0,
-      // foraCentre el mantenen els traspassos
-    };
-
-    if (existent) {
-      await db.costSalarialRestaurant.update({
-        where: { id: existent.id },
-        data,
-      });
-    } else {
-      await db.costSalarialRestaurant.create({
-        data: {
-          periodId,
-          centreId: a.centreId,
-          departament: a.departamentSalarial,
-          foraCentre: 0,
-          ...data,
-        },
-      });
-    }
-  }
 }
 
 export async function llistaMapeigsCostPersonal(): Promise<MapeigCostPersonalDTO[]> {

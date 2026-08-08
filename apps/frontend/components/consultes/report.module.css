@@ -1,39 +1,77 @@
 .page {
   padding: 1.5rem 2.5rem 3rem;
   width: 100%;
+  background: var(--opsia-cx-page-bg, var(--color-background));
 }
 
 .headerRow {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  flex-wrap: nowrap;
   margin-bottom: 1.25rem;
+}
+
+.headerText {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 42rem;
 }
 
 .headerActions {
   display: flex;
   align-items: flex-end;
+  justify-content: flex-end;
   gap: 0.65rem;
+  flex: 0 1 auto;
   flex-wrap: wrap;
+  margin-left: auto;
+}
+
+@media (max-width: 960px) {
+  .headerRow {
+    flex-wrap: wrap;
+  }
+
+  .headerText {
+    max-width: none;
+    flex: 1 1 100%;
+  }
+
+  .headerActions {
+    flex: 1 1 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
 }
 
 .title {
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-foreground);
+  font-size: var(--opsia-cx-page-title-size, 1.35rem);
+  font-weight: var(--opsia-cx-page-title-weight, 700);
+  letter-spacing: var(--opsia-cx-page-title-tracking, -0.02em);
+  color: var(--opsia-cx-page-title, var(--opsia-accent-primary));
   margin: 0;
 }
 .subtitle {
-  font-size: 0.85rem;
-  color: var(--color-muted-foreground);
+  font-size: var(--opsia-cx-subtitle-size, 0.85rem);
+  color: var(--opsia-cx-subtitle, var(--opsia-ink-soft));
   margin-top: 0.25rem;
+}
+
+.headerMeta {
+  margin-top: 0.45rem;
 }
 
 /* Selectors */
 .selectors {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.toolbarSlot {
   display: flex;
   gap: 0.6rem;
   flex-wrap: wrap;
@@ -56,26 +94,26 @@
   gap: 0.25rem;
 }
 .fieldLabel {
-  font-size: 0.68rem;
+  font-size: var(--opsia-cx-field-label-size, 0.68rem);
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
   font-weight: 600;
 }
 .select {
   min-width: 170px;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
-  background: var(--color-background);
-  color: var(--color-foreground);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-select-radius, 0.5rem);
+  background: var(--opsia-cx-select-bg, #fff);
+  color: var(--opsia-cx-ink, var(--color-foreground));
   font-size: 0.875rem;
   outline: none;
   cursor: pointer;
 }
 .select:focus {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border-color: var(--opsia-accent-primary, var(--color-primary));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--opsia-accent-primary) 20%, transparent);
 }
 
 .periodPresets {
@@ -186,21 +224,21 @@
   margin-bottom: 1.25rem;
 }
 .kpiCardExec {
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
   padding: 1rem 1.1rem;
-  background: var(--color-card);
+  background: var(--opsia-cx-card-bg, var(--color-card));
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
 }
 .kpiCardExecEbitdaPos {
-  border-color: color-mix(in srgb, #16a34a 40%, var(--color-border));
-  background: color-mix(in srgb, #16a34a 10%, var(--color-card));
+  border-color: color-mix(in srgb, var(--opsia-green-600) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--opsia-green-600) 10%, var(--color-card));
 }
 .kpiCardExecEbitdaNeg {
-  border-color: color-mix(in srgb, #dc2626 40%, var(--color-border));
-  background: color-mix(in srgb, #dc2626 10%, var(--color-card));
+  border-color: color-mix(in srgb, var(--color-destructive) 40%, var(--color-border));
+  background: color-mix(in srgb, var(--color-destructive) 10%, var(--color-card));
 }
 .kpiExecHeader {
   display: flex;
@@ -209,11 +247,11 @@
   gap: 0.5rem;
 }
 .kpiExecLabel {
-  font-size: 0.75rem;
+  font-size: var(--opsia-cx-label-size-md, 0.72rem);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  font-weight: 700;
-  color: var(--color-muted-foreground);
+  letter-spacing: var(--opsia-cx-label-tracking, 0.07em);
+  font-weight: var(--opsia-cx-label-weight, 700);
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
 }
 .kpiExecPeriode {
   font-size: 0.65rem;
@@ -222,12 +260,12 @@
   line-height: 1.2;
 }
 .kpiExecImport {
-  font-size: 1.45rem;
-  font-weight: 800;
+  font-size: var(--opsia-cx-kpi-size-md, 1.45rem);
+  font-weight: var(--opsia-cx-kpi-weight, 700);
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
-  color: var(--color-foreground);
+  color: var(--opsia-cx-kpi, var(--color-foreground));
 }
 .kpiExecImportNeg {
   color: var(--color-destructive);
@@ -245,14 +283,14 @@
 }
 .kpiExecPctVal {
   font-size: 1.75rem;
-  font-weight: 800;
+  font-weight: var(--opsia-cx-kpi-weight, 800);
   letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
-  color: var(--color-foreground);
+  color: var(--opsia-cx-kpi, var(--color-foreground));
   line-height: 1;
 }
 .kpiExecPctPos {
-  color: #15803d;
+  color: var(--opsia-num-positive);
 }
 .kpiExecPctNeg {
   color: var(--color-destructive);
@@ -274,8 +312,8 @@
   font-variant-numeric: tabular-nums;
 }
 .kpiExecBannerPos {
-  background: color-mix(in srgb, #16a34a 14%, transparent);
-  color: #15803d;
+  background: var(--opsia-num-positive-bg);
+  color: var(--opsia-num-positive);
 }
 .kpiExecBannerNeg {
   background: color-mix(in srgb, var(--color-destructive) 12%, transparent);
@@ -354,20 +392,20 @@
   margin-bottom: 1.25rem;
 }
 .kpiCardComparativa {
-  border: 1px solid var(--color-border);
-  border-radius: 0.6rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
   padding: 0.85rem 1rem;
-  background: var(--color-card);
+  background: var(--opsia-cx-card-bg, var(--color-card));
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 .kpiValueLg {
-  font-size: 1.35rem;
-  font-weight: 700;
+  font-size: var(--opsia-cx-kpi-size-md, 1.35rem);
+  font-weight: var(--opsia-cx-kpi-weight, 800);
   line-height: 1.15;
   font-variant-numeric: tabular-nums;
-  color: var(--color-foreground);
+  color: var(--opsia-cx-kpi, var(--color-foreground));
 }
 .kpiValueLg.neg {
   color: var(--color-destructive);
@@ -460,24 +498,25 @@
   margin-bottom: 1.25rem;
 }
 .kpiCard {
-  border: 1px solid var(--color-border);
-  border-radius: 0.6rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
   padding: 0.9rem 1rem;
-  background: var(--color-card);
+  background: var(--opsia-cx-card-bg, var(--color-card));
 }
 .kpiLabel {
-  font-size: 0.72rem;
+  font-size: var(--opsia-cx-label-size-md, 0.72rem);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--color-muted-foreground);
-  font-weight: 600;
+  letter-spacing: var(--opsia-cx-label-tracking, 0.07em);
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
+  font-weight: var(--opsia-cx-label-weight, 700);
 }
 .kpiValue {
-  font-size: 1.4rem;
-  font-weight: 700;
+  font-size: var(--opsia-cx-kpi-size-md, 1.4rem);
+  font-weight: var(--opsia-cx-kpi-weight, 700);
   line-height: 1.1;
   margin-top: 0.35rem;
   font-variant-numeric: tabular-nums;
+  color: var(--opsia-cx-kpi, var(--color-foreground));
 }
 .kpiValue.neg {
   color: var(--color-destructive);
@@ -511,7 +550,7 @@
   font-variant-numeric: tabular-nums;
 }
 .kpiDeltaPos {
-  color: #16a34a;
+  color: var(--opsia-num-positive-fill);
 }
 .kpiDeltaNeg {
   color: var(--color-destructive);
@@ -522,16 +561,16 @@
 
 /* Chart card */
 .chartCard {
-  border: 1px solid var(--color-border);
-  border-radius: 0.6rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
   padding: 1.1rem 1.1rem 0.6rem;
-  background: var(--color-card);
+  background: var(--opsia-cx-card-bg, var(--color-card));
   margin-bottom: 1.25rem;
 }
 .chartTitle {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-foreground);
+  font-size: var(--opsia-cx-panel-title-size, 0.9rem);
+  font-weight: var(--opsia-cx-panel-title-weight, 700);
+  color: var(--opsia-cx-ink, var(--color-foreground));
   margin: 0 0 0.75rem;
 }
 

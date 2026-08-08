@@ -1,8 +1,8 @@
 .wrapper {
   overflow-x: auto;
-  border: 1px solid var(--color-border);
-  border-radius: 0.6rem;
-  background: var(--color-card);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
+  background: var(--opsia-cx-card-bg, var(--color-card));
 }
 
 .table {
@@ -16,12 +16,12 @@
 .th {
   padding: 0.6rem 0.8rem;
   font-weight: 600;
-  font-size: 0.72rem;
+  font-size: var(--opsia-cx-label-size-md, 0.72rem);
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: var(--color-muted-foreground);
-  background: var(--color-muted);
-  border-bottom: 1px solid var(--color-border);
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
+  background: var(--opsia-cx-surface, var(--color-muted));
+  border-bottom: 1px solid var(--opsia-cx-border, var(--color-border));
   position: sticky;
   top: 0;
   z-index: 2;
@@ -54,7 +54,7 @@
 }
 
 .concept {
-  color: var(--color-foreground);
+  color: var(--opsia-cx-ink, var(--color-foreground));
   font-weight: 400;
 }
 
@@ -63,14 +63,14 @@
   position: sticky;
   left: 0;
   z-index: 1;
-  background: var(--color-card);
+  background: var(--opsia-cx-card-bg, var(--color-card));
   min-width: 220px;
   max-width: 320px;
   white-space: normal;
 }
 .th.stickyCol {
   z-index: 3;
-  background: var(--color-muted);
+  background: var(--opsia-cx-surface, var(--color-muted));
 }
 
 /* Files de subtotal */

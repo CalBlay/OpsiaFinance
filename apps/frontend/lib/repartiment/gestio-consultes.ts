@@ -2,6 +2,7 @@ import { type ConcepteOrdre, recalcularSubtotalsCompte } from "@/lib/compte-subt
 import type { ConceptePivot } from "@/lib/consultes";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import { nodePresentacioGestio } from "@/lib/repartiment/nodes";
+import { cache } from "react";
 
 export const COL_REPARTIMENT_ID = "__repartiment__";
 
@@ -167,15 +168,40 @@ export async function carregarDeltasGestioAgregats(
   any: number,
   rang: RangMesos
 ): Promise<Map<string, Map<number, number>>> {
+  return carregarDeltasGestioAgregatsCached(any, rang.des, rang.fins);
+}
+
+const carregarDeltasGestioAgregatsCached = cache(async (any: number, des: number, fins: number) => {
   const { db } = await import("@/lib/db");
   const { getDeltasGestioPerLn } = await import("@/lib/repartiment/service");
   const periods = await db.period.findMany({
-    where: prismaPeriodFilter(any, rang),
+    where: prismaPeriodFilter(any, { des, fins }),
     select: { id: true },
   });
   const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));
   return agregarDeltasPerLn(deltasPerPeriode);
-}
+});
+
+/** Periodes + deltas d'un any (evolució mensual). Cache per petició. */
+const carregarDeltasEvolucioAny = cache(async (any: number) => {
+  const { db } = await import("@/lib/db");
+  const { getDeltasGestioPerLn } = await import("@/lib/repartiment/service");
+  const periods = await db.period.findMany({
+    where: { any },
+    select: { id: true, mes: true },
+  });
+  if (!periods.length) {
+    return {
+      mesByPeriodId: new Map<string, number>(),
+      deltasPerPeriode: new Map<string, Map<string, Map<number, number>>>(),
+    };
+  }
+  const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));
+  return {
+    mesByPeriodId: new Map(periods.map((p) => [p.id, p.mes])),
+    deltasPerPeriode,
+  };
+});
 
 /** Aplica repartiment confirmat a l'evolució mensual (12 columnes) d'una LN. */
 export async function aplicarGestioEvolucioLn(
@@ -183,17 +209,8 @@ export async function aplicarGestioEvolucioLn(
   any: number,
   rows: ConceptePivot[]
 ): Promise<ConceptePivot[]> {
-  const { db } = await import("@/lib/db");
-  const { getDeltasGestioPerLn } = await import("@/lib/repartiment/service");
-
-  const periods = await db.period.findMany({
-    where: { any },
-    select: { id: true, mes: true },
-  });
-  if (!periods.length) return rows;
-
-  const mesByPeriodId = new Map(periods.map((p) => [p.id, p.mes]));
-  const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));
+  const { mesByPeriodId, deltasPerPeriode } = await carregarDeltasEvolucioAny(any);
+  if (!mesByPeriodId.size) return rows;
 
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
   const byNode = new Map(merged.map((r) => [r.node, r]));
@@ -224,17 +241,8 @@ export async function aplicarGestioEvolucioEmpresa(
   any: number,
   rows: ConceptePivot[]
 ): Promise<ConceptePivot[]> {
-  const { db } = await import("@/lib/db");
-  const { getDeltasGestioPerLn } = await import("@/lib/repartiment/service");
-
-  const periods = await db.period.findMany({
-    where: { any },
-    select: { id: true, mes: true },
-  });
-  if (!periods.length) return rows;
-
-  const mesByPeriodId = new Map(periods.map((p) => [p.id, p.mes]));
-  const deltasPerPeriode = await getDeltasGestioPerLn(periods.map((p) => p.id));
+  const { mesByPeriodId, deltasPerPeriode } = await carregarDeltasEvolucioAny(any);
+  if (!mesByPeriodId.size) return rows;
 
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
   const byNode = new Map(merged.map((r) => [r.node, r]));
@@ -261,4 +269,39 @@ export async function aplicarGestioEvolucioEmpresa(
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
   return recalcularSubtotalsCompte(conceptsFromRows(merged), merged);
+}
+
+/**
+ * Personal + repartiment en paral·lel (carrega), després composa la vista Gestió.
+ * Evita la seqüència personal → espera → deltas.
+ */
+export async function aplicarVistaGestioEvolucioEmpresa(
+  any: number,
+  rows: ConceptePivot[]
+): Promise<ConceptePivot[]> {
+  const { aplicarBaseGestioPersonalEvolucioEmpresa } = await import(
+    "@/lib/cost-personal-centre/gestio-consultes"
+  );
+  const rowsIn = rows.map((r) => ({ ...r, valors: [...r.valors] }));
+  const [withPersonal] = await Promise.all([
+    aplicarBaseGestioPersonalEvolucioEmpresa(any, rowsIn),
+    carregarDeltasEvolucioAny(any), // prefetch a la cache de la petició
+  ]);
+  return aplicarGestioEvolucioEmpresa(any, withPersonal);
+}
+
+export async function aplicarVistaGestioEvolucioLn(
+  liniaNegociId: string,
+  any: number,
+  rows: ConceptePivot[]
+): Promise<ConceptePivot[]> {
+  const { aplicarBaseGestioPersonalEvolucioLn } = await import(
+    "@/lib/cost-personal-centre/gestio-consultes"
+  );
+  const rowsIn = rows.map((r) => ({ ...r, valors: [...r.valors] }));
+  const [withPersonal] = await Promise.all([
+    aplicarBaseGestioPersonalEvolucioLn(liniaNegociId, any, rowsIn),
+    carregarDeltasEvolucioAny(any),
+  ]);
+  return aplicarGestioEvolucioLn(liniaNegociId, any, withPersonal);
 }

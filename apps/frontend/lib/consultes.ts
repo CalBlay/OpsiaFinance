@@ -28,6 +28,7 @@ import {
   prismaWhereDadaPerLnInformeIds,
 } from "@/lib/linia-informe";
 import { MESOS_CURTS, MESOS_LLARGS, type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
+import type { VistaCompte } from "@/lib/vista-compte";
 import type { Prisma } from "@prisma/client";
 import { cache } from "react";
 
@@ -41,6 +42,7 @@ export {
   parseRangMesosFromSearchParams,
   rangToQuery,
 } from "@/lib/periodes";
+export type { VistaCompte } from "@/lib/vista-compte";
 
 async function consolidarSiEmpresaAsync(
   scope: "empresa" | "linia" | "centre",
@@ -179,7 +181,7 @@ export async function getCompteExplotacioCentre(
   any: number,
   vista: VistaCompte = "directe"
 ): Promise<CompteExplotacioCentre> {
-  const [centre, concepts, dades] = await Promise.all([
+  const [centre, concepts, dades, ajustos] = await Promise.all([
     db.centre.findUnique({
       where: { id: centreId },
       select: {
@@ -198,13 +200,11 @@ export async function getCompteExplotacioCentre(
         concepteResultatId: true,
       },
     }),
+    db.ajust.findMany({
+      where: { centreId, period: { any } },
+      select: { import_: true, period: { select: { mes: true } }, concepteResultatId: true },
+    }),
   ]);
-
-  // Ajustos manuals del mateix centre i any (se sumen a la dada SAP)
-  const ajustos = await db.ajust.findMany({
-    where: { centreId, period: { any } },
-    select: { import_: true, period: { select: { mes: true } }, concepteResultatId: true },
-  });
 
   // Acumula per concepte × mes
   const perConcepte = new Map<string, number[]>();
@@ -264,11 +264,31 @@ export async function getCompteExplotacioCentre(
   };
 }
 
+/** Directe + Gestió amb una sola lectura SAP (canvi de vista al client). */
+export async function getCompteExplotacioCentreParell(
+  centreId: string,
+  any: number
+): Promise<{ directe: CompteExplotacioCentre; gestio: CompteExplotacioCentre }> {
+  const directe = await getCompteExplotacioCentre(centreId, any, "directe");
+  const { aplicarCostPersonalEvolucioCentre } = await import(
+    "@/lib/cost-personal-centre/gestio-consultes"
+  );
+  const conceptsGestio = await aplicarCostPersonalEvolucioCentre(
+    centreId,
+    any,
+    directe.concepts.map((r) => ({ ...r, valors: [...r.valors] }))
+  );
+  return {
+    directe,
+    gestio: { ...directe, concepts: conceptsGestio },
+  };
+}
+
 /* ─── Consulta: comparativa d'una LN per centres ──────────────────────────────── */
 
 const CENTRE_ALTRES_ID = "__altres__";
 
-export type VistaCompte = "directe" | "gestio";
+export type { VistaCompte } from "@/lib/vista-compte";
 
 export async function getComparativaLn(
   liniaNegociId: string,
@@ -277,7 +297,7 @@ export async function getComparativaLn(
   vista: VistaCompte = "directe"
 ): Promise<ComparativaLn> {
   const periodFilter = prismaPeriodFilter(any, rang);
-  const [ln, concepts, dades] = await Promise.all([
+  const [ln, concepts, dades, ajustos] = await Promise.all([
     db.liniaNegoci.findUnique({
       where: { id: liniaNegociId },
       select: {
@@ -291,11 +311,7 @@ export async function getComparativaLn(
         },
       },
     }),
-    db.concepteResultat.findMany({
-      where: { isActive: true },
-      orderBy: { ordre: "asc" },
-      select: { id: true, node: true, descripcio: true, esSubtotal: true },
-    }),
+    getConceptsActius(),
     db.dadaResultat.findMany({
       where: {
         period: periodFilter,
@@ -303,15 +319,14 @@ export async function getComparativaLn(
       },
       select: DADA_INFORME_SELECT,
     }),
+    db.ajust.findMany({
+      where: {
+        period: periodFilter,
+        OR: [{ liniaNegociId }, { centre: { liniaNegociId } }],
+      },
+      select: { import_: true, centreId: true, concepteResultatId: true },
+    }),
   ]);
-
-  const ajustos = await db.ajust.findMany({
-    where: {
-      period: periodFilter,
-      OR: [{ liniaNegociId }, { centre: { liniaNegociId } }],
-    },
-    select: { import_: true, centreId: true, concepteResultatId: true },
-  });
 
   const centresTree = ln?.centres ?? [];
   const treeIds = new Set(centresTree.map((c) => c.id));
@@ -371,17 +386,18 @@ export async function getComparativaLn(
       COL_REPARTIMENT_NOM,
     } = await import("@/lib/repartiment/gestio-consultes");
 
-    // Personal = base Gestió (SAP+ajust + traspass); estructura (repartiment) a columna a part.
     const centreIds = centres.map((c) => c.id);
-    rows = await aplicarBaseGestioPersonalCentres(any, rang, centreIds, rows);
-
-    const deltaByLnNode = await carregarDeltasGestioAgregats(any, rang);
+    // Personal i deltas són independents → en paral·lel.
+    const [rowsPersonal, deltaByLnNode] = await Promise.all([
+      aplicarBaseGestioPersonalCentres(any, rang, centreIds, rows),
+      carregarDeltasGestioAgregats(any, rang),
+    ]);
     const deltaByNode = deltaByLnNode.get(liniaNegociId) ?? new Map<number, number>();
     centresOut = [
       ...centres,
       { id: COL_REPARTIMENT_ID, codi: COL_REPARTIMENT_CODI, nom: COL_REPARTIMENT_NOM },
     ];
-    rows = aplicarGestioRepartimentLn(concepts, rows, deltaByNode);
+    rows = aplicarGestioRepartimentLn(concepts, rowsPersonal, deltaByNode);
   }
 
   return {
@@ -522,122 +538,219 @@ export interface ComparativaEmpresa {
   buit: boolean;
 }
 
+function cloneConceptePivot(rows: ConceptePivot[]): ConceptePivot[] {
+  return rows.map((r) => ({ ...r, valors: [...r.valors] }));
+}
+
+async function aplicarConsolidacioTotalsLn(
+  conceptRows: ConceptePivot[],
+  grup: GrupEmpresa
+): Promise<ConceptePivot[]> {
+  if (!grupAplicaConsolidacioIntra(grup)) return conceptRows;
+  const consolidat = await aplicarConsolidacio(conceptRows, "CALBLAY_INTRA", "columnes-ln");
+  const totalPerNode = new Map(consolidat.map((r) => [r.node, r.total]));
+  return conceptRows.map((r) => ({
+    ...r,
+    total: totalPerNode.get(r.node) ?? r.valors.reduce((a, b) => a + b, 0),
+  }));
+}
+
+/**
+ * Base SAP+ajustos (sense capa Gestió). Cache per petició: Directe i Gestió
+ * reutilitzen la mateixa agregació en canviar de vista.
+ */
+const getComparativaEmpresaBase = cache(
+  async (
+    any: number,
+    des: number,
+    fins: number,
+    grup: GrupEmpresa
+  ): Promise<ComparativaEmpresa & { conceptDefs: ConcepteBase[] }> => {
+    const rang: RangMesos = { des, fins };
+    const periodFilter = prismaPeriodFilter(any, rang);
+
+    const [liniesRawAll, concepts] = await Promise.all([
+      db.liniaNegoci.findMany({
+        where: { isActive: true },
+        orderBy: { ordre: "asc" },
+        select: { id: true, codi: true, nom: true },
+      }),
+      getConceptsActius(),
+    ]);
+
+    const liniesRaw = filtraLiniesPerGrup(liniesRawAll, grup);
+    const lnIdsGrup = new Set(liniesRaw.map((l) => l.id));
+    const lnIds = [...lnIdsGrup];
+
+    const [dadesRaw, ajustos] = await Promise.all([
+      db.dadaResultat.findMany({
+        where: {
+          period: periodFilter,
+          ...prismaWhereDadaPerLnInformeIds(lnIds),
+        },
+        select: DADA_INFORME_SELECT,
+      }),
+      db.ajust.findMany({
+        where: { period: periodFilter },
+        select: {
+          import_: true,
+          liniaNegociId: true,
+          concepteResultatId: true,
+          centre: { select: { liniaNegociId: true } },
+        },
+      }),
+    ]);
+
+    const lnIdx = new Map<string, number>();
+    liniesRaw.forEach((l, i) => lnIdx.set(l.id, i));
+
+    const perConcepte = new Map<string, number[]>();
+    for (const c of concepts) {
+      perConcepte.set(c.id, new Array(liniesRaw.length).fill(0));
+    }
+
+    let nDades = 0;
+    for (const d of dadesRaw) {
+      if (esColumnaTotalLnRedundant(d)) continue;
+      const lnId = lnInformePerAgregacio(d);
+      if (!lnId || !lnIdsGrup.has(lnId)) continue;
+      nDades++;
+      const col = lnIdx.get(lnId);
+      if (col === undefined) continue;
+      const arr = perConcepte.get(d.concepteResultatId);
+      if (arr) arr[col] += Number(d.import_);
+    }
+
+    let nAjustos = 0;
+    for (const a of ajustos) {
+      const lnId = a.liniaNegociId ?? a.centre?.liniaNegociId ?? null;
+      if (!lnId || !lnIdsGrup.has(lnId)) continue;
+      nAjustos++;
+      const col = lnIdx.get(lnId);
+      if (col === undefined) continue;
+      const arr = perConcepte.get(a.concepteResultatId);
+      if (arr) arr[col] += Number(a.import_);
+    }
+
+    const conceptRows = buildRows(concepts, perConcepte);
+
+    return {
+      any,
+      rang,
+      linies: liniesRaw,
+      concepts: conceptRows,
+      conceptDefs: concepts,
+      buit: liniesRaw.length === 0 || (nDades === 0 && nAjustos === 0),
+    };
+  }
+);
+
+async function aplicarGestioComparativaEmpresa(
+  base: ComparativaEmpresa & { conceptDefs: ConcepteBase[] },
+  grup: GrupEmpresa
+): Promise<ComparativaEmpresa> {
+  const { aplicarBaseGestioPersonalLinies } = await import(
+    "@/lib/cost-personal-centre/gestio-consultes"
+  );
+  const { aplicarGestioRepartiment, carregarDeltasGestioAgregats } = await import(
+    "@/lib/repartiment/gestio-consultes"
+  );
+
+  const lnIds = base.linies.map((l) => l.id);
+  const rowsIn = cloneConceptePivot(base.concepts);
+
+  // Personal i deltas de repartiment són independents → en paral·lel.
+  const [rowsPersonal, deltaRepartiment, mirall] = await Promise.all([
+    aplicarBaseGestioPersonalLinies(base.any, base.rang, lnIds, rowsIn),
+    carregarDeltasGestioAgregats(base.any, base.rang),
+    grup === "consolidat"
+      ? getImportMirallServeisFdlcRang(base.any, base.rang)
+      : Promise.resolve(null),
+  ]);
+
+  let conceptRows = aplicarGestioRepartiment(
+    base.conceptDefs,
+    rowsPersonal,
+    lnIds,
+    deltaRepartiment
+  );
+
+  if (grup === "consolidat" && mirall) {
+    conceptRows = aplicarReclassificacioMirallConsolidat(conceptRows, base.linies, mirall);
+  }
+
+  conceptRows = await aplicarConsolidacioTotalsLn(conceptRows, grup);
+
+  return {
+    any: base.any,
+    rang: base.rang,
+    linies: base.linies,
+    concepts: conceptRows,
+    buit: base.buit,
+  };
+}
+
 export async function getComparativaEmpresa(
   any: number,
   rang: RangMesos,
   vista: VistaCompte = "directe",
   grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
 ): Promise<ComparativaEmpresa> {
-  const periodFilter = prismaPeriodFilter(any, rang);
-  const liniesRawAll = await db.liniaNegoci.findMany({
-    where: { isActive: true },
-    orderBy: { ordre: "asc" },
-    select: { id: true, codi: true, nom: true },
-  });
-  const liniesRaw = filtraLiniesPerGrup(liniesRawAll, grup);
-  const lnIdsGrup = new Set(liniesRaw.map((l) => l.id));
-  const lnIds = [...lnIdsGrup];
-
-  const [concepts, dadesRaw, ajustos] = await Promise.all([
-    getConceptsActius(),
-    db.dadaResultat.findMany({
-      where: {
-        period: periodFilter,
-        ...prismaWhereDadaPerLnInformeIds(lnIds),
-      },
-      select: DADA_INFORME_SELECT,
-    }),
-    db.ajust.findMany({
-      where: { period: periodFilter },
-      select: {
-        import_: true,
-        liniaNegociId: true,
-        concepteResultatId: true,
-        centre: { select: { liniaNegociId: true } },
-      },
-    }),
-  ]);
-
-  const lnIdx = new Map<string, number>();
-  liniesRaw.forEach((l, i) => lnIdx.set(l.id, i));
-
-  const perConcepte = new Map<string, number[]>();
-  for (const c of concepts) {
-    perConcepte.set(c.id, new Array(liniesRaw.length).fill(0));
-  }
-
-  // Mateix criteri que getEvolucioMensual(scope=linia): cada dada va a la LN
-  // de lnInformePerAgregacio, excloent columnes total-LN redundants.
-  const dades: typeof dadesRaw = [];
-  for (const d of dadesRaw) {
-    if (esColumnaTotalLnRedundant(d)) continue;
-    const lnId = lnInformePerAgregacio(d);
-    if (!lnId || !lnIdsGrup.has(lnId)) continue;
-    dades.push(d);
-    const col = lnIdx.get(lnId);
-    if (col === undefined) continue;
-    const arr = perConcepte.get(d.concepteResultatId);
-    if (arr) arr[col] += Number(d.import_);
-  }
-
-  for (const a of ajustos) {
-    const lnId = a.liniaNegociId ?? a.centre?.liniaNegociId ?? null;
-    if (!lnId || !lnIdsGrup.has(lnId)) continue;
-    const col = lnIdx.get(lnId);
-    if (col === undefined) continue;
-    const arr = perConcepte.get(a.concepteResultatId);
-    if (arr) arr[col] += Number(a.import_);
-  }
-
-  const linies = liniesRaw;
-
-  let conceptRows = buildRows(concepts, perConcepte);
+  const base = await getComparativaEmpresaBase(any, rang.des, rang.fins, grup);
 
   if (vista === "gestio" && grupPermetVistaGestio(grup)) {
-    const { aplicarBaseGestioPersonalLinies } = await import(
-      "@/lib/cost-personal-centre/gestio-consultes"
-    );
-    const { aplicarGestioRepartiment, carregarDeltasGestioAgregats } = await import(
-      "@/lib/repartiment/gestio-consultes"
-    );
-
-    const lnIds = liniesRaw.map((l) => l.id);
-    // Personal = base Gestió (SAP+ajust + traspass). Repartiment només (sense doble traspass).
-    conceptRows = await aplicarBaseGestioPersonalLinies(any, rang, lnIds, conceptRows);
-    const deltaRepartiment = await carregarDeltasGestioAgregats(any, rang);
-    conceptRows = aplicarGestioRepartiment(concepts, conceptRows, lnIds, deltaRepartiment);
+    return aplicarGestioComparativaEmpresa(base, grup);
   }
 
-  // Consolidat · Gestió: Prestació serveis FDLC → Vendes LN00001 (mirall CCR00008).
-  // En Directe es deixa tal com ve de SAP (Prestació a FDLC, sense sumar a Restaurants).
-  if (grup === "consolidat" && vista === "gestio") {
-    const mirall = await getImportMirallServeisFdlcRang(any, rang);
-    conceptRows = aplicarReclassificacioMirallConsolidat(conceptRows, linies, mirall);
+  const concepts = await aplicarConsolidacioTotalsLn(cloneConceptePivot(base.concepts), grup);
+  return {
+    any: base.any,
+    rang: base.rang,
+    linies: base.linies,
+    concepts,
+    buit: base.buit,
+  };
+}
+
+/**
+ * Directe + Gestió amb una sola lectura SAP. Ideal per canviar de vista al client
+ * sense un segon round-trip al servidor.
+ */
+export async function getComparativaEmpresaParell(
+  any: number,
+  rang: RangMesos,
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
+): Promise<{ directe: ComparativaEmpresa; gestio: ComparativaEmpresa | null }> {
+  const base = await getComparativaEmpresaBase(any, rang.des, rang.fins, grup);
+
+  if (!grupPermetVistaGestio(grup)) {
+    const concepts = await aplicarConsolidacioTotalsLn(cloneConceptePivot(base.concepts), grup);
+    return {
+      directe: {
+        any: base.any,
+        rang: base.rang,
+        linies: base.linies,
+        concepts,
+        buit: base.buit,
+      },
+      gestio: null,
+    };
   }
 
-  const dadesGrup = dades;
-  const ajustosGrup = ajustos.filter((a) => {
-    const lnId = a.liniaNegociId ?? a.centre?.liniaNegociId ?? null;
-    return lnId !== null && lnIdsGrup.has(lnId);
-  });
-
-  // Columnes LN = mateix criteri que Evolució/Per línia (sense consolidar).
-  // La consolidació només afecta el total d'empresa (evita doble còmput inter-LN).
-  if (grupAplicaConsolidacioIntra(grup)) {
-    const consolidat = await aplicarConsolidacio(conceptRows, "CALBLAY_INTRA", "columnes-ln");
-    const totalPerNode = new Map(consolidat.map((r) => [r.node, r.total]));
-    conceptRows = conceptRows.map((r) => ({
-      ...r,
-      total: totalPerNode.get(r.node) ?? r.valors.reduce((a, b) => a + b, 0),
-    }));
-  }
+  const [directeConcepts, gestio] = await Promise.all([
+    aplicarConsolidacioTotalsLn(cloneConceptePivot(base.concepts), grup),
+    aplicarGestioComparativaEmpresa(base, grup),
+  ]);
 
   return {
-    any,
-    rang,
-    linies,
-    concepts: conceptRows,
-    buit: liniesRaw.length === 0 || (dadesGrup.length === 0 && ajustosGrup.length === 0),
+    directe: {
+      any: base.any,
+      rang: base.rang,
+      linies: base.linies,
+      concepts: directeConcepts,
+      buit: base.buit,
+    },
+    gestio,
   };
 }
 

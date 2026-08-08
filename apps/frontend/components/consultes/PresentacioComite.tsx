@@ -1,6 +1,8 @@
 "use client";
 
-import { cn, formatNum } from "@/lib/utils";
+import { OpsiaKpiCard, OpsiaKpiCardRow } from "@/components/consultes/OpsiaKpiCard";
+import { OPSIA_CHART } from "@/lib/opsia-colors";
+import { formatNum } from "@/lib/utils";
 import {
   Bar,
   BarChart,
@@ -33,9 +35,14 @@ export type SeriePerLnComite = {
   gestio: number[];
 };
 
+/** Dades d’ompliment per a OpsiaKpiCard (spec kpi-card.json). */
 export type KpiComite = {
   label: string;
   import_: number;
+  /** % destacat dins la targeta. */
+  pct?: number | null;
+  pctHint?: string;
+  /** Text auxiliar sense % (ex. «Explotació»). */
   hint?: string;
   accent?: "ingressos" | "cost" | "ebitda";
 };
@@ -66,15 +73,13 @@ function ChartCard({
   title,
   lead,
   children,
-  wide,
 }: {
   title: string;
   lead?: string;
   children: React.ReactNode;
-  wide?: boolean;
 }) {
   return (
-    <section className={wide ? styles.chartWide : styles.chartCard}>
+    <section className={styles.chartCard}>
       <h3 className={styles.chartTitle}>{title}</h3>
       {lead && <p className={styles.chartLead}>{lead}</p>}
       <div className={styles.chartBody}>{children}</div>
@@ -124,41 +129,21 @@ export function PresentacioComite({
         <p className={styles.heroPeriode}>{periode}</p>
       </header>
 
-      <div className={styles.kpiRow}>
-        {kpis.map((k) => {
-          const ebitdaAccent =
-            k.accent === "ebitda"
-              ? k.import_ < 0
-                ? "ebitda-neg"
-                : "ebitda-pos"
-              : (k.accent ?? "cost");
-          return (
-            <div key={k.label} className={styles.kpiCard} data-accent={ebitdaAccent}>
-              <span className={styles.kpiLabel}>{k.label}</span>
-              <span
-                className={cn(
-                  styles.kpiValue,
-                  k.accent === "ebitda" && k.import_ < 0 && styles.kpiValueNeg,
-                  k.accent === "ebitda" && k.import_ > 0 && styles.kpiValuePos
-                )}
-              >
-                {formatNum(k.import_)} €
-              </span>
-              {k.hint && (
-                <span
-                  className={cn(
-                    styles.kpiHint,
-                    k.accent === "ebitda" && k.import_ < 0 && styles.kpiHintNeg,
-                    k.accent === "ebitda" && k.import_ > 0 && styles.kpiHintPos
-                  )}
-                >
-                  {k.hint}
-                </span>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <OpsiaKpiCardRow>
+        {kpis.map((k) => (
+          <OpsiaKpiCard
+            key={k.label}
+            label={k.label}
+            import_={k.import_}
+            pct={k.pct}
+            pctHint={k.pctHint ?? "s/ ingressos"}
+            pctSigned={k.accent === "ebitda"}
+            hint={k.hint}
+            accent={k.accent ?? "cost"}
+            negImport
+          />
+        ))}
+      </OpsiaKpiCardRow>
 
       <div className={styles.grid2}>
         <ChartCard
@@ -183,13 +168,18 @@ export function PresentacioComite({
               />
               <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
-              <Bar dataKey="Ingressos" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={36} />
+              <Bar
+                dataKey="Ingressos"
+                fill={OPSIA_CHART.ingressos}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={36}
+              />
               <Line
                 type="monotone"
                 dataKey="EBITDA"
-                stroke="#16a34a"
+                stroke={OPSIA_CHART.ebitda}
                 strokeWidth={3}
-                dot={{ r: 4, fill: "#16a34a" }}
+                dot={{ r: 4, fill: OPSIA_CHART.ebitda }}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -217,92 +207,127 @@ export function PresentacioComite({
               />
               <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
               <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
-              <Bar dataKey="Personal" fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={22} />
-              <Bar dataKey="Compres" fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={22} />
-              <Bar dataKey="Gestió" fill="#ec4899" radius={[3, 3, 0, 0]} maxBarSize={22} />
+              <Bar
+                dataKey="Personal"
+                fill={OPSIA_CHART.personal}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={22}
+              />
+              <Bar
+                dataKey="Compres"
+                fill={OPSIA_CHART.compres}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={22}
+              />
+              <Bar
+                dataKey="Gestió"
+                fill={OPSIA_CHART.gestio}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={22}
+              />
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
       </div>
 
-      <ChartCard
-        wide
-        title={`Per línia de negoci · ${periode}`}
-        lead="Compres, personal i gestió de cada negoci. Els imports de cost es mostren en positiu."
-      >
-        <ResponsiveContainer width="100%" height={Math.max(340, 48 + dataLn.length * 28)}>
-          <BarChart
-            data={dataLn}
-            margin={{ top: 8, right: 12, left: 0, bottom: tickAngleLn ? 48 : 8 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-              angle={tickAngleLn}
-              textAnchor={tickAngleLn ? "end" : "middle"}
-              interval={0}
-              height={tickAngleLn ? 70 : undefined}
-              axisLine={{ stroke: "var(--color-border)" }}
-              tickLine={false}
-            />
-            <YAxis
-              tickFormatter={formatEix}
-              tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-              axisLine={false}
-              tickLine={false}
-              width={48}
-            />
-            <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
-            <Bar dataKey="Personal" fill="#6366f1" radius={[3, 3, 0, 0]} maxBarSize={28} />
-            <Bar dataKey="Compres" fill="#f59e0b" radius={[3, 3, 0, 0]} maxBarSize={28} />
-            <Bar dataKey="Gestió" fill="#ec4899" radius={[3, 3, 0, 0]} maxBarSize={28} />
-          </BarChart>
-        </ResponsiveContainer>
-      </ChartCard>
+      <div className={styles.grid2}>
+        <ChartCard
+          title={`Per línia de negoci · ${periode}`}
+          lead="Compres, personal i gestió de cada negoci. Els imports de cost es mostren en positiu."
+        >
+          <ResponsiveContainer width="100%" height={Math.max(320, 48 + dataLn.length * 28)}>
+            <BarChart
+              data={dataLn}
+              margin={{ top: 8, right: 12, left: 0, bottom: tickAngleLn ? 48 : 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                angle={tickAngleLn}
+                textAnchor={tickAngleLn ? "end" : "middle"}
+                interval={0}
+                height={tickAngleLn ? 70 : undefined}
+                axisLine={{ stroke: "var(--color-border)" }}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={formatEix}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                axisLine={false}
+                tickLine={false}
+                width={48}
+              />
+              <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
+              <Bar
+                dataKey="Personal"
+                fill={OPSIA_CHART.personal}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={28}
+              />
+              <Bar
+                dataKey="Compres"
+                fill={OPSIA_CHART.compres}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={28}
+              />
+              <Bar
+                dataKey="Gestió"
+                fill={OPSIA_CHART.gestio}
+                radius={[3, 3, 0, 0]}
+                maxBarSize={28}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
 
-      <ChartCard
-        wide
-        title={`Resultat per negoci · ${periode}`}
-        lead="Ingressos i EBITDA de cada línia — la foto ràpida per al comitè."
-      >
-        <ResponsiveContainer width="100%" height={320}>
-          <ComposedChart
-            data={dataLn}
-            margin={{ top: 8, right: 12, left: 0, bottom: tickAngleLn ? 48 : 8 }}
-          >
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-            <XAxis
-              dataKey="name"
-              tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-              angle={tickAngleLn}
-              textAnchor={tickAngleLn ? "end" : "middle"}
-              interval={0}
-              height={tickAngleLn ? 70 : undefined}
-              axisLine={{ stroke: "var(--color-border)" }}
-              tickLine={false}
-            />
-            <YAxis
-              tickFormatter={formatEix}
-              tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
-              axisLine={false}
-              tickLine={false}
-              width={48}
-            />
-            <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
-            <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
-            <Bar dataKey="Ingressos" fill="#0ea5e9" radius={[4, 4, 0, 0]} maxBarSize={40} />
-            <Line
-              type="monotone"
-              dataKey="EBITDA"
-              stroke="#16a34a"
-              strokeWidth={3}
-              dot={{ r: 4, fill: "#16a34a" }}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </ChartCard>
+        <ChartCard
+          title={`Resultat per negoci · ${periode}`}
+          lead="Ingressos i EBITDA de cada línia — la foto ràpida per al comitè."
+        >
+          <ResponsiveContainer width="100%" height={Math.max(320, 48 + dataLn.length * 28)}>
+            <ComposedChart
+              data={dataLn}
+              margin={{ top: 8, right: 12, left: 0, bottom: tickAngleLn ? 48 : 8 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+              <XAxis
+                dataKey="name"
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                angle={tickAngleLn}
+                textAnchor={tickAngleLn ? "end" : "middle"}
+                interval={0}
+                height={tickAngleLn ? 70 : undefined}
+                axisLine={{ stroke: "var(--color-border)" }}
+                tickLine={false}
+              />
+              <YAxis
+                tickFormatter={formatEix}
+                tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
+                axisLine={false}
+                tickLine={false}
+                width={48}
+              />
+              <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
+              <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
+              <Bar
+                dataKey="Ingressos"
+                fill={OPSIA_CHART.ingressos}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={40}
+              />
+              <Line
+                type="monotone"
+                dataKey="EBITDA"
+                stroke={OPSIA_CHART.ebitda}
+                strokeWidth={3}
+                dot={{ r: 4, fill: OPSIA_CHART.ebitda }}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
     </div>
   );
 }

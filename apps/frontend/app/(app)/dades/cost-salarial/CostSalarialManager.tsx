@@ -11,6 +11,7 @@ import { useMemo, useRef, useState, useTransition } from "react";
 import {
   type CostSalarialInput,
   deleteCostSalarialAction,
+  deleteTotsCostSalarialAction,
   uploadCostSalarialAction,
   upsertCostSalarialAction,
 } from "./actions";
@@ -97,6 +98,7 @@ export function CostSalarialManager({
 
   const notify = (r: Result) => {
     setFeedback(r);
+    router.refresh();
     if (r.ok) setTimeout(() => setFeedback(null), 5000);
   };
 
@@ -234,6 +236,7 @@ export function CostSalarialManager({
               mes nou)
             </span>
           </label>
+          {/* Un sol +: pujar Excel. El registre manual va amb botó a la barra de filtres. */}
           <FloatingAddButton
             label="Pujar Excel de cost salarial"
             disabled={isPending}
@@ -242,50 +245,79 @@ export function CostSalarialManager({
         </>
       )}
 
-      {canEdit && !obert && (
-        <FloatingAddButton
-          label="Nou registre manual"
-          onClick={() => {
-            reset();
-            setObert(true);
+      <div className={styles.toolbar}>
+        <DadesFilterBar
+          className={styles.filterBar}
+          query={query}
+          onQueryChange={setQuery}
+          placeholder="Cerca restaurant, departament, període…"
+          onClear={() => {
+            setQuery("");
+            aplicarFiltre("", "");
           }}
-          className="bottom-[calc(max(1.25rem,env(safe-area-inset-bottom))+4.25rem)]"
+          filters={[
+            {
+              id: "any",
+              value: filtreAny ? String(filtreAny) : "",
+              onChange: (v) => aplicarFiltre(v, filtreMes ? String(filtreMes) : ""),
+              options: anys.map((y) => ({ value: String(y), label: String(y) })),
+              allLabel: "Tots els anys",
+              "aria-label": "Filtra per any",
+            },
+            {
+              id: "mes",
+              value: filtreMes ? String(filtreMes) : "",
+              onChange: (v) => aplicarFiltre(filtreAny ? String(filtreAny) : "", v),
+              options: MESOS_LLARGS.map((m, i) => ({
+                value: String(i + 1),
+                label: m,
+              })),
+              allLabel: "Tots els mesos",
+              "aria-label": "Filtra per mes",
+            },
+          ]}
+          summary={
+            query.trim()
+              ? `${registresFiltrats.length} de ${registres.length} registres`
+              : undefined
+          }
         />
-      )}
-
-      <DadesFilterBar
-        query={query}
-        onQueryChange={setQuery}
-        placeholder="Cerca restaurant, departament, període…"
-        onClear={() => {
-          setQuery("");
-          aplicarFiltre("", "");
-        }}
-        filters={[
-          {
-            id: "any",
-            value: filtreAny ? String(filtreAny) : "",
-            onChange: (v) => aplicarFiltre(v, filtreMes ? String(filtreMes) : ""),
-            options: anys.map((y) => ({ value: String(y), label: String(y) })),
-            allLabel: "Tots els anys",
-            "aria-label": "Filtra per any",
-          },
-          {
-            id: "mes",
-            value: filtreMes ? String(filtreMes) : "",
-            onChange: (v) => aplicarFiltre(filtreAny ? String(filtreAny) : "", v),
-            options: MESOS_LLARGS.map((m, i) => ({
-              value: String(i + 1),
-              label: m,
-            })),
-            allLabel: "Tots els mesos",
-            "aria-label": "Filtra per mes",
-          },
-        ]}
-        summary={
-          query.trim() ? `${registresFiltrats.length} de ${registres.length} registres` : undefined
-        }
-      />
+        {canEdit && !obert && (
+          <div className={styles.toolbarActions}>
+            <button
+              type="button"
+              className={styles.newBtn}
+              onClick={() => {
+                reset();
+                setObert(true);
+              }}
+            >
+              <Pencil size={15} /> Nou registre
+            </button>
+            {registres.length > 0 && (
+              <button
+                type="button"
+                className={styles.dangerBtn}
+                disabled={isPending}
+                onClick={() => {
+                  if (
+                    !confirm(
+                      "Esborrar TOTS els registres de cost salarial restaurants?\n\nS'eliminaran totes les dades i l'historial de fitxers. Aquesta acció no es pot desfer."
+                    )
+                  ) {
+                    return;
+                  }
+                  startTransition(async () => {
+                    notify(await deleteTotsCostSalarialAction());
+                  });
+                }}
+              >
+                <Trash2 size={15} /> Esborra-ho tot
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {obert && (
         <div className={styles.form}>
@@ -424,6 +456,9 @@ export function CostSalarialManager({
                 <th className={ui.right}>Incentius</th>
                 <th className={ui.right}>H. extres</th>
                 <th className={ui.right}>Altres</th>
+                <th className={ui.right}>Baixes</th>
+                <th className={ui.right}>Indemnitzacions</th>
+                <th className={ui.right}>Fora centre</th>
                 {canEdit && <th />}
               </tr>
             </thead>
@@ -439,9 +474,10 @@ export function CostSalarialManager({
                     {formatNum(r.incentiusMensual + r.incentiuTrimestral)}
                   </td>
                   <td className={ui.right}>{formatNum(r.horesExtres)}</td>
-                  <td className={ui.right}>
-                    {formatNum(r.altres + r.baixes + r.indemnitzacions + r.foraCentre)}
-                  </td>
+                  <td className={ui.right}>{formatNum(r.altres)}</td>
+                  <td className={ui.right}>{formatNum(r.baixes)}</td>
+                  <td className={ui.right}>{formatNum(r.indemnitzacions)}</td>
+                  <td className={ui.right}>{formatNum(r.foraCentre)}</td>
                   {canEdit && (
                     <td className={ui.nowrap}>
                       <button

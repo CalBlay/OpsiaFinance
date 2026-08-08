@@ -45,13 +45,13 @@
 
 .feedbackOk {
   font-size: var(--opsia-font-size-sm);
-  color: #166534;
+  color: var(--opsia-num-positive);
   margin: 0;
 }
 
 .feedbackErr {
   font-size: var(--opsia-font-size-sm);
-  color: #b91c1c;
+  color: var(--color-destructive, #c0392b);
   margin: 0;
 }
 
@@ -137,13 +137,13 @@
 }
 
 .badgeBorrador {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--opsia-yellow-100);
+  color: var(--opsia-yellow-700);
 }
 
 .badgeConfirmat {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--opsia-green-100);
+  color: var(--opsia-num-positive);
 }
 
 .linkRow {
@@ -164,7 +164,7 @@
 }
 
 .neg {
-  color: #b91c1c;
+  color: var(--color-destructive, #c0392b);
 }
 
 .inlineInput {

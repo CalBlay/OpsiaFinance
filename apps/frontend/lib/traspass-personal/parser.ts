@@ -1,18 +1,27 @@
+/**
+ * Parser de l'Excel d'hores (traspassos).
+ *
+ * Columnes obligatòries:
+ *   Empleado | Organizaciones (origen) | Proyecto (destí) | Minutos
+ */
+
 import { type WorkBook, read, utils } from "xlsx";
 
-export interface FilaHoresTreball {
+export type FilaHoresTreball = {
+  /** Número de fila a l'Excel (1-based, com el veu l'usuari). */
+  filaExcel: number;
   empleado: string;
   organizaciones: string;
   proyecto: string;
   minutos: number;
-}
+};
 
-export interface ResultatParserHores {
+export type ResultatParserHores = {
   files: FilaHoresTreball[];
   capçalera: string[];
-}
+};
 
-function normalitzarCapçalera(v: unknown): string {
+function normHeader(v: unknown): string {
   return String(v ?? "")
     .trim()
     .toLowerCase()
@@ -20,47 +29,40 @@ function normalitzarCapçalera(v: unknown): string {
     .replace(/\p{M}/gu, "");
 }
 
-function trobarIndex(headers: string[], ...candidats: string[]): number {
-  for (const c of candidats) {
-    const idx = headers.findIndex((h) => h.includes(c));
-    if (idx >= 0) return idx;
-  }
-  return -1;
-}
-
-function trobarIndexExacte(headers: string[], ...candidats: string[]): number {
-  for (const c of candidats) {
-    const idx = headers.findIndex((h) => h === c);
-    if (idx >= 0) return idx;
-  }
-  return -1;
-}
-
-/** Columna nom de projecte (mai «ID de proyecto» / «ID del proyecto padre»). */
-function trobarIndexProyecto(headers: string[]): number {
-  const exact = trobarIndexExacte(headers, "proyecto");
-  if (exact >= 0) return exact;
-  return headers.findIndex((h) => h.includes("proyecto") && !/\bid\b/.test(h));
-}
-
-function parseNum(v: unknown): number {
-  if (v === null || v === undefined || v === "") return 0;
+function parseMinuts(v: unknown): number {
+  if (v == null || v === "") return 0;
   if (typeof v === "number") return Number.isFinite(v) ? v : 0;
   const n = Number(String(v).replace(/\s/g, "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
 }
 
-function detectarCapçalera(matrix: unknown[][]): number {
+function idxExacte(headers: string[], ...noms: string[]): number {
+  for (const n of noms) {
+    const i = headers.findIndex((h) => h === n);
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+function idxInclou(headers: string[], fragment: string, excloureId = false): number {
+  return headers.findIndex((h) => {
+    if (!h.includes(fragment)) return false;
+    if (excloureId && /\bid\b/.test(h)) return false;
+    return true;
+  });
+}
+
+function filaCapçalera(matrix: unknown[][]): number {
   let best = 0;
-  let score = 0;
-  for (let i = 0; i < Math.min(15, matrix.length); i++) {
-    const row = matrix[i] ?? [];
-    const headers = row.map(normalitzarCapçalera);
-    const hasEmp = headers.some((h) => h.includes("empleado"));
-    const hasOrg = headers.some((h) => h.includes("organizacion"));
-    const hasProy = headers.some((h) => h === "proyecto");
-    const hasMin = headers.some((h) => h.includes("minuto"));
-    const s = [hasEmp, hasOrg, hasProy, hasMin].filter(Boolean).length;
+  let score = -1;
+  for (let i = 0; i < Math.min(20, matrix.length); i++) {
+    const h = (matrix[i] ?? []).map(normHeader);
+    const s = [
+      h.some((x) => x.includes("empleado")),
+      h.some((x) => x.includes("organizacion")),
+      h.some((x) => x === "proyecto" || (x.includes("proyecto") && !/\bid\b/.test(x))),
+      h.some((x) => x.includes("minuto")),
+    ].filter(Boolean).length;
     if (s > score) {
       score = s;
       best = i;
@@ -71,36 +73,37 @@ function detectarCapçalera(matrix: unknown[][]): number {
 
 export function parseExcelHoresTreball(buffer: Buffer): ResultatParserHores {
   const wb: WorkBook = read(buffer);
-  const sheetName = wb.SheetNames[0];
-  if (!sheetName) return { files: [], capçalera: [] };
+  const sheet = wb.SheetNames[0];
+  if (!sheet) return { files: [], capçalera: [] };
 
-  const matrix = utils.sheet_to_json<unknown[]>(wb.Sheets[sheetName], {
+  const matrix = utils.sheet_to_json<unknown[]>(wb.Sheets[sheet], {
     header: 1,
     defval: null,
     raw: false,
   });
-
   if (!matrix.length) return { files: [], capçalera: [] };
 
-  const headerRow = detectarCapçalera(matrix);
+  const headerRow = filaCapçalera(matrix);
   const capçalera = (matrix[headerRow] ?? []).map((c) => String(c ?? "").trim());
-  const headersNorm = capçalera.map(normalitzarCapçalera);
+  const h = capçalera.map(normHeader);
 
-  const idxEmp = trobarIndex(headersNorm, "empleado");
-  let idxOrg = trobarIndex(headersNorm, "organizacion");
-  let idxProy = trobarIndexProyecto(headersNorm);
-  let idxMin = trobarIndexExacte(headersNorm, "minutos", "minuto");
-  if (idxMin < 0) idxMin = trobarIndex(headersNorm, "minuto");
+  const idxEmp =
+    idxExacte(h, "empleado") >= 0 ? idxExacte(h, "empleado") : idxInclou(h, "empleado");
+  // Preferència: «organizaciones» exacte (no «id de organizacion»).
+  let idxOrg = idxExacte(h, "organizaciones", "organizacion");
+  if (idxOrg < 0) idxOrg = idxInclou(h, "organizacion", true);
+  let idxProy = idxExacte(h, "proyecto");
+  if (idxProy < 0) idxProy = idxInclou(h, "proyecto", true);
+  let idxMin = idxExacte(h, "minutos", "minuto");
+  if (idxMin < 0) idxMin = idxInclou(h, "minuto");
 
-  // Format exportació: A=Empleado, C=Organizaciones (origen), F=Proyecto (destí), G=Minutos
+  // Fallback layout clàssic: C / F / G
   if (idxOrg < 0) idxOrg = 2;
   if (idxProy < 0) idxProy = 5;
   if (idxMin < 0) idxMin = 6;
 
   if (idxOrg < 0 || idxProy < 0 || idxMin < 0) {
-    throw new Error(
-      "No s'han trobat les columnes obligatòries (Organizaciones, Proyecto, Minutos)."
-    );
+    throw new Error("No s'han trobat les columnes Organizaciones, Proyecto i Minutos a l'Excel.");
   }
 
   const files: FilaHoresTreball[] = [];
@@ -108,12 +111,12 @@ export function parseExcelHoresTreball(buffer: Buffer): ResultatParserHores {
     const row = matrix[i] ?? [];
     const organizaciones = String(row[idxOrg] ?? "").trim();
     const proyecto = String(row[idxProy] ?? "").trim();
-    const minutos = parseNum(row[idxMin]);
-    // Ignora IDs numèrics si s'ha llegit la columna equivocada
+    const minutos = parseMinuts(row[idxMin]);
     if (!organizaciones || !proyecto || minutos <= 0) continue;
-    if (/^\d+$/.test(proyecto)) continue;
+    if (/^\d+$/.test(proyecto)) continue; // columna ID per error
 
     files.push({
+      filaExcel: i + 1,
       empleado: idxEmp >= 0 ? String(row[idxEmp] ?? "").trim() : "",
       organizaciones,
       proyecto,

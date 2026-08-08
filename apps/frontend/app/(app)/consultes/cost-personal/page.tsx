@@ -1,3 +1,4 @@
+import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import styles from "@/components/consultes/report.module.css";
@@ -11,7 +12,7 @@ import {
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { exclouFdlcDeConsultaLinia, grupMostraConsultesLiniaCentre } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
-import { CostPersonalPresentacio } from "./CostPersonalPresentacio";
+import { CostPersonalPresentacio } from "../presenters-dynamic";
 import { CostPersonalSelectors } from "./CostPersonalSelectors";
 import local from "./page.module.css";
 
@@ -125,13 +126,10 @@ export default async function ConsultaCostPersonalPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <div>
-          <h1 className={styles.title}>Cost de personal</h1>
-          <p className={styles.subtitle}>
-            Directe = SAP oficial. Gestió = base única + estructura (mateix número que Resultats ·
-            Per línia).
-          </p>
+      <ConsultaHeader
+        title="Cost de personal"
+        subtitle="Directe = SAP oficial. Gestió = base única + estructura (mateix número que Resultats · Per línia)."
+        meta={
           <nav className={local.crumbs} aria-label="Nivell">
             {crumbs.map((c, i) => (
               <span key={`${c.label}-${i}`} className={local.crumbItem}>
@@ -146,8 +144,8 @@ export default async function ConsultaCostPersonalPage({
               </span>
             ))}
           </nav>
-        </div>
-        <div className={styles.headerActions}>
+        }
+        actions={
           <CostPersonalSelectors
             arbre={arbre}
             anys={anys}
@@ -157,8 +155,8 @@ export default async function ConsultaCostPersonalPage({
             mes={mes}
             vista={vista}
           />
-        </div>
-      </div>
+        }
+      />
 
       {informe.buit ? (
         <div className={styles.prompt}>

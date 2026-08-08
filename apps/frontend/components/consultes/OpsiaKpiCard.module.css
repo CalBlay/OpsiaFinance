@@ -1,0 +1,151 @@
+/*
+ * OpsiaKpiCard — targeta KPI corporativa (vegeu src/design-system/kpi-card.json)
+ */
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.95rem 1.05rem;
+  border-radius: var(--opsia-cx-radius, 0.75rem);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  background: var(--opsia-cx-card-bg, #fff);
+  min-width: 0;
+}
+
+.card[data-accent="ingressos"] {
+  border-color: color-mix(in srgb, var(--opsia-green-600) 35%, var(--opsia-cx-border));
+  background: color-mix(in srgb, var(--opsia-green-600) 6%, #fff);
+}
+
+.card[data-accent="cost"] {
+  border-color: var(--opsia-cx-accent-cost-border);
+  background: var(--opsia-cx-accent-cost-bg);
+}
+
+.card[data-accent="ebitda"],
+.card[data-accent="ebitda-pos"] {
+  border-color: color-mix(in srgb, var(--opsia-green-600) 40%, var(--opsia-cx-border));
+  background: color-mix(in srgb, var(--opsia-green-600) 8%, #fff);
+}
+
+.card[data-accent="ebitda-neg"] {
+  border-color: color-mix(in srgb, var(--color-destructive) 40%, var(--opsia-cx-border));
+  background: color-mix(in srgb, var(--color-destructive) 8%, #fff);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.label {
+  font-size: var(--opsia-cx-label-size-md, 0.72rem);
+  font-weight: 600;
+  letter-spacing: var(--opsia-cx-label-tracking, 0.07em);
+  text-transform: uppercase;
+  color: var(--opsia-cx-label, var(--opsia-ink-soft));
+}
+
+.periode {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--opsia-cx-ink-muted, var(--opsia-ink-soft));
+  text-align: right;
+  line-height: 1.2;
+}
+
+.value {
+  font-size: var(--opsia-cx-kpi-size, clamp(1.2rem, 2vw, 1.55rem));
+  font-weight: var(--opsia-cx-kpi-weight, 700);
+  letter-spacing: var(--opsia-cx-kpi-tracking, -0.03em);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  color: var(--opsia-cx-kpi, var(--opsia-ink-strong));
+}
+
+.card[data-accent="ingressos"] .value {
+  color: var(--opsia-green-700, #245956);
+}
+
+.card[data-accent="cost"] .value {
+  color: var(--opsia-cx-kpi-warm, var(--opsia-accent-warm));
+}
+
+.card[data-accent="ebitda-pos"] .value,
+.card[data-accent="ebitda"] .value {
+  color: var(--opsia-num-positive, var(--opsia-green-700));
+}
+
+.card[data-accent="ebitda-neg"] .value {
+  color: var(--color-destructive);
+}
+
+.valueNeg {
+  color: var(--color-destructive) !important;
+}
+
+/* % amb més protagonisme; el text auxiliar es queda petit */
+.pctRow {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.15rem;
+}
+
+.pct {
+  font-size: clamp(1.1rem, 1.8vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--opsia-cx-kpi-warm-strong, var(--opsia-yellow-700));
+}
+
+.card[data-accent="ingressos"] .pct {
+  color: var(--opsia-green-600, #2f6f6d);
+}
+
+.card[data-accent="ebitda-pos"] .pct,
+.card[data-accent="ebitda"] .pct {
+  color: var(--opsia-num-positive, var(--opsia-green-700));
+}
+
+.card[data-accent="ebitda-neg"] .pct {
+  color: var(--color-destructive);
+}
+
+.pctPos {
+  color: var(--opsia-num-positive, var(--opsia-green-700)) !important;
+}
+
+.pctNeg {
+  color: var(--color-destructive) !important;
+}
+
+.pctHint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
+  line-height: 1.25;
+}
+
+.hint {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--opsia-cx-ink-soft, var(--opsia-ink-soft));
+  line-height: 1.35;
+}
+
+.footer {
+  margin-top: 0.2rem;
+}

@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkPending } from "@/components/ui/LinkPending";
 import { cn } from "@/lib/utils";
 import { ArrowLeftRight, GitBranch, Layers, ListTree, Scale, UserCog, Users } from "lucide-react";
 import Link from "next/link";
@@ -76,6 +77,7 @@ export function SettingsNav({
                 className={cn(styles.tab, isActive && styles.tabActive)}
                 aria-current={isActive ? "page" : undefined}
               >
+                <LinkPending />
                 <tab.icon size={15} strokeWidth={1.8} />
                 {tab.label}
               </Link>

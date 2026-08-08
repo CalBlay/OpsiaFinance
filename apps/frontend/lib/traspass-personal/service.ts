@@ -1,8 +1,8 @@
 import { db } from "@/lib/db";
 import { inferDepartamentSalarial } from "@/lib/traspass-personal/departament";
 import { parseExcelMapeigCentres } from "@/lib/traspass-personal/importar-mapeig";
+import type { MapeigCentre } from "@/lib/traspass-personal/mapeig";
 import {
-  type MapeigCentre,
   type MovimentTraspassCalculat,
   calcularTraspassosPersonal,
 } from "@/lib/traspass-personal/motor";
@@ -94,7 +94,7 @@ export async function calcularExecucioTraspassPersonal(
   tarifaHora: number;
 }> {
   const tarifaHora = await getTarifaHoraTraspass();
-  await backfillDepartamentsMapeig();
+  // No tocar el mapeig en importar: la configuració és la font de veritat.
   const mapeigs = await carregarMapeigs();
   const { files } = parseExcelHoresTreball(buffer);
   const resultat = calcularTraspassosPersonal(files, mapeigs, tarifaHora);
@@ -233,11 +233,9 @@ export async function confirmarExecucioTraspassPersonal(
     };
   }
 
-  const { aplicarForaCentreDesDeTraspass } = await import("./fora-centre");
-  const foraCentreSnapshot = await aplicarForaCentreDesDeTraspass(
-    execucio.periodId,
-    execucio.moviments
-  );
+  // No sobreescriure CostSalarialRestaurant.foraCentre: la consulta suma
+  // «Traspassos (hores destí)» a part dels moviments confirmats.
+  const foraCentreSnapshot: import("./fora-centre").ForaCentreSnapshot = { canvis: [] };
 
   await db.execucioTraspassPersonal.update({
     where: { id: execucioId },

@@ -8,7 +8,7 @@
  * Cada fila = un mes × restaurant × departament (Sala | Cuina).
  */
 
-import { readFileSync } from "fs";
+import { readFileSync } from "node:fs";
 import * as XLSX from "xlsx";
 
 export type DepartamentSalarialCodi = "SALA" | "CUINA";
@@ -35,17 +35,23 @@ export interface ParseCostSalarialResult {
 }
 
 const HEADER_ALIASES: Record<string, string[]> = {
-  data: ["data", "date", "mes", "periodo", "període"],
+  data: ["data", "date", "mes", "periodo", "periode"],
   restaurant: ["nom restaurant", "restaurant", "nom", "centre", "establecimiento"],
-  departament: ["departament", "departamento", "dept", "departament"],
+  departament: ["departament", "departamento", "dept"],
   totalSalari: ["total salari", "total salario", "salari", "salario"],
   incentiusMensual: [
+    "incentius mensuals",
     "incentius mensual",
     "incentiu mensual",
     "incentivos mensuales",
     "incentivo mensual",
   ],
-  incentiuTrimestral: ["incentiu trimestral", "incentivos trimestrales", "incentivo trimestral"],
+  incentiuTrimestral: [
+    "incentius trimestral",
+    "incentiu trimestral",
+    "incentivos trimestrales",
+    "incentivo trimestral",
+  ],
   horesExtres: ["hores extres", "horas extras", "hores extra", "horas extra"],
   altres: ["altres", "otros", "altre"],
   baixes: ["baixes", "bajas"],
@@ -58,10 +64,17 @@ function normalitzaHeader(s: string): string {
 }
 
 function trobaCol(headers: string[], aliases: string[]): number {
+  const norms = aliases.map(normalitzaHeader);
+  // Preferència: coincidència exacta abans de prefix (evita «nom» vs «nom restaurant»).
   for (let i = 0; i < headers.length; i++) {
     const h = headers[i];
     if (!h) continue;
-    if (aliases.some((a) => h === a || h.startsWith(a))) return i;
+    if (norms.some((a) => h === a)) return i;
+  }
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    if (!h) continue;
+    if (norms.some((a) => a.length >= 4 && h.startsWith(a))) return i;
   }
   return -1;
 }
@@ -106,6 +119,19 @@ function parseDataExcel(raw: unknown): { any: number; mes: number } | null {
     const mes = Number(m2[2]);
     if (mes >= 1 && mes <= 12) return { any, mes };
   }
+  // mm/yyyy o yyyy-mm
+  const m3 = s.match(/^(\d{1,2})[\/\-.](\d{4})$/);
+  if (m3) {
+    const mes = Number(m3[1]);
+    const any = Number(m3[2]);
+    if (mes >= 1 && mes <= 12) return { any, mes };
+  }
+  const m4 = s.match(/^(\d{4})[\/\-.](\d{1,2})$/);
+  if (m4) {
+    const any = Number(m4[1]);
+    const mes = Number(m4[2]);
+    if (mes >= 1 && mes <= 12) return { any, mes };
+  }
   return null;
 }
 
@@ -121,13 +147,41 @@ function parseDepartament(raw: unknown): DepartamentSalarialCodi | null {
   return null;
 }
 
+/**
+ * Amplia `!ref` a totes les cel·les presents al full.
+ * Sense això, `sheet_to_json` pot truncar files si el rang declarat és curt.
+ */
+function matriuDelFull(sheet: XLSX.WorkSheet): (string | number | null)[][] {
+  const keys = Object.keys(sheet).filter((k) => !k.startsWith("!"));
+  let maxR = 0;
+  let maxC = 0;
+  for (const k of keys) {
+    const cell = XLSX.utils.decode_cell(k);
+    if (cell.r > maxR) maxR = cell.r;
+    if (cell.c > maxC) maxC = cell.c;
+  }
+  if (sheet["!ref"]) {
+    const ref = XLSX.utils.decode_range(sheet["!ref"]);
+    maxR = Math.max(maxR, ref.e.r);
+    maxC = Math.max(maxC, ref.e.c);
+  }
+  if (keys.length === 0 && !sheet["!ref"]) return [];
+  sheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: maxR, c: maxC } });
+  return XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+    header: 1,
+    defval: null,
+    raw: true,
+    blankrows: true,
+  });
+}
+
 export function parseCostSalarialRestaurantsBuffer(data: Buffer): ParseCostSalarialResult {
   const errors: string[] = [];
   const linies: CostSalarialLiniaParsed[] = [];
 
   let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.read(data);
+    workbook = XLSX.read(data, { cellDates: true, raw: true });
   } catch (err) {
     return { linies: [], errors: [`No s'ha pogut llegir l'Excel: ${String(err)}`] };
   }
@@ -136,11 +190,7 @@ export function parseCostSalarialRestaurantsBuffer(data: Buffer): ParseCostSalar
   if (!sheetName) return { linies: [], errors: ["El fitxer no té cap full."] };
 
   const sheet = workbook.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
-    header: 1,
-    defval: null,
-    raw: true,
-  });
+  const rows = matriuDelFull(sheet);
 
   if (rows.length < 2) return { linies: [], errors: ["El full no té files de dades."] };
 
@@ -170,8 +220,8 @@ export function parseCostSalarialRestaurantsBuffer(data: Buffer): ParseCostSalar
     if (!row || row.every((c) => c == null || String(c).trim() === "")) continue;
 
     const filaExcel = i + 1;
-    const data = parseDataExcel(row[cols.data]);
-    if (!data) {
+    const periode = parseDataExcel(row[cols.data]);
+    if (!periode) {
       errors.push(`Fila ${filaExcel}: data no vàlida («${row[cols.data]}»).`);
       continue;
     }
@@ -193,8 +243,8 @@ export function parseCostSalarialRestaurantsBuffer(data: Buffer): ParseCostSalar
     const cell = (idx: number) => (idx >= 0 ? parseImportExcel(row[idx]) : 0);
 
     linies.push({
-      any: data.any,
-      mes: data.mes,
+      any: periode.any,
+      mes: periode.mes,
       nomRestaurant,
       departament,
       totalSalari: cell(cols.totalSalari),

@@ -1,5 +1,6 @@
 "use client";
 
+import { LinkPending } from "@/components/ui/LinkPending";
 import { GRUP_COOKIE_NAME } from "@/lib/grup-cookie-name";
 import {
   type GrupEmpresa,
@@ -87,6 +88,7 @@ export function ConsultesNav() {
               className={cn(styles.tab, isActive && styles.tabActive)}
               aria-current={isActive ? "page" : undefined}
             >
+              <LinkPending />
               <tab.icon size={15} strokeWidth={1.8} />
               {tab.label}
             </Link>

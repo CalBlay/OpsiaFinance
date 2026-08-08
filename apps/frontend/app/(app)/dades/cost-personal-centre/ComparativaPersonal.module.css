@@ -103,12 +103,12 @@
 }
 
 .diff {
-  color: #b91c1c;
+  color: var(--color-destructive);
   font-weight: 600;
 }
 
 .ok {
-  color: #15803d;
+  color: var(--opsia-num-positive);
 }
 
 .num {

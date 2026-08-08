@@ -1,8 +1,11 @@
 "use client";
 
+import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import { ConsultaVistaSelect } from "@/components/consultes/ConsultaVistaSelect";
+import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
-import type { VistaCompte } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
+import type { VistaCompte } from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -21,6 +24,7 @@ export function EvolucioSelectors({
   vista,
   nomesEmpresa = false,
   mostraVistaGestio = true,
+  onVistaLocal,
 }: {
   linies: LnOpt[];
   anys: number[];
@@ -28,9 +32,9 @@ export function EvolucioSelectors({
   lnId: string | null;
   any: number;
   vista: VistaCompte;
-  /** FDLC: només àmbit empresa. */
   nomesEmpresa?: boolean;
   mostraVistaGestio?: boolean;
+  onVistaLocal?: (vista: VistaCompte) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -51,7 +55,15 @@ export function EvolucioSelectors({
     setLocalVista(vista);
   }, [scope, lnId, any, vista]);
 
-  const go = (nextScope: string, nextLn: string, nextAny: number, nextVista: VistaCompte) => {
+  useEffect(() => {
+    if (!mostraVistaGestio || onVistaLocal) return;
+    const other: VistaCompte = vista === "gestio" ? "directe" : "gestio";
+    const lnPart = scope === "linia" && lnId ? `&ln=${lnId}` : "";
+    const scopePart = nomesEmpresa ? "empresa" : scope;
+    router.prefetch(`/consultes/evolucio?scope=${scopePart}${lnPart}&any=${any}&vista=${other}`);
+  }, [router, mostraVistaGestio, onVistaLocal, vista, scope, lnId, any, nomesEmpresa]);
+
+  const goServer = (nextScope: string, nextLn: string, nextAny: number, nextVista: VistaCompte) => {
     setLocalScope(nextScope as "empresa" | "linia");
     setLocalLn(nextLn);
     setLocalAny(nextAny);
@@ -74,91 +86,92 @@ export function EvolucioSelectors({
     });
   };
 
-  return (
-    <div
-      className={styles.selectors}
-      data-pending={isPending ? "true" : undefined}
-      aria-busy={isPending}
-    >
-      {!nomesEmpresa && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
-            Àmbit
-          </label>
-          <select
-            id={scopeSelectId}
-            className={styles.select}
-            value={localScope}
-            disabled={isPending}
-            onChange={(e) => go(e.target.value, localLn, localAny, localVista)}
-          >
-            <option value="empresa">Empresa</option>
-            <option value="linia">Una línia de negoci</option>
-          </select>
-        </div>
-      )}
+  const goVista = (nextVista: VistaCompte) => {
+    setLocalVista(nextVista);
+    if (onVistaLocal) {
+      onVistaLocal(nextVista);
+      return;
+    }
+    goServer(localScope, localLn, localAny, nextVista);
+  };
 
-      {!nomesEmpresa && localScope === "linia" && (
+  return (
+    <ConsultaToolbar
+      pending={isPending}
+      dates={
         <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={lineSelectId}>
-            Línia de negoci
+          <label className={styles.fieldLabel} htmlFor={yearSelectId}>
+            {FILTRE.any}
           </label>
           <select
-            id={lineSelectId}
+            id={yearSelectId}
             className={styles.select}
-            value={localLn}
+            style={{ minWidth: 100 }}
+            value={localAny}
             disabled={isPending}
-            onChange={(e) => go("linia", e.target.value, localAny, localVista)}
+            onChange={(e) => goServer(localScope, localLn, Number(e.target.value), localVista)}
           >
-            <option value="">Selecciona…</option>
-            {linies.map((ln) => (
-              <option key={ln.id} value={ln.id}>
-                {etiquetaLiniaNegoci(ln)}
+            {anys.map((y) => (
+              <option key={y} value={y}>
+                {y}
               </option>
             ))}
           </select>
         </div>
-      )}
-
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={yearSelectId}>
-          Any
-        </label>
-        <select
-          id={yearSelectId}
-          className={styles.select}
-          style={{ minWidth: 100 }}
-          value={localAny}
-          disabled={isPending}
-          onChange={(e) => go(localScope, localLn, Number(e.target.value), localVista)}
-        >
-          {anys.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {mostraVistaGestio && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={viewSelectId}>
-            Vista
-          </label>
-          <select
+      }
+      camps={
+        !nomesEmpresa ? (
+          <>
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
+                {FILTRE.ambit}
+              </label>
+              <select
+                id={scopeSelectId}
+                className={styles.select}
+                value={localScope}
+                disabled={isPending}
+                onChange={(e) => goServer(e.target.value, localLn, localAny, localVista)}
+              >
+                <option value="empresa">Empresa</option>
+                <option value="linia">Línia</option>
+              </select>
+            </div>
+            {localScope === "linia" ? (
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor={lineSelectId}>
+                  {FILTRE.linia}
+                </label>
+                <select
+                  id={lineSelectId}
+                  className={styles.select}
+                  value={localLn}
+                  disabled={isPending}
+                  onChange={(e) => goServer("linia", e.target.value, localAny, localVista)}
+                >
+                  <option value="">Selecciona…</option>
+                  {linies.map((ln) => (
+                    <option key={ln.id} value={ln.id}>
+                      {etiquetaLiniaNegoci(ln)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : null}
+          </>
+        ) : null
+      }
+      vista={
+        mostraVistaGestio ? (
+          <ConsultaVistaSelect
             id={viewSelectId}
-            className={styles.select}
-            style={{ minWidth: 160 }}
             value={localVista}
-            disabled={isPending}
-            onChange={(e) => go(localScope, localLn, localAny, e.target.value as VistaCompte)}
-          >
-            <option value="directe">Directe (SAP)</option>
-            <option value="gestio">Gestió (tractat)</option>
-          </select>
-          {isPending && <span className={styles.filterPending}>Actualitzant…</span>}
-        </div>
-      )}
-    </div>
+            disabled={isPending && !onVistaLocal}
+            pendingHint={isPending && !onVistaLocal}
+            onChange={goVista}
+          />
+        ) : null
+      }
+    />
   );
 }

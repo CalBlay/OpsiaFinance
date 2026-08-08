@@ -16,39 +16,39 @@
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.9rem 1rem;
-  border: 1px solid var(--color-border);
-  border-radius: 0.75rem;
-  background: var(--color-card);
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: var(--opsia-cx-radius, 0.75rem);
+  background: var(--opsia-cx-card-bg, var(--color-card));
 }
 
 .kpi_ok {
-  border-color: rgba(22, 163, 74, 0.35);
-  background: rgba(22, 163, 74, 0.05);
+  border-color: color-mix(in srgb, var(--opsia-green-600) 40%, var(--opsia-cx-border));
+  background: color-mix(in srgb, var(--opsia-green-600) 8%, var(--opsia-cx-card-bg));
 }
 
 .kpi_warn {
-  border-color: rgba(217, 119, 6, 0.4);
-  background: rgba(217, 119, 6, 0.06);
+  border-color: color-mix(in srgb, var(--opsia-orange-500) 40%, var(--opsia-cx-border));
+  background: color-mix(in srgb, var(--opsia-orange-500) 8%, var(--opsia-cx-card-bg));
 }
 
 .kpi_bad {
-  border-color: rgba(220, 38, 38, 0.35);
-  background: rgba(220, 38, 38, 0.05);
+  border-color: color-mix(in srgb, var(--color-destructive) 35%, var(--opsia-cx-border));
+  background: color-mix(in srgb, var(--color-destructive) 6%, var(--opsia-cx-card-bg));
 }
 
 .kpiLabel {
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-size: var(--opsia-cx-label-size, 0.68rem);
+  font-weight: var(--opsia-cx-label-weight, 700);
+  letter-spacing: var(--opsia-cx-label-tracking, 0.06em);
   text-transform: uppercase;
-  color: var(--color-muted-foreground);
+  color: var(--opsia-cx-label, var(--color-muted-foreground));
 }
 
 .kpiValue {
-  font-size: 1.15rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  color: var(--color-foreground);
+  font-size: var(--opsia-cx-kpi-size, 1.15rem);
+  font-weight: var(--opsia-cx-kpi-weight, 800);
+  letter-spacing: var(--opsia-cx-kpi-tracking, -0.02em);
+  color: var(--opsia-cx-kpi, var(--color-foreground));
   font-variant-numeric: tabular-nums;
 }
 
@@ -96,11 +96,11 @@
 }
 
 .neg {
-  color: #b91c1c;
+  color: var(--color-destructive);
 }
 
 .pos {
-  color: #15803d;
+  color: var(--opsia-num-positive);
 }
 
 .semafor {
@@ -111,15 +111,15 @@
 }
 
 .semafor_verd {
-  background: #16a34a;
+  background: var(--opsia-semafor-verd);
 }
 
 .semafor_ambre {
-  background: #d97706;
+  background: var(--opsia-semafor-ambre);
 }
 
 .semafor_vermell {
-  background: #dc2626;
+  background: var(--color-destructive);
 }
 
 .semafor_gris {

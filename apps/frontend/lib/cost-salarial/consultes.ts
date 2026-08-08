@@ -1,28 +1,21 @@
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
+import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
 import { costTotalLinia, normalitzaNomRestaurant } from "@/lib/cost-salarial/import";
+import {
+  PARTIDES_SALARIALS,
+  type PartidaImport,
+  type PartidaKey,
+} from "@/lib/cost-salarial/partides";
 import { db } from "@/lib/db";
 import { NODE_VENDES } from "@/lib/kpi-definitions";
 
-export const PARTIDES_SALARIALS = [
-  { key: "totalSalari", label: "Total salari" },
-  { key: "incentiusMensual", label: "Incentius mensual" },
-  { key: "incentiuTrimestral", label: "Incentiu trimestral" },
-  { key: "horesExtres", label: "Hores extres" },
-  { key: "altres", label: "Altres" },
-  { key: "baixes", label: "Baixes" },
-  { key: "indemnitzacions", label: "Indemnitzacions" },
-  { key: "foraCentre", label: "Fora centre" },
-] as const;
-
-export type PartidaKey = (typeof PARTIDES_SALARIALS)[number]["key"];
-
-export interface PartidaImport {
-  key: PartidaKey;
-  label: string;
-  import_: number;
-  pct: number | null;
-}
+export type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
+export {
+  PARTIDES_SALARIALS,
+  type PartidaImport,
+  type PartidaKey,
+} from "@/lib/cost-salarial/partides";
 
 export interface BlocDepartament {
   departament: "SALA" | "CUINA";
@@ -66,6 +59,8 @@ export interface ComparativaRestaurants {
     cuina: number;
     costTotal: number;
     partides: Record<PartidaKey, number>;
+    partidesSala: Record<PartidaKey, number>;
+    partidesCuina: Record<PartidaKey, number>;
     vendes: number;
     pctSobreVendes: number | null;
   };
@@ -237,7 +232,8 @@ export async function getCentresRestaurants(nomesMirallFdlc = false) {
 export async function getInformeRestaurant(
   centreId: string,
   any: number,
-  mes: number | null
+  mes: number | null,
+  compte: CompteCostSalarial = "directe"
 ): Promise<InformeRestaurant> {
   const [files, centre, vendesMap] = await Promise.all([
     carregaFiles(any, mes, centreId),
@@ -279,11 +275,12 @@ export async function getInformeRestaurant(
     else sumaPartides(cuinaP, f);
   }
 
-  // Fora centre: si hi ha traspass confirmat al període, substitueix l'Excel.
+  // Directe = Excel Fora centre. Gestió = +destí −origen (mateixa línia).
   const { resoldreForaCentreRestaurant } = await import("@/lib/cost-salarial/fora-centre-detall");
   const fora = await resoldreForaCentreRestaurant(centreId, any, mes);
-  salaP.foraCentre = fora.totals.SALA;
-  cuinaP.foraCentre = fora.totals.CUINA;
+  const fc = compte === "gestio" ? fora.gestio : fora.excel;
+  salaP.foraCentre = fc.SALA;
+  cuinaP.foraCentre = fc.CUINA;
 
   const salaTotal = totalDePartides(salaP);
   const cuinaTotal = totalDePartides(cuinaP);
@@ -323,7 +320,8 @@ export async function getInformeRestaurant(
 
 export async function getComparativaRestaurants(
   any: number,
-  mes: number | null
+  mes: number | null,
+  compte: CompteCostSalarial = "directe"
 ): Promise<ComparativaRestaurants> {
   const files = await carregaFiles(any, mes);
   if (!files.length) {
@@ -336,6 +334,8 @@ export async function getComparativaRestaurants(
         cuina: 0,
         costTotal: 0,
         partides: emptyPartides(),
+        partidesSala: emptyPartides(),
+        partidesCuina: emptyPartides(),
         vendes: 0,
         pctSobreVendes: null,
       },
@@ -376,6 +376,8 @@ export async function getComparativaRestaurants(
 
   const filesOut: FilaComparativaRestaurant[] = [];
   const totalsPartides = emptyPartides();
+  const totalsPartidesSala = emptyPartides();
+  const totalsPartidesCuina = emptyPartides();
   let totalSala = 0;
   let totalCuina = 0;
   let totalVendes = 0;
@@ -383,8 +385,9 @@ export async function getComparativaRestaurants(
   for (const entry of perCentre.values()) {
     const fora = foraByCentre.get(entry.centre.id);
     if (fora) {
-      entry.sala.foraCentre = fora.totals.SALA;
-      entry.cuina.foraCentre = fora.totals.CUINA;
+      const fc = compte === "gestio" ? fora.gestio : fora.excel;
+      entry.sala.foraCentre = fc.SALA;
+      entry.cuina.foraCentre = fc.CUINA;
     }
     const sala = totalDePartides(entry.sala);
     const cuina = totalDePartides(entry.cuina);
@@ -393,6 +396,8 @@ export async function getComparativaRestaurants(
     for (const k of Object.keys(partides) as PartidaKey[]) {
       partides[k] = entry.sala[k] + entry.cuina[k];
       totalsPartides[k] += partides[k];
+      totalsPartidesSala[k] += entry.sala[k];
+      totalsPartidesCuina[k] += entry.cuina[k];
     }
     totalSala += sala;
     totalCuina += cuina;
@@ -429,6 +434,8 @@ export async function getComparativaRestaurants(
       cuina: totalCuina,
       costTotal,
       partides: totalsPartides,
+      partidesSala: totalsPartidesSala,
+      partidesCuina: totalsPartidesCuina,
       vendes: totalVendes,
       pctSobreVendes: pct(costTotal, Math.abs(totalVendes)),
     },

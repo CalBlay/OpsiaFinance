@@ -1,5 +1,7 @@
 "use client";
 
+import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { etiquetaCentre, etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { MESOS_CURTS, MESOS_LLARGS } from "@/lib/periodes";
@@ -34,7 +36,6 @@ export function ComparativaSelectors({
   granularitat: "anual" | "mensual" | "mes";
   mes: number;
   mesosSeleccionats: number[];
-  /** FDLC: només àmbit empresa. */
   nomesEmpresa?: boolean;
 }) {
   const router = useRouter();
@@ -108,175 +109,180 @@ export function ComparativaSelectors({
   }, [mesosOpen]);
 
   return (
-    <div className={styles.selectors}>
-      {!nomesEmpresa && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
-            Àmbit
-          </label>
-          <select
-            id={scopeSelectId}
-            className={styles.select}
-            value={scope}
-            onChange={(e) => goScope(e.target.value, "")}
-          >
-            <option value="centre">Centre</option>
-            <option value="empresa">Empresa</option>
-            <option value="linia">Línia de negoci</option>
-          </select>
-        </div>
-      )}
-
-      {!nomesEmpresa && scope === "linia" && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={lineSelectId}>
-            Línia de negoci
-          </label>
-          <select
-            id={lineSelectId}
-            className={styles.select}
-            value={id ?? ""}
-            onChange={(e) => goScope("linia", e.target.value)}
-          >
-            <option value="">Selecciona…</option>
-            {arbre.map((ln) => (
-              <option key={ln.id} value={ln.id}>
-                {etiquetaLiniaNegoci(ln)}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {!nomesEmpresa && scope === "centre" && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={centreSelectId}>
-            Centre
-          </label>
-          <select
-            id={centreSelectId}
-            className={styles.select}
-            value={id ?? ""}
-            onChange={(e) => goScope("centre", e.target.value)}
-          >
-            <option value="">Selecciona…</option>
-            {arbre.map((ln) => (
-              <optgroup key={ln.id} label={etiquetaLiniaNegoci(ln)}>
-                {ln.centres.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {etiquetaCentre(c)}
+    <ConsultaToolbar
+      dates={
+        <>
+          {granularitat === "mes" ? (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor={monthSelectId}>
+                {FILTRE.mes}
+              </label>
+              <select
+                id={monthSelectId}
+                className={styles.select}
+                style={{ minWidth: 140 }}
+                value={mes}
+                onChange={(e) => router.push(buildUrl({ mes: Number(e.target.value) }))}
+              >
+                {MESOS_LLARGS.map((m, i) => (
+                  <option key={`${i + 1}-${m}`} value={i + 1}>
+                    {m}
                   </option>
                 ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-      )}
-
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={granularitySelectId}>
-          Granularitat
-        </label>
-        <select
-          id={granularitySelectId}
-          className={styles.select}
-          value={granularitat}
-          onChange={(e) => router.push(buildUrl({ g: e.target.value }))}
-        >
-          <option value="anual">Anual (acumulat per any)</option>
-          <option value="mensual">Període (comparació entre anys)</option>
-          <option value="mes">Un mes (entre anys)</option>
-        </select>
-      </div>
-
-      {granularitat === "mensual" && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={monthsButtonId}>
-            Mesos a comparar
-          </label>
-          <div className={styles.multiSelect} ref={mesosRef}>
-            <button
-              id={monthsButtonId}
-              type="button"
-              className={styles.multiTrigger}
-              onClick={() => setMesosOpen((v) => !v)}
-            >
-              <span
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: "0.5rem",
-                }}
-              >
-                <span>{mesosLabel}</span>
-                <ChevronDown size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
-              </span>
-            </button>
-            {mesosOpen && (
-              <div className={styles.multiPanel}>
-                <div className={styles.multiActions}>
-                  <button
-                    type="button"
-                    className={styles.multiActionBtn}
-                    onClick={() =>
-                      router.push(buildUrl({ mesos: Array.from({ length: 12 }, (_, i) => i + 1) }))
-                    }
-                  >
-                    Tots
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.multiActionBtn}
-                    onClick={() => {
-                      const ara = new Date().getMonth() + 1;
-                      router.push(
-                        buildUrl({ mesos: Array.from({ length: ara }, (_, i) => i + 1) })
-                      );
+              </select>
+            </div>
+          ) : null}
+          {granularitat === "mensual" ? (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor={monthsButtonId}>
+                {FILTRE.mesosComparar}
+              </label>
+              <div className={styles.multiSelect} ref={mesosRef}>
+                <button
+                  id={monthsButtonId}
+                  type="button"
+                  className={styles.multiTrigger}
+                  onClick={() => setMesosOpen((v) => !v)}
+                >
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      gap: "0.5rem",
                     }}
                   >
-                    Gen–{MESOS_CURTS[new Date().getMonth()]}
-                  </button>
-                </div>
-                {MESOS_LLARGS.map((nom, i) => {
-                  const num = i + 1;
-                  return (
-                    <label key={num} className={styles.multiOption}>
-                      <input
-                        type="checkbox"
-                        checked={mesosSeleccionats.includes(num)}
-                        onChange={() => toggleMes(num)}
-                      />
-                      <span>{nom}</span>
-                    </label>
-                  );
-                })}
+                    <span>{mesosLabel}</span>
+                    <ChevronDown size={14} style={{ flexShrink: 0, opacity: 0.6 }} />
+                  </span>
+                </button>
+                {mesosOpen && (
+                  <div className={styles.multiPanel}>
+                    <div className={styles.multiActions}>
+                      <button
+                        type="button"
+                        className={styles.multiActionBtn}
+                        onClick={() =>
+                          router.push(
+                            buildUrl({ mesos: Array.from({ length: 12 }, (_, i) => i + 1) })
+                          )
+                        }
+                      >
+                        Tots
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.multiActionBtn}
+                        onClick={() => {
+                          const ara = new Date().getMonth() + 1;
+                          router.push(
+                            buildUrl({ mesos: Array.from({ length: ara }, (_, i) => i + 1) })
+                          );
+                        }}
+                      >
+                        Gen–{MESOS_CURTS[new Date().getMonth()]}
+                      </button>
+                    </div>
+                    {MESOS_LLARGS.map((nom, i) => {
+                      const num = i + 1;
+                      return (
+                        <label key={num} className={styles.multiOption}>
+                          <input
+                            type="checkbox"
+                            checked={mesosSeleccionats.includes(num)}
+                            onChange={() => toggleMes(num)}
+                          />
+                          <span>{nom}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+          ) : null}
+        </>
+      }
+      camps={
+        <>
+          {!nomesEmpresa ? (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor={scopeSelectId}>
+                {FILTRE.ambit}
+              </label>
+              <select
+                id={scopeSelectId}
+                className={styles.select}
+                value={scope}
+                onChange={(e) => goScope(e.target.value, "")}
+              >
+                <option value="centre">{FILTRE.centre}</option>
+                <option value="empresa">Empresa</option>
+                <option value="linia">{FILTRE.linia}</option>
+              </select>
+            </div>
+          ) : null}
+          {!nomesEmpresa && scope === "linia" ? (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor={lineSelectId}>
+                {FILTRE.linia}
+              </label>
+              <select
+                id={lineSelectId}
+                className={styles.select}
+                value={id ?? ""}
+                onChange={(e) => goScope("linia", e.target.value)}
+              >
+                <option value="">Selecciona…</option>
+                {arbre.map((ln) => (
+                  <option key={ln.id} value={ln.id}>
+                    {etiquetaLiniaNegoci(ln)}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          {!nomesEmpresa && scope === "centre" ? (
+            <div className={styles.field}>
+              <label className={styles.fieldLabel} htmlFor={centreSelectId}>
+                {FILTRE.centre}
+              </label>
+              <select
+                id={centreSelectId}
+                className={styles.select}
+                value={id ?? ""}
+                onChange={(e) => goScope("centre", e.target.value)}
+              >
+                <option value="">Selecciona…</option>
+                {arbre.map((ln) => (
+                  <optgroup key={ln.id} label={etiquetaLiniaNegoci(ln)}>
+                    {ln.centres.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {etiquetaCentre(c)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          ) : null}
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor={granularitySelectId}>
+              {FILTRE.granularitat}
+            </label>
+            <select
+              id={granularitySelectId}
+              className={styles.select}
+              value={granularitat}
+              onChange={(e) => router.push(buildUrl({ g: e.target.value }))}
+            >
+              <option value="anual">Anual</option>
+              <option value="mensual">Període</option>
+              <option value="mes">Un mes</option>
+            </select>
           </div>
-        </div>
-      )}
-
-      {granularitat === "mes" && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={monthSelectId}>
-            Mes
-          </label>
-          <select
-            id={monthSelectId}
-            className={styles.select}
-            style={{ minWidth: 140 }}
-            value={mes}
-            onChange={(e) => router.push(buildUrl({ mes: Number(e.target.value) }))}
-          >
-            {MESOS_LLARGS.map((m, i) => (
-              <option key={`${i + 1}-${m}`} value={i + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-    </div>
+        </>
+      }
+    />
   );
 }

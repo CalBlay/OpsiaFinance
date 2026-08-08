@@ -1,10 +1,13 @@
 "use client";
 
+import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import { ConsultaVistaSelect } from "@/components/consultes/ConsultaVistaSelect";
 import { PeriodRangSelectors } from "@/components/consultes/PeriodRangSelectors";
+import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
-import type { VistaCompte } from "@/lib/consultes";
 import { type GrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { type RangMesos, rangToQuery } from "@/lib/periodes";
+import type { VistaCompte } from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -14,12 +17,14 @@ export function EmpresaSelectors({
   rang,
   vista,
   grup,
+  onVistaLocal,
 }: {
   anys: number[];
   any: number;
   rang: RangMesos;
   vista: VistaCompte;
   grup: GrupEmpresa;
+  onVistaLocal?: (vista: VistaCompte) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -37,7 +42,7 @@ export function EmpresaSelectors({
     setLocalVista(vista);
   }, [any, rang, vista]);
 
-  const go = (nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
+  const goServer = (nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
     const vistaEfectiva = mostraVistaGestio ? nextVista : "directe";
     setLocalAny(nextAny);
     setLocalRang(nextRang);
@@ -50,56 +55,59 @@ export function EmpresaSelectors({
     });
   };
 
+  const goVista = (nextVista: VistaCompte) => {
+    const vistaEfectiva = mostraVistaGestio ? nextVista : "directe";
+    setLocalVista(vistaEfectiva);
+    if (onVistaLocal) {
+      onVistaLocal(vistaEfectiva);
+      return;
+    }
+    goServer(localAny, localRang, vistaEfectiva);
+  };
+
   return (
-    <div
-      className={styles.selectors}
-      data-pending={isPending ? "true" : undefined}
-      aria-busy={isPending}
-    >
-      <div className={styles.field}>
-        <label className={styles.fieldLabel} htmlFor={yearSelectId}>
-          Any
-        </label>
-        <select
-          id={yearSelectId}
-          className={styles.select}
-          style={{ minWidth: 100 }}
-          value={localAny}
-          disabled={isPending}
-          onChange={(e) => go(Number(e.target.value), localRang, localVista)}
-        >
-          {anys.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-      </div>
-      <PeriodRangSelectors
-        rang={localRang}
-        anyActual={localAny}
-        disabled={isPending}
-        onChange={(next) => go(localAny, next, localVista)}
-      />
-      {mostraVistaGestio && (
-        <div className={styles.field}>
-          <label className={styles.fieldLabel} htmlFor={viewSelectId}>
-            Vista
-          </label>
-          <select
-            id={viewSelectId}
-            className={styles.select}
-            style={{ minWidth: 160 }}
-            value={localVista}
+    <ConsultaToolbar
+      pending={isPending}
+      dates={
+        <>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor={yearSelectId}>
+              {FILTRE.any}
+            </label>
+            <select
+              id={yearSelectId}
+              className={styles.select}
+              style={{ minWidth: 100 }}
+              value={localAny}
+              disabled={isPending}
+              onChange={(e) => goServer(Number(e.target.value), localRang, localVista)}
+            >
+              {anys.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+          <PeriodRangSelectors
+            rang={localRang}
+            anyActual={localAny}
             disabled={isPending}
-            onChange={(e) => go(localAny, localRang, e.target.value as VistaCompte)}
-          >
-            <option value="directe">Directe</option>
-            <option value="gestio">Gestió</option>
-          </select>
-          {isPending && <span className={styles.filterPending}>Actualitzant…</span>}
-        </div>
-      )}
-    </div>
+            onChange={(next) => goServer(localAny, next, localVista)}
+          />
+        </>
+      }
+      vista={
+        mostraVistaGestio ? (
+          <ConsultaVistaSelect
+            id={viewSelectId}
+            value={localVista}
+            disabled={isPending && !onVistaLocal}
+            pendingHint={isPending && !onVistaLocal}
+            onChange={goVista}
+          />
+        ) : null
+      }
+    />
   );
 }

@@ -33,7 +33,7 @@ export function TraspassPersonalSettingsPanel({
 }) {
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; missatge: string } | null>(null);
-  const [tarifaTxt, setTarifaTxt] = useState(String(tarifaHora));
+  const [tarifaTxt, setTarifaTxt] = useState(Number(tarifaHora).toFixed(2).replace(".", ","));
   const [editId, setEditId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [editCentreId, setEditCentreId] = useState("");
@@ -79,14 +79,18 @@ export function TraspassPersonalSettingsPanel({
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>Tarifa hora</h2>
         <p className={styles.helpText}>
-          Cost per hora per calcular els traspassos quan l&apos;excel no porta cost directe.
+          Cost per hora (amb decimals, p. ex. 14,50) per calcular els traspassos quan l&apos;excel
+          no porta cost directe. En desar podràs aplicar-la a tots els fitxers ja carregats o només
+          als nous.
         </p>
         <div className={styles.inlineForm}>
           <input
             className={styles.input}
+            inputMode="decimal"
             value={tarifaTxt}
             disabled={!canEdit || pending}
             onChange={(e) => setTarifaTxt(e.target.value)}
+            aria-label="Tarifa hora amb decimals"
           />
           <span className={styles.muted}>€/h</span>
           {canEdit && (
@@ -95,8 +99,26 @@ export function TraspassPersonalSettingsPanel({
               disabled={pending}
               onClick={() =>
                 startTransition(async () => {
-                  const v = Number(tarifaTxt.replace(",", "."));
-                  notify(await updateTarifaHoraAction(v));
+                  const v = Number(tarifaTxt.replace(/\s/g, "").replace(",", "."));
+                  if (!Number.isFinite(v) || v <= 0) {
+                    notify({
+                      ok: false,
+                      missatge: "Tarifa no vàlida (accepta decimals, p. ex. 14,5).",
+                    });
+                    return;
+                  }
+                  const tarifaFmt = v.toFixed(2).replace(".", ",");
+                  if (!window.confirm(`Vols desar la tarifa ${tarifaFmt} €/h?`)) return;
+
+                  const aplicarA = window.confirm(
+                    `Vols aplicar ${tarifaFmt} €/h a TOTS els fitxers ja carregats?\n\nD'acord = sí, recalcular tots els moviments.\nCancel·lar = només als nous imports a partir d'ara.`
+                  )
+                    ? "tots"
+                    : "nous";
+
+                  const r = await updateTarifaHoraAction(v, aplicarA);
+                  notify(r);
+                  if (r.ok) setTarifaTxt(tarifaFmt);
                 })
               }
             >
@@ -133,8 +155,8 @@ export function TraspassPersonalSettingsPanel({
       <section className={styles.card}>
         <h2 className={styles.cardTitle}>Mapeig text → centre + departament</h2>
         <p className={styles.helpText}>
-          Cada text de l&apos;excel d&apos;hores es resol contra aquesta taula. El departament
-          (Sala/Cuina) és la font de veritat per traspassos, fora centre i consultes.
+          Coincideix el text sencer o la part abans de la coma (p. ex. mapeig «Orígens cuina» resol
+          «Orígens cuina, Responsable…»). El departament ve del mapeig d&apos;origen.
         </p>
         <table className={styles.table}>
           <thead>

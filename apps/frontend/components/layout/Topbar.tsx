@@ -1,14 +1,17 @@
-import { auth } from "@/lib/auth";
-import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import type { GrupEmpresa } from "@/lib/grups-empresa";
+import type { UserRole } from "@/types";
 import Link from "next/link";
 import { GrupEmpresaSelector } from "./GrupEmpresaSelector";
 import styles from "./Topbar.module.css";
 import { UserMenu } from "./UserMenu";
 
-export async function Topbar() {
-  const [session, grup] = await Promise.all([auth(), getGrupEmpresaActual()]);
-  const user = session?.user;
+interface TopbarProps {
+  user: { name: string; role: UserRole } | null;
+  grup: GrupEmpresa;
+}
 
+/** Topbar síncron: sessió i grup venen de l'AppShell (un sol await). */
+export function Topbar({ user, grup }: TopbarProps) {
   return (
     <header className={styles.topbar}>
       <GrupEmpresaSelector value={grup} />
@@ -18,9 +21,7 @@ export async function Topbar() {
         <span className={styles.brandFinance}>Finance</span>
       </Link>
 
-      <div className={styles.actions}>
-        {user && <UserMenu name={user.name ?? "Usuari"} role={user.role} />}
-      </div>
+      <div className={styles.actions}>{user && <UserMenu name={user.name} role={user.role} />}</div>
     </header>
   );
 }

@@ -28,8 +28,14 @@
   color: var(--opsia-ink-soft);
   font-size: var(--opsia-font-size-sm);
   font-weight: 500;
-  transition: background var(--opsia-transition-fast), color var(--opsia-transition-fast);
+  transition: background var(--opsia-transition-fast), color var(--opsia-transition-fast), opacity
+    var(--opsia-transition-fast);
   cursor: pointer;
+}
+
+.navItem:has([data-link-pending]) {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .navItem:hover {

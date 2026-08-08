@@ -805,9 +805,11 @@ async function carregaArticles(
 export async function getInformeVendesRestaurant(
   centreId: string,
   any: number,
-  mes: number
+  mes: number,
+  opts?: { totalsOnly?: boolean }
 ): Promise<InformeVendesRestaurant> {
   const anual = mes <= 0;
+  const totalsOnly = opts?.totalsOnly === true;
   const prev = mesAnterior(any, mes);
   const anyAnt = any - 1;
 
@@ -837,36 +839,56 @@ export async function getInformeVendesRestaurant(
     ? [...new Set(diaries.map((d) => d.period.mes))].sort((a, b) => a - b)
     : [];
 
-  const [diariesAnt, plMap, prod, prodAnt, packs, packsAnt] = await Promise.all([
-    db.vendaDiariaRestaurant.findMany({
-      where: {
-        centreId,
-        period: anual
-          ? mesosYtd.length
-            ? { any: anyAnt, mes: { in: mesosYtd } }
-            : { any: anyAnt }
-          : { any: prev.any, mes: prev.mes },
-      },
-      select: { base: true },
-    }),
-    getVendesPlPerCentres([centreId], any, anual ? null : mes, anual ? mesosYtd : undefined),
-    carregaArticles(centreId, any, anual ? null : mes, "DETALL"),
-    carregaArticles(
-      centreId,
-      anual ? anyAnt : prev.any,
-      anual ? null : prev.mes,
-      "DETALL",
-      anual ? mesosYtd : undefined
-    ),
-    carregaArticles(centreId, any, anual ? null : mes, "PACK"),
-    carregaArticles(
-      centreId,
-      anual ? anyAnt : prev.any,
-      anual ? null : prev.mes,
-      "PACK",
-      anual ? mesosYtd : undefined
-    ),
-  ]);
+  const emptyArts: Awaited<ReturnType<typeof carregaArticles>> = [];
+  const [diariesAnt, plMap, prod, prodAnt, packs, packsAnt] = totalsOnly
+    ? await Promise.all([
+        db.vendaDiariaRestaurant.findMany({
+          where: {
+            centreId,
+            period: anual
+              ? mesosYtd.length
+                ? { any: anyAnt, mes: { in: mesosYtd } }
+                : { any: anyAnt }
+              : { any: prev.any, mes: prev.mes },
+          },
+          select: { base: true },
+        }),
+        getVendesPlPerCentres([centreId], any, anual ? null : mes, anual ? mesosYtd : undefined),
+        Promise.resolve(emptyArts),
+        Promise.resolve(emptyArts),
+        Promise.resolve(emptyArts),
+        Promise.resolve(emptyArts),
+      ])
+    : await Promise.all([
+        db.vendaDiariaRestaurant.findMany({
+          where: {
+            centreId,
+            period: anual
+              ? mesosYtd.length
+                ? { any: anyAnt, mes: { in: mesosYtd } }
+                : { any: anyAnt }
+              : { any: prev.any, mes: prev.mes },
+          },
+          select: { base: true },
+        }),
+        getVendesPlPerCentres([centreId], any, anual ? null : mes, anual ? mesosYtd : undefined),
+        carregaArticles(centreId, any, anual ? null : mes, "DETALL"),
+        carregaArticles(
+          centreId,
+          anual ? anyAnt : prev.any,
+          anual ? null : prev.mes,
+          "DETALL",
+          anual ? mesosYtd : undefined
+        ),
+        carregaArticles(centreId, any, anual ? null : mes, "PACK"),
+        carregaArticles(
+          centreId,
+          anual ? anyAnt : prev.any,
+          anual ? null : prev.mes,
+          "PACK",
+          anual ? mesosYtd : undefined
+        ),
+      ]);
 
   const centreInfo: CentreRestOpt = centre
     ? {
@@ -926,16 +948,17 @@ export async function getInformeVendesRestaurant(
   const unitats = diaries.reduce((s, d) => s + Number(d.unitats), 0);
   const baseAnt = diariesAnt.length ? diariesAnt.reduce((s, d) => s + Number(d.base), 0) : null;
   const vendesPl = plMap.get(centreId) ?? 0;
-  const packsMenus = packs.filter((r) => esSubfamiliaMenus(r.subfamilia));
-  const packsMenusAnt = packsAnt.filter((r) => esSubfamiliaMenus(r.subfamilia));
+  const emptyRank = emptyRankingsCategoria();
+  const packsMenus = totalsOnly ? [] : packs.filter((r) => esSubfamiliaMenus(r.subfamilia));
+  const packsMenusAnt = totalsOnly ? [] : packsAnt.filter((r) => esSubfamiliaMenus(r.subfamilia));
   // Menús (Pack) entren al rànquing de menjar — mateix gra comercial per al comitè
   const menusComMenjar = packsMenus.map((r) => ({ ...r, categoria: "MENJAR" as const }));
   const menusComMenjarAnt = packsMenusAnt.map((r) => ({
     ...r,
     categoria: "MENJAR" as const,
   }));
-  const productesRows = [...prod, ...menusComMenjar];
-  const productesRowsAnt = [...prodAnt, ...menusComMenjarAnt];
+  const productesRows = totalsOnly ? [] : [...prod, ...menusComMenjar];
+  const productesRowsAnt = totalsOnly ? [] : [...prodAnt, ...menusComMenjarAnt];
   const familiesRows = agregaPerClau(productesRows, (r) => r.familia);
   const familiesRowsAnt = agregaPerClau(productesRowsAnt, (r) => r.familia);
   const subfamiliesRows = agregaPerClau(productesRows, (r) => r.subfamilia);
@@ -960,12 +983,12 @@ export async function getInformeVendesRestaurant(
     dies,
     evolucioMesos: anual ? evolucioMesos : [],
     formesPagament,
-    productes: rankingsCategoria(productesRows, productesRowsAnt),
-    families: rankingsCategoria(familiesRows, familiesRowsAnt),
-    subfamilies: rankingsCategoria(subfamiliesRows, subfamiliesRowsAnt),
-    teFamilies: familiesRows.length > 0,
-    teSubfamilies: subfamiliesRows.length > 0,
-    packs: rankingsCategoria(packsMenus, packsMenusAnt),
+    productes: totalsOnly ? emptyRank : rankingsCategoria(productesRows, productesRowsAnt),
+    families: totalsOnly ? emptyRank : rankingsCategoria(familiesRows, familiesRowsAnt),
+    subfamilies: totalsOnly ? emptyRank : rankingsCategoria(subfamiliesRows, subfamiliesRowsAnt),
+    teFamilies: !totalsOnly && familiesRows.length > 0,
+    teSubfamilies: !totalsOnly && subfamiliesRows.length > 0,
+    packs: totalsOnly ? emptyRank : rankingsCategoria(packsMenus, packsMenusAnt),
     buit,
   };
 }

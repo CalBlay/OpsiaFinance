@@ -15,6 +15,7 @@ export type ForaCentreDetallContext = {
   mes: number | null;
   departament?: "SALA" | "CUINA" | null;
   cellValue?: number;
+  compte?: "directe" | "gestio";
 };
 
 export function ForaCentreDetallModal({
@@ -24,6 +25,7 @@ export function ForaCentreDetallModal({
   context: ForaCentreDetallContext;
   onClose: () => void;
 }) {
+  const compte = context.compte ?? "directe";
   const [data, setData] = useState<ForaCentreDetallResultat | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -34,10 +36,11 @@ export function ForaCentreDetallModal({
         any: context.any,
         mes: context.mes,
         departament: context.departament ?? null,
+        compte,
       });
       setData(r);
     });
-  }, [context]);
+  }, [context, compte]);
 
   const periode =
     context.mes != null
@@ -49,6 +52,18 @@ export function ForaCentreDetallModal({
       : context.departament === "CUINA"
         ? "Cuina"
         : "Sala + Cuina";
+
+  const titol =
+    compte === "gestio"
+      ? `Fora centre · traspassos · ${context.centreLabel}`
+      : `Fora centre · Excel · ${context.centreLabel}`;
+
+  const fontLabel =
+    compte === "gestio"
+      ? data?.teTraspassConfirmat
+        ? " · Font: traspassos confirmats (+destí −origen)"
+        : " · Sense traspass confirmat"
+      : " · Font: Excel cost salarial";
 
   return (
     <div
@@ -71,12 +86,10 @@ export function ForaCentreDetallModal({
       >
         <header className={styles.header}>
           <div>
-            <h2 className={styles.title}>Fora centre · {context.centreLabel}</h2>
+            <h2 className={styles.title}>{titol}</h2>
             <p className={styles.subtitle}>
               {periode} · {deptLabel}
-              {data?.teTraspassConfirmat
-                ? " · Font: traspassos confirmats"
-                : " · Font: Excel cost salarial (sense traspass confirmat)"}
+              {fontLabel}
             </p>
           </div>
           <button type="button" className={styles.closeBtn} onClick={onClose} aria-label="Tancar">
@@ -90,14 +103,19 @@ export function ForaCentreDetallModal({
           ) : !data ? (
             <p className={styles.empty}>No s&apos;ha pogut carregar el detall.</p>
           ) : data.linies.length === 0 ? (
-            <p className={styles.empty}>Sense moviments de fora centre en aquest període.</p>
+            <p className={styles.empty}>
+              {compte === "gestio"
+                ? "Sense traspassos confirmats en aquest període."
+                : "Sense valor de Fora centre a l'Excel en aquest període."}
+            </p>
           ) : (
             <>
               <table className={styles.table}>
                 <thead>
                   <tr>
                     <th>Mes</th>
-                    <th>Origen</th>
+                    {compte === "gestio" ? <th>Rol</th> : null}
+                    <th>{compte === "gestio" ? "Centre" : "Concepte"}</th>
                     <th>Dept.</th>
                     <th className={styles.num}>Minuts</th>
                     <th className={styles.num}>Hores</th>
@@ -106,36 +124,59 @@ export function ForaCentreDetallModal({
                   </tr>
                 </thead>
                 <tbody>
-                  {data.linies.map((l, i) => (
-                    <tr key={`${l.mes}-${l.origenCodi}-${l.departament}-${i}`}>
-                      <td>{MESOS_LLARGS[l.mes - 1] ?? l.periodNom}</td>
-                      <td>
-                        {l.origenCodi === "—" ? l.origenNom : `${l.origenCodi} · ${l.origenNom}`}
-                      </td>
-                      <td>{l.departament === "CUINA" ? "Cuina" : "Sala"}</td>
-                      <td className={styles.num}>
-                        {l.font === "traspass" ? formatNum(l.minuts) : "—"}
-                      </td>
-                      <td className={styles.num}>
-                        {l.font === "traspass" ? formatNum(l.hores) : "—"}
-                      </td>
-                      <td className={styles.num}>{formatNum(l.import_)}</td>
-                      <td>{l.font === "traspass" ? "Traspass" : "Excel"}</td>
-                    </tr>
-                  ))}
+                  {data.linies.map((l, i) => {
+                    const aquestEsOrigen = l.origenCodi === data.centreCodi;
+                    const centreCell =
+                      compte === "directe"
+                        ? l.origenCodi === "—"
+                          ? l.origenNom
+                          : `${l.origenCodi} · ${l.origenNom}`
+                        : aquestEsOrigen
+                          ? l.destiCodi === "—"
+                            ? l.destiNom
+                            : `${l.destiCodi} · ${l.destiNom}`
+                          : l.origenCodi === "—"
+                            ? l.origenNom
+                            : `${l.origenCodi} · ${l.origenNom}`;
+                    const rolLabel =
+                      l.rol === "origen" ? "Origen (−)" : l.rol === "desti" ? "Destí (+)" : "—";
+                    return (
+                      <tr
+                        key={`${l.mes}-${l.rol}-${l.origenCodi}-${l.destiCodi}-${l.departament}-${i}`}
+                      >
+                        <td>{MESOS_LLARGS[l.mes - 1] ?? l.periodNom}</td>
+                        {compte === "gestio" ? <td>{rolLabel}</td> : null}
+                        <td>{centreCell}</td>
+                        <td>{l.departament === "CUINA" ? "Cuina" : "Sala"}</td>
+                        <td className={styles.num}>
+                          {l.font === "traspass" ? formatNum(l.minuts) : "—"}
+                        </td>
+                        <td className={styles.num}>
+                          {l.font === "traspass" ? formatNum(l.hores) : "—"}
+                        </td>
+                        <td className={styles.num}>{formatNum(l.import_)}</td>
+                        <td>{l.font === "traspass" ? "Traspass" : "Excel"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={5}>Total</td>
+                    <td colSpan={compte === "gestio" ? 6 : 5}>Total</td>
                     <td className={styles.num}>{formatNum(data.total)}</td>
                     <td />
                   </tr>
                 </tfoot>
               </table>
-              {!data.teTraspassConfirmat && (
+              {compte === "gestio" ? (
                 <p className={styles.hint}>
-                  Confirma els traspassos a Dades → Traspassos personal perquè Fora centre es
-                  substitueixi amb els imports d&apos;entrada (treballadors d&apos;altres centres).
+                  Gestió: suma les hores d&apos;entrada (destí, +) i resta les de sortida (origen,
+                  −). Clica per veure cada moviment. Cal traspass confirmat a Dades → Traspassos
+                  personal.
+                </p>
+              ) : (
+                <p className={styles.hint}>
+                  Directe: valor del camp Fora centre de l&apos;Excel de cost salarial.
                 </p>
               )}
             </>

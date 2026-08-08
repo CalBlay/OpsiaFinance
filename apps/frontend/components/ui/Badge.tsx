@@ -8,8 +8,8 @@ type BadgeVariant = "default" | "success" | "warning" | "destructive" | "seconda
 
 const BADGE_STYLES: Record<BadgeVariant, string> = {
   default: "bg-secondary text-secondary-foreground",
-  success: "bg-green-100 text-green-800",
-  warning: "bg-amber-100 text-amber-800",
+  success: "bg-[var(--opsia-green-100)] text-[var(--opsia-green-800)]",
+  warning: "bg-[var(--opsia-yellow-100)] text-[var(--opsia-yellow-800)]",
   destructive: "bg-red-100 text-red-800",
   secondary: "bg-gray-100 text-gray-700 border border-gray-300",
   outline: "bg-transparent text-foreground border border-border",

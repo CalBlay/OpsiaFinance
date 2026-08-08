@@ -1,6 +1,8 @@
+import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { etiquetaCentre } from "@/lib/consultes-etiquetes";
+import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
 import {
   PARTIDES_SALARIALS,
   getAnysCostSalarial,
@@ -16,7 +18,7 @@ import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { grupFiltraRestaurantsNomesMirall } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { formatNum } from "@/lib/utils";
-import { CostSalarialPresentacio } from "./CostSalarialPresentacio";
+import { CostSalarialPresentacio } from "../presenters-dynamic";
 import { CostSalarialSelectors } from "./CostSalarialSelectors";
 import { DetallNumericCollapsible } from "./DetallNumericCollapsible";
 import { DetallNumericRestaurantTable } from "./DetallNumericRestaurantTable";
@@ -24,6 +26,8 @@ import local from "./page.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Cost salarial restaurants — OpsiaFinance" };
+
+type AmbitCost = "comparativa" | "restaurant" | "sala-cuina";
 
 function pctLabel(pct: number | null): string {
   if (pct == null) return "–";
@@ -35,10 +39,33 @@ function periodeLabel(any: number, mes: number | null): string {
   return `${MESOS_LLARGS[mes - 1]} ${any}`;
 }
 
+function parseAmbit(sp: { ambit?: string; vista?: string }): AmbitCost {
+  if (sp.ambit === "restaurant" || sp.ambit === "sala-cuina" || sp.ambit === "comparativa") {
+    return sp.ambit;
+  }
+  // Compat URLs antigues (?vista=restaurant)
+  if (sp.vista === "restaurant" || sp.vista === "sala-cuina" || sp.vista === "comparativa") {
+    return sp.vista;
+  }
+  return "comparativa";
+}
+
+function parseVistaCompte(sp: { vista?: string; compte?: string }): CompteCostSalarial {
+  if (sp.vista === "gestio" || sp.compte === "gestio") return "gestio";
+  return "directe";
+}
+
 export default async function ConsultaCostSalarialPage({
   searchParams,
 }: {
-  searchParams: Promise<{ any?: string; mes?: string; centre?: string; vista?: string }>;
+  searchParams: Promise<{
+    any?: string;
+    mes?: string;
+    centre?: string;
+    vista?: string;
+    ambit?: string;
+    compte?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const grup = await getGrupEmpresaActual();
@@ -55,7 +82,6 @@ export default async function ConsultaCostSalarialPage({
       ? anyCalendari
       : (anysCost[0] ?? anyCalendari);
   const anys = anysCost.length ? anysCost : [anyActual];
-  // Sense ?mes= → acumulat de tot l'any (visió general de la línia).
   const mes = sp.mes ? Number(sp.mes) : null;
   const centreId =
     sp.centre && centres.some((c) => c.id === sp.centre)
@@ -63,28 +89,25 @@ export default async function ConsultaCostSalarialPage({
       : nomesMirall
         ? (centres[0]?.id ?? null)
         : (sp.centre ?? null);
-  const vista: "comparativa" | "restaurant" | "sala-cuina" = nomesMirall
-    ? centreId
-      ? sp.vista === "sala-cuina"
-        ? "sala-cuina"
-        : "restaurant"
-      : "comparativa"
-    : sp.vista === "restaurant" || sp.vista === "sala-cuina"
-      ? sp.vista
-      : "comparativa";
+
+  const vista = parseVistaCompte(sp);
+  let ambit = parseAmbit(sp);
+  if (nomesMirall) {
+    ambit = centreId ? (ambit === "sala-cuina" ? "sala-cuina" : "restaurant") : "comparativa";
+  }
 
   const periode = periodeLabel(anyActual, mes);
+  const vistaLabel = vista === "gestio" ? "Gestió (traspassos)" : "Directe (Excel)";
 
   const [comparativa, informe] = await Promise.all([
-    vista === "comparativa" || !centreId
-      ? getComparativaRestaurants(anyActual, mes)
+    ambit === "comparativa" || !centreId
+      ? getComparativaRestaurants(anyActual, mes, vista)
       : Promise.resolve(null),
-    centreId && (vista === "restaurant" || vista === "sala-cuina")
-      ? getInformeRestaurant(centreId, anyActual, mes)
+    centreId && (ambit === "restaurant" || ambit === "sala-cuina")
+      ? getInformeRestaurant(centreId, anyActual, mes, vista)
       : Promise.resolve(null),
   ]);
 
-  // Amb FDLC (només CCR00008), la comparativa multi-centre no té sentit: filtrar files.
   const comparativaFiltrada =
     comparativa && nomesMirall
       ? {
@@ -94,7 +117,7 @@ export default async function ConsultaCostSalarialPage({
       : comparativa;
 
   const exportInforme =
-    (vista === "comparativa" || !centreId) && comparativaFiltrada && !comparativaFiltrada.buit
+    (ambit === "comparativa" || !centreId) && comparativaFiltrada && !comparativaFiltrada.buit
       ? costComparativaToExportInforme(comparativaFiltrada, { periode })
       : informe && !informe.buit
         ? costInformeToExportInforme(informe, { periode })
@@ -102,28 +125,26 @@ export default async function ConsultaCostSalarialPage({
 
   return (
     <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <div>
-          <h1 className={styles.title}>Cost salarial · restaurants</h1>
-          <p className={styles.subtitle}>
-            Vista per comité: targetes amb imports clars i un gràfic per pregunta (sense repetir la
-            mateixa informació). Detall numèric a sota, opcional.
-          </p>
-        </div>
-        <div className={styles.headerActions}>
-          <CostSalarialSelectors
-            centres={centres}
-            anys={anys}
-            any={anyActual}
-            mes={mes}
-            centreId={centreId}
-            vista={vista}
-          />
-          <ExportInformeButton informe={exportInforme} />
-        </div>
-      </div>
+      <ConsultaHeader
+        title="Cost salarial · restaurants"
+        subtitle={`${vistaLabel} · Fora centre: Excel o net +destí −origen. Clica la partida per al detall.`}
+        actions={
+          <>
+            <CostSalarialSelectors
+              centres={centres}
+              anys={anys}
+              any={anyActual}
+              mes={mes}
+              centreId={centreId}
+              ambit={ambit}
+              vista={vista}
+            />
+            <ExportInformeButton informe={exportInforme} />
+          </>
+        }
+      />
 
-      {vista === "comparativa" || !centreId ? (
+      {ambit === "comparativa" || !centreId ? (
         !comparativa || comparativa.buit ? (
           <div className={styles.prompt}>
             <h3>Sense dades per {periode}</h3>
@@ -141,6 +162,7 @@ export default async function ConsultaCostSalarialPage({
                 costTotal: comparativa.totals.costTotal,
                 sala: comparativa.totals.sala,
                 cuina: comparativa.totals.cuina,
+                vendes: comparativa.totals.vendes,
                 pctSobreVendes: comparativa.totals.pctSobreVendes,
                 partides: PARTIDES_SALARIALS.map((p) => {
                   const import_ = comparativa.totals.partides[p.key];
@@ -150,6 +172,26 @@ export default async function ConsultaCostSalarialPage({
                     import_,
                     pct: comparativa.totals.costTotal
                       ? (import_ / comparativa.totals.costTotal) * 100
+                      : null,
+                  };
+                }),
+                partidesSala: PARTIDES_SALARIALS.map((p) => {
+                  const import_ = comparativa.totals.partidesSala[p.key];
+                  return {
+                    key: p.key,
+                    label: p.label,
+                    import_,
+                    pct: comparativa.totals.sala ? (import_ / comparativa.totals.sala) * 100 : null,
+                  };
+                }),
+                partidesCuina: PARTIDES_SALARIALS.map((p) => {
+                  const import_ = comparativa.totals.partidesCuina[p.key];
+                  return {
+                    key: p.key,
+                    label: p.label,
+                    import_,
+                    pct: comparativa.totals.cuina
+                      ? (import_ / comparativa.totals.cuina) * 100
                       : null,
                   };
                 }),
@@ -188,7 +230,7 @@ export default async function ConsultaCostSalarialPage({
                         <td>
                           <a
                             className={local.link}
-                            href={`/consultes/cost-salarial?vista=restaurant&centre=${f.centre.id}&any=${anyActual}${mes ? `&mes=${mes}` : ""}`}
+                            href={`/consultes/cost-salarial?ambit=restaurant&vista=${vista}&centre=${f.centre.id}&any=${anyActual}${mes ? `&mes=${mes}` : ""}`}
                           >
                             {etiquetaCentre(f.centre)}
                           </a>
@@ -238,11 +280,15 @@ export default async function ConsultaCostSalarialPage({
       ) : (
         <>
           <CostSalarialPresentacio
-            mode={vista}
-            vista={vista}
+            mode={ambit}
+            vista={ambit}
+            compte={vista}
             periode={periode}
             titol={informe.centre.etiqueta}
             subtitol={informe.centre.codi}
+            centreId={informe.centre.id}
+            any={anyActual}
+            mes={mes}
             costTotal={informe.costTotal}
             salaTotal={informe.sala.total}
             cuinaTotal={informe.cuina.total}
@@ -256,14 +302,15 @@ export default async function ConsultaCostSalarialPage({
           />
 
           <DetallNumericCollapsible
-            title={`Detall numèric · ${informe.centre.etiqueta}`}
-            caption="Partides del cost salarial. El pes % és sobre el total del restaurant. Clica Fora centre per veure el detall."
+            title={`Export / detall ampliat · ${informe.centre.etiqueta}`}
+            caption="La vista principal ja mostra el statement. Aquí pots revisar la mateixa taula per export o impressió."
           >
             <DetallNumericRestaurantTable
               centreId={informe.centre.id}
               centreLabel={informe.centre.etiqueta}
               any={anyActual}
               mes={mes}
+              compte={vista}
               partidesTotals={informe.partidesTotals}
               partidesSala={informe.sala.partides}
               partidesCuina={informe.cuina.partides}

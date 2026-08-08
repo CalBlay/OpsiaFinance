@@ -1,0 +1,80 @@
+/*
+ * Opsia Finance — Disseny de consultes (tipografia, superfícies, KPIs)
+ *
+ * Un sol ADN per a totes les pestanyes de consultes.
+ * Referència: Cost salarial · restaurants (capçalera teal, KPI ink/or, cards blanques).
+ *
+ * Ús: var(--opsia-cx-*) als CSS modules. No reinventar colors ni pesos.
+ */
+
+:root {
+  /* ─── Superfícies ──────────────────────────────────────────────────────── */
+  --opsia-cx-page-bg: var(--opsia-bg-app, #f5f3ee);
+  --opsia-cx-card-bg: #ffffff;
+  --opsia-cx-surface: var(--opsia-bg-app, #f5f3ee);
+  --opsia-cx-border: var(--opsia-line-soft, #d4dad7);
+  --opsia-cx-radius: 0.75rem;
+  --opsia-cx-radius-sm: 0.55rem;
+  --opsia-cx-radius-lg: 1rem;
+
+  /* ─── Text (mai #000) ──────────────────────────────────────────────────── */
+  --opsia-cx-ink: var(--opsia-ink-strong, #22313f);
+  --opsia-cx-ink-soft: var(--opsia-ink-soft, #5c6b73);
+  --opsia-cx-ink-muted: color-mix(in srgb, var(--opsia-ink-soft, #5c6b73) 72%, transparent);
+
+  /* ─── Títols de pàgina (teal marca) ────────────────────────────────────── */
+  --opsia-cx-page-title: var(--opsia-accent-primary, #2f6f6d);
+  --opsia-cx-page-title-size: 1.35rem;
+  --opsia-cx-page-title-weight: 700;
+  --opsia-cx-page-title-tracking: -0.02em;
+
+  --opsia-cx-subtitle: var(--opsia-cx-ink-soft);
+  --opsia-cx-subtitle-size: 0.85rem;
+
+  /* ─── Capçalera d’entitat (ex. CAMP NOU = estil “Opsia”) ───────────────── */
+  --opsia-cx-heading: var(--opsia-cx-ink-soft);
+  --opsia-cx-heading-size: clamp(1.2rem, 2.2vw, 1.5rem);
+  --opsia-cx-heading-weight: 500;
+  --opsia-cx-heading-tracking: -0.04em;
+
+  /* ─── Labels majúscules (VENDES, GENER 2026…) ──────────────────────────── */
+  --opsia-cx-label: var(--opsia-cx-ink-soft);
+  --opsia-cx-label-size: 0.66rem;
+  --opsia-cx-label-size-md: 0.72rem;
+  --opsia-cx-label-weight: 700;
+  --opsia-cx-label-tracking: 0.07em;
+
+  /* ─── Números KPI ──────────────────────────────────────────────────────── */
+  --opsia-cx-kpi: var(--opsia-cx-ink);
+  --opsia-cx-kpi-warm: var(--opsia-accent-warm, #c59b57);
+  --opsia-cx-kpi-warm-strong: var(--opsia-yellow-700, #866533);
+  --opsia-cx-kpi-size: clamp(1.15rem, 2.2vw, 1.45rem);
+  --opsia-cx-kpi-size-md: 1.45rem;
+  --opsia-cx-kpi-size-lg: clamp(1.55rem, 3vw, 2.1rem);
+  --opsia-cx-kpi-weight: 700; /* com “Finance” al logo; evitar 800 saturat */
+  --opsia-cx-kpi-tracking: -0.03em;
+
+  /* ─── Panels / seccions ────────────────────────────────────────────────── */
+  --opsia-cx-panel-title-size: 0.95rem;
+  --opsia-cx-panel-title-weight: 700;
+  --opsia-cx-panel-lead-size: 0.78rem;
+
+  /* ─── Filtres ──────────────────────────────────────────────────────────── */
+  --opsia-cx-field-label-size: 0.68rem;
+  --opsia-cx-select-radius: 0.5rem;
+  --opsia-cx-select-bg: var(--opsia-cx-card-bg);
+
+  /* ─── Accent cards (ratio / KPI destacats) ─────────────────────────────── */
+  --opsia-cx-accent-cost-border: color-mix(
+    in srgb,
+    var(--opsia-accent-warm, #c59b57) 45%,
+    var(--opsia-cx-border)
+  );
+  --opsia-cx-accent-cost-bg: color-mix(in srgb, var(--opsia-accent-warm, #c59b57) 8%, #fff);
+  --opsia-cx-accent-pct-border: color-mix(
+    in srgb,
+    var(--opsia-yellow-700, #866533) 35%,
+    var(--opsia-cx-border)
+  );
+  --opsia-cx-accent-pct-bg: color-mix(in srgb, var(--opsia-yellow-500, #c59b57) 10%, #fff);
+}

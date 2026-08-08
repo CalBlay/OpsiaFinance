@@ -1,27 +1,24 @@
+import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
-import { EvolucioChart, VendesPieChart } from "@/components/consultes/charts-dynamic";
+import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import {
   MESOS_CURTS,
   type VistaCompte,
-  esUnMes,
   etiquetaRangMesos,
   getAnysAmbDades,
   getArbreSeleccio,
-  getComparativaLn,
   getEvolucioMensual,
   parseRangMesosFromSearchParams,
   rangToQuery,
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
-import { etiquetaGrafic, indicesCentresOperatius, segmentsVendes } from "@/lib/consultes-grafics";
-import { aplicarBaseGestioPersonalEvolucioLn } from "@/lib/cost-personal-centre/gestio-consultes";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import {
@@ -29,12 +26,14 @@ import {
   exclouFdlcDeConsultaLinia,
   grupMostraConsultesLiniaCentre,
 } from "@/lib/grups-empresa";
-import { NODE_EBITDA, NODE_INGRESSOS, NODE_VENDES, buildKpisInforme } from "@/lib/kpi-definitions";
+import { NODE_EBITDA, NODE_INGRESSOS, buildKpisInforme } from "@/lib/kpi-definitions";
+import { OPSIA_CHART } from "@/lib/opsia-colors";
 import type { RangMesos } from "@/lib/periodes";
-import { COL_REPARTIMENT_ID, aplicarGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
+import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { redirect } from "next/navigation";
 import { ajustarImportConsultaAction } from "../actions";
+import { LiniaCentresLazy } from "./LiniaCentresLazy";
 import { LiniaSelectors } from "./LiniaSelectors";
 
 export const dynamic = "force-dynamic";
@@ -93,26 +92,25 @@ export default async function ConsultaLiniaPage({
     }
   }
 
-  const [comp, evRaw, infoGestio] = lnId
+  // Només evolució (+ gestió): el desglossament per centres es carrega sota demanda.
+  const [evRaw, infoGestio] = lnId
     ? await Promise.all([
-        getComparativaLn(lnId, anyActual, rang, vista),
         getEvolucioMensual("linia", lnId, anyActual),
         vista === "gestio" ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
       ])
-    : [null, null, null];
+    : [null, null];
 
   let ev = evRaw;
   if (ev && vista === "gestio" && lnId) {
-    // Personal = base Gestió (payroll+traspass); després repartiment.
-    let concepts = await aplicarBaseGestioPersonalEvolucioLn(lnId, anyActual, ev.concepts);
-    concepts = await aplicarGestioEvolucioLn(lnId, anyActual, concepts);
-    ev = { ...ev, concepts };
+    ev = {
+      ...ev,
+      concepts: await aplicarVistaGestioEvolucioLn(lnId, anyActual, ev.concepts),
+    };
   }
 
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
   const findEvRow = (node: number) => ev?.concepts.find((c) => c.node === node);
 
-  // KPI = total de la LN al període (suma dels mesos seleccionats)
   const valorKpi = (node: number) => {
     const row = findEvRow(node);
     if (!row) return 0;
@@ -132,76 +130,61 @@ export default async function ConsultaLiniaPage({
         {
           name: "Ingressos",
           type: "bar" as const,
-          color: "#0ea5e9",
+          color: OPSIA_CHART.ingressos,
           data: (findEvRow(NODE_INGRESSOS)?.valors ?? []).slice(rang.des - 1, rang.fins),
         },
         {
           name: "EBITDA",
           type: "line" as const,
-          color: "#16a34a",
+          color: OPSIA_CHART.ebitda,
           data: (findEvRow(NODE_EBITDA)?.valors ?? []).slice(rang.des - 1, rang.fins),
         },
       ]
     : [];
 
-  // Desglossament opcional per centres
-  const centres = comp?.centres ?? [];
-  const idxOperatius = indicesCentresOperatius(centres).filter(
-    (i) => centres[i]?.id !== COL_REPARTIMENT_ID
-  );
-  const findCentreRow = (node: number) => comp?.concepts.find((c) => c.node === node);
-  const columnsCentres: PivotColumn[] = centres.map((c) => ({
-    key: c.id,
-    label: c.codi,
-    sublabel: c.nom,
-  }));
-  const vendesPieSegments = comp
-    ? segmentsVendes(
-        centres.filter((_, i) => idxOperatius.includes(i)),
-        idxOperatius.map((i) => findCentreRow(NODE_VENDES)?.valors[i] ?? 0)
-      )
-    : [];
-
   const buit = !ev || ev.buit;
+  const lnLabel = ev?.titol ?? (lnId ? linies.find((l) => l.id === lnId) : null);
+  const lnEtiqueta =
+    typeof lnLabel === "string" ? lnLabel : lnLabel ? etiquetaLiniaNegoci(lnLabel) : "";
 
   return (
     <div className={styles.page}>
-      <div className={styles.headerRow}>
-        <div>
-          <h1 className={styles.title}>Compte d&apos;explotació · per línia de negoci</h1>
-          <p className={styles.subtitle}>
-            {comp?.liniaNegoci || ev
-              ? `${comp?.liniaNegoci ? etiquetaLiniaNegoci(comp.liniaNegoci) : (ev?.titol ?? "")} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · compte de gestió" : " · directe SAP"}`
-              : "Selecciona una línia de negoci per veure el total del període."}
-          </p>
-        </div>
-        <div className={styles.headerActions}>
-          <LiniaSelectors
-            linies={linies}
-            anys={anys.length ? anys : [anyActual]}
-            lnId={lnId}
-            any={anyActual}
-            rang={rang}
-            vista={vista}
-          />
-          <ExportInformeButton
-            disabled={buit}
-            filename={slugFilename(
-              `compte-linia-${comp?.liniaNegoci ? etiquetaLiniaNegoci(comp.liniaNegoci) : (ev?.titol ?? "linia")}-${periodeLabel}`
-            )}
-            title="Compte d'explotació · per línia de negoci"
-            subtitle={
-              comp?.liniaNegoci || ev
-                ? `${comp?.liniaNegoci ? etiquetaLiniaNegoci(comp.liniaNegoci) : (ev?.titol ?? "")} — ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
-                : periodeLabel
-            }
-            columns={columnsMes}
-            rows={rowsMes}
-            totalLabel="Període"
-            sheetName="Línia"
-          />
-        </div>
-      </div>
+      <ConsultaHeader
+        title="Compte d'explotació · per línia de negoci"
+        subtitle={
+          lnId && (ev || lnEtiqueta)
+            ? `${ev?.titol ?? lnEtiqueta} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · gestió" : " · directe SAP"}`
+            : "Selecciona una línia de negoci per veure el total del període."
+        }
+        actions={
+          <>
+            <LiniaSelectors
+              linies={linies}
+              anys={anys.length ? anys : [anyActual]}
+              lnId={lnId}
+              any={anyActual}
+              rang={rang}
+              vista={vista}
+            />
+            <ExportInformeButton
+              disabled={buit}
+              filename={slugFilename(
+                `compte-linia-${ev?.titol ?? (lnEtiqueta || "linia")}-${periodeLabel}`
+              )}
+              title="Compte d'explotació · per línia de negoci"
+              subtitle={
+                ev
+                  ? `${ev.titol} — ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
+                  : periodeLabel
+              }
+              columns={columnsMes}
+              rows={rowsMes}
+              totalLabel="Període"
+              sheetName="Línia"
+            />
+          </>
+        }
+      />
 
       {!lnId ? (
         <div className={styles.prompt}>
@@ -258,53 +241,14 @@ export default async function ConsultaLiniaPage({
             />
           </DetallCompteCollapsible>
 
-          {comp && !comp.buit && (
-            <DetallCompteCollapsible
-              defaultOpen={false}
-              title="Desglossament per centres (opcional)"
-              caption={
-                vista === "gestio"
-                  ? "Detall per centre. Per analitzar un sol centre, ves a Consultes → Per centre."
-                  : "Detall per centre de la línia. Per analitzar un sol centre, ves a Consultes → Per centre."
-              }
-            >
-              {vendesPieSegments.length > 0 && (
-                <div className={styles.chartCard} style={{ marginBottom: "1rem" }}>
-                  <h3 className={styles.chartTitle}>Pes de vendes per centre · {periodeLabel}</h3>
-                  <VendesPieChart
-                    segments={vendesPieSegments.map((s, i) => {
-                      const centre = centres[idxOperatius[i] ?? -1];
-                      return {
-                        ...s,
-                        name: etiquetaGrafic(centre ?? { codi: s.name, nom: s.name }),
-                      };
-                    })}
-                    height={300}
-                  />
-                </div>
-              )}
-              <PivotTableDrilldown
-                columns={columnsCentres}
-                rows={comp.concepts}
-                totalLabel="Total LN"
-                firstColLabel="Concepte"
-                canEdit={canEdit}
-                editConfig={canEdit ? { onSave: ajustarImportConsultaAction } : undefined}
-                drilldown={{
-                  any: anyActual,
-                  vista,
-                  colMap: Object.fromEntries(
-                    centres.map((c) => [
-                      c.id,
-                      c.id === COL_REPARTIMENT_ID
-                        ? { rang, liniaNegociId: lnId ?? undefined }
-                        : { rang, mes: esUnMes(rang) ? rang.des : undefined, centreId: c.id },
-                    ])
-                  ),
-                }}
-              />
-            </DetallCompteCollapsible>
-          )}
+          <LiniaCentresLazy
+            lnId={lnId}
+            anyActual={anyActual}
+            rang={rang}
+            vista={vista}
+            canEdit={canEdit}
+            periodeLabel={periodeLabel}
+          />
         </>
       )}
     </div>
