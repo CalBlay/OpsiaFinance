@@ -15,7 +15,7 @@ export async function GET(_request: Request, { params }: Params) {
   const filePath = path.join(process.cwd(), "app", name);
   try {
     const body = await readFile(filePath);
-    return new NextResponse(body, {
+    return new NextResponse(new Uint8Array(body), {
       headers: {
         "Content-Type": "image/png",
         "Cache-Control": "public, max-age=86400, immutable",
