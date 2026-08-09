@@ -32,7 +32,7 @@ import {
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
+import { grupPermetVistaGestio, liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import {
   KPI_DEFINICIONS,
   type KpiComparatiuItem,
@@ -42,6 +42,7 @@ import {
   NODE_EBITDA,
   NODE_VENDES,
 } from "@/lib/kpi-definitions";
+import type { VistaCompte } from "@/lib/vista-compte";
 import { ComparativaSelectors } from "./ComparativaSelectors";
 
 export const dynamic = "force-dynamic";
@@ -66,7 +67,14 @@ function pesPct(vendesLn: number, vendesEmp: number): number | null {
 export default async function ComparativaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ scope?: string; id?: string; g?: string; mes?: string; mesos?: string }>;
+  searchParams: Promise<{
+    scope?: string;
+    id?: string;
+    g?: string;
+    mes?: string;
+    mesos?: string;
+    vista?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const [arbreRaw, anysTots, grup] = await Promise.all([
@@ -76,6 +84,8 @@ export default async function ComparativaPage({
   ]);
   const anys = anysTots.slice(0, MAX_ANYS_COMPARATIVA);
   const arbre = liniesPerConsultaDetall(arbreRaw, grup);
+  const potGestio = grupPermetVistaGestio(grup);
+  const vista: VistaCompte = potGestio && sp.vista === "gestio" ? "gestio" : "directe";
 
   const scope: AmbitTemporal =
     sp.scope === "linia" ? "linia" : sp.scope === "centre" ? "centre" : "empresa";
@@ -101,11 +111,12 @@ export default async function ComparativaPage({
                   anys,
                   mes: granularitat === "mes" ? mesActual : undefined,
                 },
-                grup
+                grup,
+                vista
               )
             : Promise.resolve(null),
           granularitat === "mensual"
-            ? getComparativaMensualEntreAnys(scope, id, anys, grup)
+            ? getComparativaMensualEntreAnys(scope, id, anys, grup, vista)
             : Promise.resolve(null),
           esLn && granularitat !== "mensual"
             ? getComparativaTemporal(
@@ -116,11 +127,12 @@ export default async function ComparativaPage({
                   anys,
                   mes: granularitat === "mes" ? mesActual : undefined,
                 },
-                grup
+                grup,
+                vista
               )
             : Promise.resolve(null),
           esLn && granularitat === "mensual"
-            ? getComparativaMensualEntreAnys("empresa", null, anys, grup)
+            ? getComparativaMensualEntreAnys("empresa", null, anys, grup, vista)
             : Promise.resolve(null),
         ]);
 
@@ -420,7 +432,7 @@ export default async function ComparativaPage({
 
     if (anysPesLn.length > 0) {
       const cmpLnAnys = await Promise.all(
-        anysPesLn.map((y) => getComparativaEmpresa(y, rangPesLn, "directe", grup))
+        anysPesLn.map((y) => getComparativaEmpresa(y, rangPesLn, vista, grup))
       );
       const ref = cmpLnAnys.find((c) => !c.buit && c.linies.length > 0) ?? cmpLnAnys[0];
       if (ref && ref.linies.length > 0) {
@@ -471,6 +483,8 @@ export default async function ComparativaPage({
               granularitat={granularitat}
               mes={mesActual}
               mesosSeleccionats={mesosSeleccionats}
+              vista={vista}
+              grup={grup}
               nomesEmpresa={false}
             />
             <ExportInformeButton

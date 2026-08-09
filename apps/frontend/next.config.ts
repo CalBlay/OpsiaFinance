@@ -17,6 +17,22 @@ const nextConfig: NextConfig = {
       static: 180,
     },
   },
+  /**
+   * Els PNG del PWA viuen a `app/` (no són metadata files de Next),
+   * així que es serveixen via /api/pwa-icon/* amb aquestes URL públiques.
+   */
+  async rewrites() {
+    return {
+      afterFiles: [
+        { source: "/icon-192.png", destination: "/api/pwa-icon/icon-192.png" },
+        { source: "/icon-512.png", destination: "/api/pwa-icon/icon-512.png" },
+        {
+          source: "/icon-maskable-512.png",
+          destination: "/api/pwa-icon/icon-maskable-512.png",
+        },
+      ],
+    };
+  },
 };
 
 export default nextConfig;

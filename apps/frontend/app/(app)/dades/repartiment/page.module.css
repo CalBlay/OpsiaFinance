@@ -18,3 +18,68 @@
   gap: 0.5rem;
   flex-wrap: wrap;
 }
+
+.bulkBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.65rem 0.85rem;
+  margin-bottom: 0.85rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--opsia-green-600, #2f6f6d) 5%, #fff);
+}
+
+.bulkLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+}
+
+.bulkSelect {
+  min-width: 6.5rem;
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: 0.45rem;
+  background: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+}
+
+.bulkBtn {
+  appearance: none;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  background: var(--opsia-green-700, #245956);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bulkBtn:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.bulkBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bulkMsg {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+  line-height: 1.35;
+}

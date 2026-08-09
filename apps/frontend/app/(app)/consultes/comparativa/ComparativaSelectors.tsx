@@ -1,13 +1,16 @@
 "use client";
 
 import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import { ConsultaVistaSelect } from "@/components/consultes/ConsultaVistaSelect";
 import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { etiquetaCentre, etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
+import { type GrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { MESOS_CURTS, MESOS_LLARGS } from "@/lib/periodes";
+import type { VistaCompte } from "@/lib/vista-compte";
 import { ChevronDown } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 interface CentreOpt {
   id: string;
@@ -28,6 +31,8 @@ export function ComparativaSelectors({
   granularitat,
   mes,
   mesosSeleccionats,
+  vista,
+  grup,
   nomesEmpresa = false,
 }: {
   arbre: LnOpt[];
@@ -36,9 +41,12 @@ export function ComparativaSelectors({
   granularitat: "anual" | "mensual" | "mes";
   mes: number;
   mesosSeleccionats: number[];
+  vista: VistaCompte;
+  grup: GrupEmpresa;
   nomesEmpresa?: boolean;
 }) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [mesosOpen, setMesosOpen] = useState(false);
   const mesosRef = useRef<HTMLDivElement>(null);
   const scopeSelectId = "comparativa-scope";
@@ -47,6 +55,14 @@ export function ComparativaSelectors({
   const granularitySelectId = "comparativa-granularity";
   const monthSelectId = "comparativa-month";
   const monthsButtonId = "comparativa-months";
+  const viewSelectId = "comparativa-view";
+  const mostraVistaGestio = grupPermetVistaGestio(grup);
+
+  const [localVista, setLocalVista] = useState(vista);
+
+  useEffect(() => {
+    setLocalVista(vista);
+  }, [vista]);
 
   const buildUrl = (
     overrides: Partial<{
@@ -55,6 +71,7 @@ export function ComparativaSelectors({
       g: string;
       mes: number;
       mesos: number[];
+      vista: VistaCompte;
     }>
   ) => {
     const p = new URLSearchParams();
@@ -69,19 +86,33 @@ export function ComparativaSelectors({
       const mesos = overrides.mesos ?? mesosSeleccionats;
       if (mesos.length) p.set("mesos", mesos.join(","));
     }
+    const vistaEfectiva = mostraVistaGestio ? (overrides.vista ?? localVista) : "directe";
+    if (vistaEfectiva === "gestio") p.set("vista", "gestio");
     return `/consultes/comparativa?${p.toString()}`;
+  };
+
+  const go = (url: string) => {
+    startTransition(() => {
+      router.push(url);
+    });
   };
 
   const goScope = (nextScope: string, nextId: string) => {
     if (nextScope === "empresa") {
-      router.push(buildUrl({ scope: "empresa", id: "" }));
+      go(buildUrl({ scope: "empresa", id: "" }));
       return;
     }
     if (!nextId) {
-      router.push(buildUrl({ scope: nextScope, id: "" }));
+      go(buildUrl({ scope: nextScope, id: "" }));
       return;
     }
-    router.push(buildUrl({ scope: nextScope, id: nextId }));
+    go(buildUrl({ scope: nextScope, id: nextId }));
+  };
+
+  const goVista = (nextVista: VistaCompte) => {
+    const vistaEfectiva = mostraVistaGestio ? nextVista : "directe";
+    setLocalVista(vistaEfectiva);
+    go(buildUrl({ vista: vistaEfectiva }));
   };
 
   const toggleMes = (num: number) => {
@@ -89,7 +120,7 @@ export function ComparativaSelectors({
       ? mesosSeleccionats.filter((m) => m !== num)
       : [...mesosSeleccionats, num].sort((a, b) => a - b);
     if (next.length === 0) return;
-    router.push(buildUrl({ mesos: next }));
+    go(buildUrl({ mesos: next }));
   };
 
   const mesosLabel =
@@ -110,6 +141,7 @@ export function ComparativaSelectors({
 
   return (
     <ConsultaToolbar
+      pending={isPending}
       dates={
         <>
           {granularitat === "mes" ? (
@@ -122,7 +154,8 @@ export function ComparativaSelectors({
                 className={styles.select}
                 style={{ minWidth: 140 }}
                 value={mes}
-                onChange={(e) => router.push(buildUrl({ mes: Number(e.target.value) }))}
+                disabled={isPending}
+                onChange={(e) => go(buildUrl({ mes: Number(e.target.value) }))}
               >
                 {MESOS_LLARGS.map((m, i) => (
                   <option key={`${i + 1}-${m}`} value={i + 1}>
@@ -142,6 +175,7 @@ export function ComparativaSelectors({
                   id={monthsButtonId}
                   type="button"
                   className={styles.multiTrigger}
+                  disabled={isPending}
                   onClick={() => setMesosOpen((v) => !v)}
                 >
                   <span
@@ -164,9 +198,7 @@ export function ComparativaSelectors({
                         className={styles.multiActionBtnPrimary}
                         onClick={() => {
                           setMesosOpen(false);
-                          router.push(
-                            buildUrl({ mesos: Array.from({ length: 12 }, (_, i) => i + 1) })
-                          );
+                          go(buildUrl({ mesos: Array.from({ length: 12 }, (_, i) => i + 1) }));
                         }}
                       >
                         Seleccionar tot
@@ -177,9 +209,7 @@ export function ComparativaSelectors({
                         onClick={() => {
                           const ara = new Date().getMonth() + 1;
                           setMesosOpen(false);
-                          router.push(
-                            buildUrl({ mesos: Array.from({ length: ara }, (_, i) => i + 1) })
-                          );
+                          go(buildUrl({ mesos: Array.from({ length: ara }, (_, i) => i + 1) }));
                         }}
                       >
                         Gen–{MESOS_CURTS[new Date().getMonth()]}
@@ -216,6 +246,7 @@ export function ComparativaSelectors({
                 id={scopeSelectId}
                 className={styles.select}
                 value={scope}
+                disabled={isPending}
                 onChange={(e) => goScope(e.target.value, "")}
               >
                 <option value="centre">{FILTRE.centre}</option>
@@ -233,6 +264,7 @@ export function ComparativaSelectors({
                 id={lineSelectId}
                 className={styles.select}
                 value={id ?? ""}
+                disabled={isPending}
                 onChange={(e) => goScope("linia", e.target.value)}
               >
                 <option value="">Selecciona…</option>
@@ -253,6 +285,7 @@ export function ComparativaSelectors({
                 id={centreSelectId}
                 className={styles.select}
                 value={id ?? ""}
+                disabled={isPending}
                 onChange={(e) => goScope("centre", e.target.value)}
               >
                 <option value="">Selecciona…</option>
@@ -276,7 +309,8 @@ export function ComparativaSelectors({
               id={granularitySelectId}
               className={styles.select}
               value={granularitat}
-              onChange={(e) => router.push(buildUrl({ g: e.target.value }))}
+              disabled={isPending}
+              onChange={(e) => go(buildUrl({ g: e.target.value }))}
             >
               <option value="anual">Anual</option>
               <option value="mensual">Període</option>
@@ -284,6 +318,17 @@ export function ComparativaSelectors({
             </select>
           </div>
         </>
+      }
+      vista={
+        mostraVistaGestio ? (
+          <ConsultaVistaSelect
+            id={viewSelectId}
+            value={localVista}
+            disabled={isPending}
+            pendingHint={isPending}
+            onChange={goVista}
+          />
+        ) : null
       }
     />
   );

@@ -1212,15 +1212,93 @@ export interface ComparativaMensualAnys {
 /** Màxim d'exercicis a la comparativa temporal (els més recents). */
 export const MAX_ANYS_COMPARATIVA = 4;
 
+/** Aplica capa Gestió (personal + repartiment) a un exercici de 12 mesos. */
+async function aplicarVistaGestioComparativaAny(
+  scope: AmbitTemporal,
+  id: string | null,
+  any: number,
+  rows: ConceptePivot[],
+  grup: GrupEmpresa
+): Promise<ConceptePivot[]> {
+  if (!grupPermetVistaGestio(grup) || rows.length === 0) return rows;
+
+  if (scope === "centre" && id) {
+    const { aplicarCostPersonalEvolucioCentre } = await import(
+      "@/lib/cost-personal-centre/gestio-consultes"
+    );
+    return aplicarCostPersonalEvolucioCentre(id, any, rows);
+  }
+
+  if (scope === "linia" && id) {
+    const { aplicarVistaGestioEvolucioLn } = await import("@/lib/repartiment/gestio-consultes");
+    return aplicarVistaGestioEvolucioLn(id, any, rows);
+  }
+
+  if (scope === "empresa") {
+    const { aplicarVistaGestioEvolucioEmpresa } = await import(
+      "@/lib/repartiment/gestio-consultes"
+    );
+    let concepts = await aplicarVistaGestioEvolucioEmpresa(any, rows);
+    if (grupAplicaConsolidacioInter(grup)) {
+      concepts = await aplicarConsolidacioInterEvolucioEmpresa(any, grup, concepts);
+    }
+    return concepts;
+  }
+
+  return rows;
+}
+
+async function aplicarVistaGestioComparativaPerAny(
+  scope: AmbitTemporal,
+  id: string | null,
+  perAny: Record<number, ConceptePivot[]>,
+  anys: number[],
+  grup: GrupEmpresa
+): Promise<Record<number, ConceptePivot[]>> {
+  if (!grupPermetVistaGestio(grup)) return perAny;
+  const out: Record<number, ConceptePivot[]> = { ...perAny };
+  await Promise.all(
+    anys.map(async (year) => {
+      out[year] = await aplicarVistaGestioComparativaAny(scope, id, year, perAny[year] ?? [], grup);
+    })
+  );
+  return out;
+}
+
+/** Resumeix 12 mesos → 1 valor per any (columnes = exercicis). */
+function colapseMensualAColumnesAnys(
+  perAny: Record<number, ConceptePivot[]>,
+  anys: number[],
+  mes?: number
+): ConceptePivot[] {
+  const ref =
+    anys.map((y) => perAny[y]).find((rows) => rows && rows.length > 0) ?? ([] as ConceptePivot[]);
+  return ref.map((c) => {
+    const valors = anys.map((year) => {
+      const row = perAny[year]?.find((r) => r.node === c.node);
+      if (!row) return 0;
+      if (mes != null) return row.valors[mes - 1] ?? 0;
+      return row.valors.reduce((a, b) => a + b, 0);
+    });
+    return {
+      ...c,
+      valors,
+      total: valors.reduce((a, b) => a + b, 0),
+    };
+  });
+}
+
 /** Dades mensuals per a múltiples anys (per comparar al gràfic). */
 export async function getComparativaMensualEntreAnys(
   scope: AmbitTemporal,
   id: string | null,
   anys: number[],
-  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT,
+  vista: VistaCompte = "directe"
 ): Promise<ComparativaMensualAnys> {
   const anysOrdenats = [...anys].sort((a, b) => a - b);
   const anysKey = anysOrdenats.join(",");
+  const vistaEfectiva = grupPermetVistaGestio(grup) && vista === "gestio" ? "gestio" : "directe";
   return unstable_cache(
     async () => {
       const ambit = await resolveAmbitTemporal(scope, id, grup);
@@ -1257,17 +1335,21 @@ export async function getComparativaMensualEntreAnys(
       }
 
       const anysFinals = anysAmbDades.length ? anysAmbDades : anysOrdenats;
+      const perAnyFinal =
+        vistaEfectiva === "gestio"
+          ? await aplicarVistaGestioComparativaPerAny(scope, id, perAny, anysFinals, grup)
+          : perAny;
 
       return {
         scope,
         titol,
         anys: anysFinals,
-        perAny,
+        perAny: perAnyFinal,
         buit,
         periodeDesc: `Comparació mensual · ${anysFinals.join(" vs ")}`,
       };
     },
-    ["consultes-cmp-mensual-anys", scope, id ?? "", anysKey, grup],
+    ["consultes-cmp-mensual-anys", scope, id ?? "", anysKey, grup, vistaEfectiva],
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -1281,10 +1363,39 @@ export async function getComparativaTemporal(
     any?: number;
     mes?: number;
   },
-  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT
+  grup: GrupEmpresa = GRUP_EMPRESA_DEFAULT,
+  vista: VistaCompte = "directe"
 ): Promise<ComparativaTemporal> {
   const { granularitat, anys, any, mes } = opts;
   const anysOrdenats = [...anys].sort((a, b) => a - b);
+  const vistaEfectiva = grupPermetVistaGestio(grup) && vista === "gestio" ? "gestio" : "directe";
+
+  // Gestió anual / un mes: parteix de mensuals (personal es substitueix mes a mes).
+  if (vistaEfectiva === "gestio" && granularitat !== "mensual") {
+    const mensual = await getComparativaMensualEntreAnys(scope, id, anysOrdenats, grup, "gestio");
+    const columnes = mensual.anys.map((y) => ({ key: String(y), label: String(y) }));
+    if (granularitat === "mes" && mes) {
+      return {
+        scope,
+        titol: mensual.titol,
+        granularitat,
+        columnes,
+        concepts: colapseMensualAColumnesAnys(mensual.perAny, mensual.anys, mes),
+        buit: mensual.buit,
+        periodeDesc: `${MESOS_LLARGS[mes - 1]} · comparació entre anys`,
+      };
+    }
+    return {
+      scope,
+      titol: mensual.titol,
+      granularitat: "anual",
+      columnes,
+      concepts: colapseMensualAColumnesAnys(mensual.perAny, mensual.anys),
+      buit: mensual.buit,
+      periodeDesc: "Acumulat anual per exercici",
+    };
+  }
+
   const cacheKey = [
     "consultes-cmp-temporal",
     scope,
@@ -1294,6 +1405,7 @@ export async function getComparativaTemporal(
     String(any ?? ""),
     String(mes ?? ""),
     grup,
+    vistaEfectiva,
   ];
 
   return unstable_cache(
@@ -1304,16 +1416,20 @@ export async function getComparativaTemporal(
         const { concepts, moviments, titol, buit } = await carregarMovimentsAmbit(ambit, { any });
         const rows = pivotMensualDesDeMoviments(concepts, moviments);
         const columnes = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
+        let conceptsOut = await consolidarSiEmpresaAsync(scope, rows, "temporal", grup, undefined, {
+          any,
+          desMes: 1,
+          finsMes: 12,
+        });
+        if (vistaEfectiva === "gestio") {
+          conceptsOut = await aplicarVistaGestioComparativaAny(scope, id, any, conceptsOut, grup);
+        }
         return {
           scope,
           titol,
           granularitat,
           columnes,
-          concepts: await consolidarSiEmpresaAsync(scope, rows, "temporal", grup, undefined, {
-            any,
-            desMes: 1,
-            finsMes: 12,
-          }),
+          concepts: conceptsOut,
           buit,
           periodeDesc: `Mes a mes · ${any}`,
         };
