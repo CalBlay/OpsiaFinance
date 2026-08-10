@@ -97,7 +97,13 @@ export function ComparativaDetallLazy({
 }) {
   const { ensure, payload, loading } = useComparativaPivot();
   return (
-    <DetallCompteCollapsible title={title} onFirstOpen={ensure} loading={loading && !payload}>
+    <DetallCompteCollapsible
+      title={title}
+      onFirstOpen={() => {
+        void ensure();
+      }}
+      loading={loading && !payload}
+    >
       {payload ? (
         <PivotTable
           columns={payload.columns}
