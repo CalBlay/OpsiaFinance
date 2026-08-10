@@ -24,10 +24,28 @@ const DADA_SELECT = {
   concepteResultat: { select: { node: true } },
 } as const;
 
+const AJUST_SELECT = {
+  import_: true,
+  liniaNegociId: true,
+  centreId: true,
+  periodId: true,
+  concepteResultat: { select: { node: true } },
+  centre: { select: { liniaNegociId: true } },
+} as const;
+
 type DirectePerLn = Map<string, Map<number, number>>;
 
 function emptyDirecte(): DirectePerLn {
   return new Map();
+}
+
+function sumarNode(perLn: DirectePerLn, lnId: string, node: number, import_: unknown) {
+  let m = perLn.get(lnId);
+  if (!m) {
+    m = new Map();
+    perLn.set(lnId, m);
+  }
+  m.set(node, (m.get(node) ?? 0) + Number(import_));
 }
 
 function acumularDada(
@@ -42,17 +60,31 @@ function acumularDada(
   }
 ) {
   const node = d.concepteResultat.node;
-  // Personal amb centre → base Gestió (SAP+ajust + traspass). Sense centre es manté SAP.
+  // Personal amb centre → base Gestió (SAP+ajust + traspass). Sense centre: SAP+ajust aquí.
   if (esNodePersonalCompte(node) && d.centreId) return;
 
   const lnId = lnInformePerAgregacio(d);
   if (!lnId) return;
-  let m = perLn.get(lnId);
-  if (!m) {
-    m = new Map();
-    perLn.set(lnId, m);
+  sumarNode(perLn, lnId, node, d.import_);
+}
+
+/** Mateixa atribució LN que consultes empresa (`liniaNegociId ?? centre.liniaNegociId`). */
+function acumularAjust(
+  perLn: DirectePerLn,
+  a: {
+    import_: unknown;
+    liniaNegociId: string | null;
+    centreId: string | null;
+    concepteResultat: { node: number };
+    centre: { liniaNegociId: string } | null;
   }
-  m.set(node, (m.get(node) ?? 0) + Number(d.import_));
+) {
+  const node = a.concepteResultat.node;
+  if (esNodePersonalCompte(node) && a.centreId) return;
+
+  const lnId = a.liniaNegociId ?? a.centre?.liniaNegociId ?? null;
+  if (!lnId) return;
+  sumarNode(perLn, lnId, node, a.import_);
 }
 
 function sumarPersonalLn(perLn: DirectePerLn, lnId: string, imp: ImportsPersonalGestio) {
@@ -118,7 +150,7 @@ async function aplicarPersonalGestioADirecte(
   }
 }
 
-/** Valors directes per LN i node (un sol mes). Personal = base Gestió. */
+/** Valors directes (SAP + ajustos) per LN i node (un sol mes). Personal = base Gestió. */
 export async function getDirectePerLnNode(periodId: string): Promise<DirectePerLn> {
   const map = await getDirectePerLnNodeMany([periodId]);
   return map.get(periodId) ?? emptyDirecte();
@@ -126,7 +158,7 @@ export async function getDirectePerLnNode(periodId: string): Promise<DirectePerL
 
 /**
  * Mateix resultat que N crides a getDirectePerLnNode, en batch.
- * Non-personal: SAP(+ajust implícit a dades). Personal centre: base Gestió.
+ * Non-personal: SAP + ajustos. Personal centre: base Gestió (SAP+ajust+traspass).
  */
 export async function getDirectePerLnNodeMany(
   periodIds: string[]
@@ -135,15 +167,27 @@ export async function getDirectePerLnNodeMany(
   for (const id of periodIds) result.set(id, emptyDirecte());
   if (!periodIds.length) return result;
 
-  const dades = await db.dadaResultat.findMany({
-    where: { periodId: { in: periodIds } },
-    select: { ...DADA_SELECT, periodId: true },
-  });
+  const [dades, ajustos] = await Promise.all([
+    db.dadaResultat.findMany({
+      where: { periodId: { in: periodIds } },
+      select: { ...DADA_SELECT, periodId: true },
+    }),
+    db.ajust.findMany({
+      where: { periodId: { in: periodIds } },
+      select: AJUST_SELECT,
+    }),
+  ]);
 
   for (const d of dades) {
     const perLn = result.get(d.periodId);
     if (!perLn) continue;
     acumularDada(perLn, d);
+  }
+
+  for (const a of ajustos) {
+    const perLn = result.get(a.periodId);
+    if (!perLn) continue;
+    acumularAjust(perLn, a);
   }
 
   await aplicarPersonalGestioADirecte(result, periodIds);

@@ -20,8 +20,11 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth?.user;
   const isLogin = pathname === "/login";
   const isApiAuth = pathname.startsWith("/api/auth");
+  const isDevCalcul =
+    process.env.NODE_ENV !== "production" &&
+    (pathname === "/api/dev/calcul-ajust-central" || pathname === "/api/dev/proposta-central-pct");
 
-  if (isApiAuth) return NextResponse.next();
+  if (isApiAuth || isDevCalcul) return NextResponse.next();
 
   if (isLogin) {
     if (isLoggedIn) return NextResponse.redirect(new URL("/", url));

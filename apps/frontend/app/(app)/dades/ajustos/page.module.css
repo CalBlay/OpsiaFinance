@@ -55,11 +55,116 @@
   padding: 1.1rem;
   margin-bottom: 1.5rem;
 }
+
+.calcPanel {
+  border: 1px solid color-mix(in srgb, var(--color-primary) 35%, var(--color-border));
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-card));
+  padding: 1.1rem;
+  margin-bottom: 1.25rem;
+}
+.calcTitle {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+.calcIntro {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.4;
+}
+.calcHighlight {
+  font-size: 1rem;
+  margin-bottom: 0.65rem;
+}
+.calcMeta {
+  font-size: 0.78rem;
+  color: var(--color-muted-foreground);
+  font-weight: 400;
+}
+.calcStats {
+  margin: 0 0 0.75rem;
+  padding-left: 1.1rem;
+  font-size: 0.82rem;
+  color: var(--color-foreground);
+}
+.calcFoot {
+  margin: 0.65rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-muted-foreground);
+}
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 .formTitle {
   font-size: 0.95rem;
   font-weight: 700;
   color: var(--color-foreground);
   margin-bottom: 0.9rem;
+}
+
+.modeRow {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.9rem;
+  flex-wrap: wrap;
+}
+.modeBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-muted-foreground);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.modeBtn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-foreground);
+}
+.modeBtnActive {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.pctHint {
+  margin: 0.75rem 0 0;
+  font-size: 0.78rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.35;
+}
+.previewWrap {
+  margin-top: 0.9rem;
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+}
+.previewTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+.previewTable th,
+.previewTable td {
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.previewTable th {
+  text-align: left;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+  background: color-mix(in srgb, var(--color-muted) 35%, transparent);
+}
+.previewTable tr:last-child td {
+  border-bottom: none;
 }
 
 .formGrid {

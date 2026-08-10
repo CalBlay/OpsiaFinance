@@ -159,19 +159,20 @@ Hi ha **dues pestanyes** que afecten les **consultes de Restaurants**.
 
 ## 3. Vista Gestió — regla de càlcul
 
-**Base:** dades SAP (vista directa).
+**Base del repartiment:** sempre **SAP + ajustos** (mateixa base que la vista Directe del compte).  
+El motor no calcula mai només sobre SAP cru.
 
 **Capes que SÍ entren al càlcul de Gestió**, en aquest ordre:
 
-1. **Ajustos**
-2. **Repartiment** (Central → altres LN)
+1. **Ajustos** (ja inclosos a la base quan es calcula el repartiment)
+2. **Repartiment** (Central → altres LN), calculat sobre SAP + ajustos
 3. **Traspassos de personal**
 
 ```
-Gestió = SAP
-       → + Ajustos
-       → + Repartiment
-       → + Traspassos de personal
+Base Directe = SAP + Ajustos
+Gestió       = Base Directe
+             → + Repartiment (calculat sobre Base Directe)
+             → + Traspassos de personal
 ```
 
 **Cost de personal (nòmina + millores):** no entra al càlcul de Gestió (només informatiu / comparativa).
@@ -201,7 +202,7 @@ A **totes les taules de consultes**, **cada casella**:
 | Traspassos de personal | OK — no tocar |
 | Cost personal (import + mapeig) | Dades + comparativa; **sense càlcul a Gestió** |
 | Ajustos | Capa activa; visibles a directa i Gestió |
-| Gestió | SAP + ajustos + repartiment + traspassos |
+| Gestió | Directe (SAP+ajustos) + repartiment (sobre la mateixa base) + traspassos |
 | Pestanyes Restaurants | Aparcat |
 | Desglossament per casella | Obligatori a consultes; directa si hi ha ajust |
 

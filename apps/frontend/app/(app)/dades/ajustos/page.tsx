@@ -1,11 +1,13 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
+import { propostaAjustCentralPctSobreVendesGrup } from "@/lib/ajustos/proposta-central-pct-grup";
 import { auth } from "@/lib/auth";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { db } from "@/lib/db";
 import { ajustosToExportInforme } from "@/lib/export/dades";
 import { AjustosManager } from "./AjustosManager";
+import { PropostaCentralPctPanel } from "./PropostaCentralPctPanel";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustos — OpsiaFinance" };
@@ -13,7 +15,7 @@ export const metadata = { title: "Ajustos — OpsiaFinance" };
 const tab = getDadesTabById("ajustos");
 
 export default async function AjustosPage() {
-  const [session, arbre, concepts, ajustos] = await Promise.all([
+  const [session, arbre, concepts, ajustos, proposta] = await Promise.all([
     auth(),
     getArbreSeleccio(),
     db.concepteResultat.findMany({
@@ -38,6 +40,7 @@ export default async function AjustosPage() {
         creatPerUser: { select: { name: true } },
       },
     }),
+    propostaAjustCentralPctSobreVendesGrup(2025, 32.5921),
   ]);
 
   const role = session?.user?.role;
@@ -76,6 +79,7 @@ export default async function AjustosPage() {
         />
       }
     >
+      {proposta ? <PropostaCentralPctPanel calc={proposta} /> : null}
       <AjustosManager arbre={arbre} concepts={concepts} ajustos={ajustosPlain} canEdit={canEdit} />
     </DadesPageShell>
   );

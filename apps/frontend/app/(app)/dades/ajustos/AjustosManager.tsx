@@ -4,17 +4,31 @@ import { DadesFilterBar } from "@/components/dades/DadesFilterBar";
 import { DadesEmpty, DadesPanel, dadesUi as ui } from "@/components/dades/DadesPanel";
 import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import { NODE_COMPRES_DETALL } from "@/lib/repartiment/nodes";
 import { cn, formatNum } from "@/lib/utils";
-import { Check, Copy, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, Copy, Pencil, Percent, Plus, Trash2, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   type AjustInput,
   createAjustAction,
   createAjustMultiAction,
+  createAjustPctVendesMultiAction,
   deleteAjustAction,
+  previsualitzaAjustPctVendesAction,
   updateAjustAction,
 } from "./actions";
 import styles from "./page.module.css";
+
+type BasePctVendes = "vendes" | "ingressos";
+
+interface PreviewAjustPctMes {
+  mes: number;
+  periodId: string | null;
+  base: number;
+  sap: number;
+  objectiu: number;
+  importAjust: number;
+}
 
 interface Concepte {
   id: string;
@@ -49,11 +63,16 @@ interface AjustDTO {
   autor: string;
 }
 type Result = { ok: boolean; missatge: string };
+type ModeImport = "manual" | "pct";
 
 const ARA = new Date();
 
 function normalitza(s: string) {
   return s.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+}
+
+function parsePct(txt: string): number {
+  return Number.parseFloat(txt.replace(",", "."));
 }
 
 export function AjustosManager({
@@ -71,18 +90,16 @@ export function AjustosManager({
   const [feedback, setFeedback] = useState<Result | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // Filtres de la llista
   const [q, setQ] = useState("");
   const [filtreAny, setFiltreAny] = useState("");
   const [filtreMes, setFiltreMes] = useState("");
   const [filtreConcepte, setFiltreConcepte] = useState("");
   const [filtreAmbit, setFiltreAmbit] = useState("");
 
-  // Camps del formulari
   const [any, setAny] = useState(ARA.getFullYear());
   const [mes, setMes] = useState(ARA.getMonth() + 1);
   const [mesosSeleccionats, setMesosSeleccionats] = useState<number[]>([ARA.getMonth() + 1]);
-  const [ambit, setAmbit] = useState<"centre" | "linia">("centre");
+  const [ambit, setAmbit] = useState<"centre" | "linia">("linia");
   const [centreId, setCentreId] = useState("");
   const [lnId, setLnId] = useState("");
   const [concepteId, setConcepteId] = useState("");
@@ -91,6 +108,16 @@ export function AjustosManager({
   const [editId, setEditId] = useState<string | null>(null);
   const [mesosObert, setMesosObert] = useState(false);
   const mesosRef = useRef<HTMLDivElement>(null);
+
+  const [modeImport, setModeImport] = useState<ModeImport>("manual");
+  const [pctTxt, setPctTxt] = useState("32,4");
+  const [basePct, setBasePct] = useState<BasePctVendes>("vendes");
+  const [preview, setPreview] = useState<PreviewAjustPctMes[] | null>(null);
+
+  const concepteCompresId = useMemo(
+    () => concepts.find((c) => c.node === NODE_COMPRES_DETALL)?.id ?? "",
+    [concepts]
+  );
 
   useEffect(() => {
     if (!mesosObert) return;
@@ -161,18 +188,62 @@ export function AjustosManager({
     const mesAra = ARA.getMonth() + 1;
     setMes(mesAra);
     setMesosSeleccionats([mesAra]);
-    setAmbit("centre");
+    setAmbit("linia");
     setCentreId("");
     setLnId("");
     setConcepteId("");
     setImportTxt("");
     setMotiu("");
     setEditId(null);
+    setModeImport("manual");
+    setPctTxt("32,4");
+    setBasePct("vendes");
+    setPreview(null);
   };
 
   const tancar = () => {
     setObert(false);
     reset();
+  };
+
+  const pctInputCommon = () => ({
+    any,
+    mesos: mesosSeleccionats,
+    concepteResultatId: concepteId,
+    centreId: ambit === "centre" ? centreId || null : null,
+    liniaNegociId: ambit === "linia" ? lnId || null : null,
+    percent: parsePct(pctTxt),
+    basePct,
+  });
+
+  const aplicarModePct = (mode: ModeImport) => {
+    setModeImport(mode);
+    setPreview(null);
+    if (mode === "pct") {
+      if (!concepteId && concepteCompresId) setConcepteId(concepteCompresId);
+      if (!motiu.trim()) {
+        const pct = pctTxt.trim() || "32,4";
+        const base = basePct === "ingressos" ? "ingressos" : "vendes";
+        setMotiu(`${pct}% s/ ${base} · reconstrucció ${any}`);
+      }
+    }
+  };
+
+  const calcularPct = () => {
+    startTransition(async () => {
+      const r = await previsualitzaAjustPctVendesAction(pctInputCommon());
+      if (!r.ok) {
+        notify(r);
+        setPreview(null);
+        return;
+      }
+      setPreview(r.files);
+      if (!motiu.trim()) {
+        const pct = pctTxt.trim() || "32,4";
+        const base = basePct === "ingressos" ? "ingressos" : "vendes";
+        setMotiu(`${pct}% s/ ${base} · reconstrucció ${any}`);
+      }
+    });
   };
 
   const desar = () => {
@@ -195,9 +266,22 @@ export function AjustosManager({
 
   const toggleMesos = (m: number) => {
     setMesosSeleccionats((prev) => (prev.includes(m) ? prev.filter((x) => x !== m) : [...prev, m]));
+    setPreview(null);
   };
 
   const crearPerMesos = () => {
+    if (modeImport === "pct") {
+      startTransition(async () => {
+        const r = await createAjustPctVendesMultiAction({
+          ...pctInputCommon(),
+          motiu: motiu.trim() || undefined,
+        });
+        notify(r);
+        if (r.ok) tancar();
+      });
+      return;
+    }
+
     const import_ = Number.parseFloat(importTxt.replace(",", "."));
     startTransition(async () => {
       const r = await createAjustMultiAction({
@@ -230,11 +314,12 @@ export function AjustosManager({
     setConcepteId(a.concepteResultatId);
     setImportTxt(String(a.import_).replace(".", ","));
     setMotiu(a.motiu);
+    setModeImport("manual");
+    setPreview(null);
     setObert(true);
   };
 
   const duplicar = (a: AjustDTO) => {
-    // Deixa-ho en mode "nou": crearem un registre nou (no actualitzem el que ja existeix).
     setEditId(null);
     setAny(a.periodAny);
     setMes(a.periodMes);
@@ -245,6 +330,8 @@ export function AjustosManager({
     setConcepteId(a.concepteResultatId);
     setImportTxt(String(a.import_).replace(".", ","));
     setMotiu(a.motiu);
+    setModeImport("manual");
+    setPreview(null);
     setObert(true);
   };
 
@@ -269,15 +356,39 @@ export function AjustosManager({
       {canEdit && obert && (
         <div className={styles.form}>
           <div className={styles.formTitle}>{editId ? "Editar ajust" : "Nou ajust"}</div>
+
+          {!editId && (
+            <div className={styles.modeRow}>
+              <button
+                type="button"
+                className={cn(styles.modeBtn, modeImport === "manual" && styles.modeBtnActive)}
+                onClick={() => aplicarModePct("manual")}
+                disabled={isPending}
+              >
+                Import manual (€)
+              </button>
+              <button
+                type="button"
+                className={cn(styles.modeBtn, modeImport === "pct" && styles.modeBtnActive)}
+                onClick={() => aplicarModePct("pct")}
+                disabled={isPending}
+              >
+                <Percent size={14} /> % sobre vendes
+              </button>
+            </div>
+          )}
+
           <div className={styles.formGrid}>
-            {/* Fila 1: Any · Àmbit · Centre/LN · Concepte · Import */}
             <label className={styles.field}>
               <span className={styles.fieldLabel}>Any</span>
               <input
                 type="number"
                 className={styles.input}
                 value={any}
-                onChange={(e) => setAny(Number(e.target.value))}
+                onChange={(e) => {
+                  setAny(Number(e.target.value));
+                  setPreview(null);
+                }}
               />
             </label>
 
@@ -286,7 +397,10 @@ export function AjustosManager({
               <select
                 className={styles.input}
                 value={ambit}
-                onChange={(e) => setAmbit(e.target.value as "centre" | "linia")}
+                onChange={(e) => {
+                  setAmbit(e.target.value as "centre" | "linia");
+                  setPreview(null);
+                }}
               >
                 <option value="centre">Centre</option>
                 <option value="linia">Línia de negoci</option>
@@ -299,7 +413,10 @@ export function AjustosManager({
                 <select
                   className={styles.input}
                   value={centreId}
-                  onChange={(e) => setCentreId(e.target.value)}
+                  onChange={(e) => {
+                    setCentreId(e.target.value);
+                    setPreview(null);
+                  }}
                 >
                   <option value="">Selecciona…</option>
                   {arbre.map((ln) => (
@@ -319,7 +436,10 @@ export function AjustosManager({
                 <select
                   className={styles.input}
                   value={lnId}
-                  onChange={(e) => setLnId(e.target.value)}
+                  onChange={(e) => {
+                    setLnId(e.target.value);
+                    setPreview(null);
+                  }}
                 >
                   <option value="">Selecciona…</option>
                   {arbre.map((ln) => (
@@ -336,7 +456,10 @@ export function AjustosManager({
               <select
                 className={styles.input}
                 value={concepteId}
-                onChange={(e) => setConcepteId(e.target.value)}
+                onChange={(e) => {
+                  setConcepteId(e.target.value);
+                  setPreview(null);
+                }}
               >
                 <option value="">Selecciona…</option>
                 {concepts.map((c) => (
@@ -347,15 +470,46 @@ export function AjustosManager({
               </select>
             </label>
 
-            <label className={styles.field}>
-              <span className={styles.fieldLabel}>Import (€)</span>
-              <input
-                className={styles.input}
-                placeholder="0,00"
-                value={importTxt}
-                onChange={(e) => setImportTxt(e.target.value)}
-              />
-            </label>
+            {modeImport === "manual" || editId ? (
+              <label className={styles.field}>
+                <span className={styles.fieldLabel}>Import (€)</span>
+                <input
+                  className={styles.input}
+                  placeholder="0,00"
+                  value={importTxt}
+                  onChange={(e) => setImportTxt(e.target.value)}
+                />
+              </label>
+            ) : (
+              <>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>% objectiu</span>
+                  <input
+                    className={styles.input}
+                    placeholder="32,4"
+                    value={pctTxt}
+                    onChange={(e) => {
+                      setPctTxt(e.target.value);
+                      setPreview(null);
+                    }}
+                  />
+                </label>
+                <label className={styles.field}>
+                  <span className={styles.fieldLabel}>Base %</span>
+                  <select
+                    className={styles.input}
+                    value={basePct}
+                    onChange={(e) => {
+                      setBasePct(e.target.value as BasePctVendes);
+                      setPreview(null);
+                    }}
+                  >
+                    <option value="vendes">Vendes</option>
+                    <option value="ingressos">Ingressos explotació</option>
+                  </select>
+                </label>
+              </>
+            )}
 
             <div className={cn(styles.field, styles.wide)} ref={mesosRef}>
               <span className={styles.fieldLabel}>Mesos</span>
@@ -382,11 +536,20 @@ export function AjustosManager({
                   <div className={styles.mesosDropdownActions}>
                     <button
                       type="button"
-                      onClick={() => setMesosSeleccionats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])}
+                      onClick={() => {
+                        setMesosSeleccionats([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
+                        setPreview(null);
+                      }}
                     >
                       Tots
                     </button>
-                    <button type="button" onClick={() => setMesosSeleccionats([])}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMesosSeleccionats([]);
+                        setPreview(null);
+                      }}
+                    >
                       Cap
                     </button>
                   </div>
@@ -424,19 +587,86 @@ export function AjustosManager({
             </label>
           </div>
 
+          {modeImport === "pct" && !editId && (
+            <p className={styles.pctHint}>
+              Per cada mes: objectiu = −% × |base|, ajust = objectiu − SAP. Usa la línia de detall
+              (COMPRES), no el subtotal. Després recalcula el repartiment.
+            </p>
+          )}
+
+          {preview && preview.length > 0 && (
+            <div className={styles.previewWrap}>
+              <table className={styles.previewTable}>
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th className={ui.right}>Base</th>
+                    <th className={ui.right}>SAP</th>
+                    <th className={ui.right}>Objectiu</th>
+                    <th className={ui.right}>Ajust Δ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {preview.map((f) => (
+                    <tr key={f.mes}>
+                      <td>{MESOS_LLARGS[f.mes - 1]}</td>
+                      <td className={ui.right}>{formatNum(f.base, 2)}</td>
+                      <td className={ui.right}>{formatNum(f.sap, 2)}</td>
+                      <td className={ui.right}>{formatNum(f.objectiu, 2)}</td>
+                      <td className={cn(ui.right, f.importAjust < 0 && styles.neg)}>
+                        {formatNum(f.importAjust, 2)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
           <div className={styles.formActions}>
-            <button type="button" className={styles.saveBtn} onClick={desar} disabled={isPending}>
-              <Check size={15} /> {editId ? "Desa canvis" : "Crea ajust"}
-            </button>
-            <button
-              type="button"
-              className={styles.bulkCreateBtn}
-              onClick={crearPerMesos}
-              disabled={isPending}
-              title="Crea ajustos nous per als mesos marcats (salta els que ja existeixen)"
-            >
-              <Plus size={15} /> Crea per mesos
-            </button>
+            {modeImport === "pct" && !editId ? (
+              <>
+                <button
+                  type="button"
+                  className={styles.saveBtn}
+                  onClick={calcularPct}
+                  disabled={isPending}
+                >
+                  <Percent size={15} /> Previsualitza
+                </button>
+                <button
+                  type="button"
+                  className={styles.bulkCreateBtn}
+                  onClick={crearPerMesos}
+                  disabled={isPending}
+                  title="Crea o actualitza un ajust per mes (objectiu % − SAP)"
+                >
+                  <Plus size={15} /> Aplica % als mesos
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className={styles.saveBtn}
+                  onClick={desar}
+                  disabled={isPending}
+                >
+                  <Check size={15} /> {editId ? "Desa canvis" : "Crea ajust"}
+                </button>
+                {!editId && (
+                  <button
+                    type="button"
+                    className={styles.bulkCreateBtn}
+                    onClick={crearPerMesos}
+                    disabled={isPending}
+                    title="Crea ajustos nous per als mesos marcats (salta els que ja existeixen)"
+                  >
+                    <Plus size={15} /> Crea per mesos
+                  </button>
+                )}
+              </>
+            )}
             <button
               type="button"
               className={styles.cancelBtn}

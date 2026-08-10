@@ -1,5 +1,11 @@
 "use server";
 
+import {
+  type BasePctVendes,
+  motiuPctVendes,
+  previsualitzaAjustPctVendes,
+  whereAmbitAjust,
+} from "@/lib/ajustos/pct-vendes";
 import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
@@ -25,6 +31,7 @@ function refresh() {
   revalidatePath("/consultes/empresa");
   revalidatePath("/consultes/evolucio");
   revalidatePath("/consultes/comparativa");
+  revalidatePath("/dades/repartiment");
 }
 
 export interface AjustInput {
@@ -143,8 +150,6 @@ export async function createAjustMultiAction(
   let creats = 0;
   let omesos = 0;
 
-  // Crear (CREATE) només quan NO existeix ja el registre.
-  // "Duplicat" aquí vol dir: any+mes+centre/LN+concepte+motiu (tal com demanes).
   for (const mes of mesos) {
     const periodId = await resolPeriodId(input.any, mes);
     const existeix = await db.ajust.findFirst({
@@ -180,4 +185,101 @@ export async function createAjustMultiAction(
   refresh();
   const missatge = `Creats: ${creats} · Omèsos (ja existents): ${omesos}`;
   return { ok: true, missatge, creats, omesos };
+}
+
+export type PreviewAjustPctInput = {
+  any: number;
+  mesos: number[];
+  concepteResultatId: string;
+  centreId: string | null;
+  liniaNegociId: string | null;
+  percent: number;
+  basePct: BasePctVendes;
+};
+
+export async function previsualitzaAjustPctVendesAction(input: PreviewAjustPctInput) {
+  const userId = await getEditor();
+  if (!userId) return { ok: false as const, missatge: "Sense permisos." };
+  return previsualitzaAjustPctVendes(input);
+}
+
+export type CreateAjustPctInput = PreviewAjustPctInput & {
+  /** Si es deixa buit, es genera automàticament. */
+  motiu?: string;
+};
+
+/**
+ * Crea (o actualitza) un ajust per mes: objectiu(−%×|base|) − SAP.
+ * Upsert per període + concepte + àmbit + motiu.
+ */
+export async function createAjustPctVendesMultiAction(
+  input: CreateAjustPctInput
+): Promise<Result & { creats?: number; actualitzats?: number; omesos?: number }> {
+  const userId = await getEditor();
+  if (!userId) return ERR("Sense permisos.");
+
+  const preview = await previsualitzaAjustPctVendes(input);
+  if (!preview.ok) return ERR(preview.missatge);
+
+  const motiu = (
+    input.motiu?.trim() || motiuPctVendes(input.percent, input.basePct, input.any)
+  ).trim();
+  const ambit = whereAmbitAjust({
+    centreId: input.centreId,
+    liniaNegociId: input.liniaNegociId,
+  });
+  if (!ambit) return ERR("Cal seleccionar un centre o una línia de negoci.");
+
+  let creats = 0;
+  let actualitzats = 0;
+  let omesos = 0;
+
+  for (const fila of preview.files) {
+    if (Math.abs(fila.importAjust) < 0.005) {
+      omesos++;
+      continue;
+    }
+
+    const periodId = await resolPeriodId(input.any, fila.mes);
+    const existent = await db.ajust.findFirst({
+      where: {
+        periodId,
+        concepteResultatId: input.concepteResultatId,
+        centreId: ambit.centreId,
+        liniaNegociId: ambit.liniaNegociId,
+        motiu,
+      },
+      select: { id: true },
+    });
+
+    if (existent) {
+      await db.ajust.update({
+        where: { id: existent.id },
+        data: { import_: fila.importAjust },
+      });
+      actualitzats++;
+    } else {
+      await db.ajust.create({
+        data: {
+          periodId,
+          concepteResultatId: input.concepteResultatId,
+          centreId: ambit.centreId,
+          liniaNegociId: ambit.liniaNegociId,
+          import_: fila.importAjust,
+          motiu,
+          creatPer: userId,
+        },
+      });
+      creats++;
+    }
+  }
+
+  refresh();
+  return {
+    ok: true,
+    missatge: `Creats: ${creats} · Actualitzats: ${actualitzats} · Omèsos (Δ≈0): ${omesos}`,
+    creats,
+    actualitzats,
+    omesos,
+  };
 }

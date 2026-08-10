@@ -49,7 +49,7 @@ export function ImportsLlista({ imports }: { imports: ImportCercaItem[] }) {
       meta={
         teFiltres
           ? `${filtrats.length} de ${imports.length}`
-          : `${imports.length} càrrega${imports.length !== 1 ? "s" : ""}`
+          : `${imports.length} càrrega${imports.length !== 1 ? "s" : ""} (totes)`
       }
     >
       <DadesFilterBar

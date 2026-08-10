@@ -251,7 +251,7 @@ export function calcularMoviments(
 }
 
 /**
- * Converteix imports objectiu en deltas respecte el SAP directe de cada LN.
+ * Converteix imports objectiu en deltas respecte la base Directe (SAP + ajustos) de cada LN.
  */
 export function movimentsADeltas(
   moviments: MovimentCalculat[],

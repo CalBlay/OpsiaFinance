@@ -12,11 +12,12 @@ Document de continuïtat per reprendre el treball en una altra sessió.
 Flux:
 
 ```
-Importació SAP (directe)  →  Repartiment mensual (revisar/confirmar)  →  Consulta Gestió
+Importació SAP  →  (+ Ajustos)  →  Repartiment mensual (sobre SAP+ajustos)  →  Consulta Gestió
 ```
 
-- **Directe (SAP):** dades importades sense repartiment.
-- **Gestió (tractat):** SAP + moviments de repartiment **confirmats** del període.
+- **Directe:** SAP + ajustos (sense repartiment).
+- **Base del motor de repartiment:** sempre **SAP + ajustos** (`getDirectePerLnNode` a `bases-vendes.ts`).
+- **Gestió (tractat):** Directe + moviments de repartiment **confirmats** del període (+ traspassos personal).
 
 ---
 
