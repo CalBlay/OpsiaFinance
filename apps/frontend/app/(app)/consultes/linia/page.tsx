@@ -3,6 +3,7 @@ import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteColl
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
+import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import type { KpiComite } from "@/components/consultes/PresentacioComite";
 import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
