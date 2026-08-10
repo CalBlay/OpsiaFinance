@@ -7,6 +7,7 @@ import {
   getArbreSeleccio,
   getEvolucioMensual,
 } from "@/lib/consultes";
+import { slimConceptsForPaint } from "@/lib/consultes-slim";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import {
   filtraLiniesPerGrup,
@@ -42,6 +43,8 @@ export default async function EvolucioPage({
   const lnId = sp.ln ?? null;
   const potGestio = grupPermetVistaGestio(grup);
   const vista: VistaCompte = potGestio && sp.vista === "gestio" ? "gestio" : "directe";
+  // Si l'usuari arriba en Directe, no bloquegem el paint amb la capa Gestió.
+  const carregaGestioEager = potGestio && vista === "gestio";
   const linies = liniesPerConsultaDetall(
     arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
     grup
@@ -57,11 +60,11 @@ export default async function EvolucioPage({
     ? [null, null]
     : await Promise.all([
         getEvolucioMensual(scope, lnId, anyActual, grup),
-        potGestio ? getInfoGestioConsulta(anyActual, rangAny) : Promise.resolve(null),
+        carregaGestioEager ? getInfoGestioConsulta(anyActual, rangAny) : Promise.resolve(null),
       ]);
 
   let gestio = null;
-  if (evRaw && potGestio) {
+  if (evRaw && carregaGestioEager) {
     if (scope === "linia" && lnId) {
       gestio = {
         ...evRaw,
@@ -98,9 +101,10 @@ export default async function EvolucioPage({
       isAdmin={session?.user?.role === "ADMIN"}
       grup={grup}
       lnIdsEmpresa={lnIdsEmpresa}
-      directe={evRaw}
-      gestio={gestio}
+      directe={evRaw ? { ...evRaw, concepts: slimConceptsForPaint(evRaw.concepts) } : null}
+      gestio={gestio ? { ...gestio, concepts: slimConceptsForPaint(gestio.concepts) } : null}
       infoGestio={infoGestio}
+      potCarregarGestio={potGestio && !carregaGestioEager && !!evRaw}
     />
   );
 }

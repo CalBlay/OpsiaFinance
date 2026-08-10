@@ -1,3 +1,4 @@
+import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
 import { getComparativaRestaurants } from "@/lib/cost-salarial/consultes";
 import { getAnysCostSalarial } from "@/lib/cost-salarial/consultes";
 import { db } from "@/lib/db";
@@ -8,6 +9,7 @@ import {
   getCentresRestaurantsVendes,
   getComparativaVendes,
 } from "@/lib/vendes-restaurants/consultes";
+import { unstable_cache } from "next/cache";
 
 export type SemaforPrime = "verd" | "ambre" | "vermell" | "gris";
 
@@ -185,6 +187,18 @@ export async function getAnysQuadreRestaurants(): Promise<number[]> {
  * Personal % = cost Excel ÷ vendes TPV (lectura operativa).
  */
 export async function getQuadreMandoRestaurants(
+  any: number,
+  mes: number,
+  nomesMirallFdlc = false
+): Promise<QuadreMandoRestaurants> {
+  return unstable_cache(
+    () => computeQuadreMandoRestaurants(any, mes, nomesMirallFdlc),
+    ["quadre-mando-v1", String(any), String(mes), nomesMirallFdlc ? "1" : "0"],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeQuadreMandoRestaurants(
   any: number,
   mes: number,
   nomesMirallFdlc = false

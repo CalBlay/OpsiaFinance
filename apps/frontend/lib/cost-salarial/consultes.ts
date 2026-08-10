@@ -1,3 +1,4 @@
+import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
@@ -10,6 +11,7 @@ import {
 } from "@/lib/cost-salarial/partides";
 import { db } from "@/lib/db";
 import { NODE_VENDES } from "@/lib/kpi-definitions";
+import { unstable_cache } from "next/cache";
 
 export type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
 export {
@@ -211,37 +213,62 @@ function blocBuit(departament: "SALA" | "CUINA"): BlocDepartament {
 }
 
 export async function getAnysCostSalarial(): Promise<number[]> {
-  const periods = await db.period.findMany({
-    where: { costsSalarials: { some: {} } },
-    select: { any: true },
-    distinct: ["any"],
-    orderBy: { any: "desc" },
-  });
-  return periods.map((p) => p.any);
+  return unstable_cache(
+    async () => {
+      const periods = await db.period.findMany({
+        where: { costsSalarials: { some: {} } },
+        select: { any: true },
+        distinct: ["any"],
+        orderBy: { any: "desc" },
+      });
+      return periods.map((p) => p.any);
+    },
+    ["cost-sal-anys-v1"],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
 }
 
 export async function getCentresRestaurants(nomesMirallFdlc = false) {
-  const ln = await db.liniaNegoci.findUnique({
-    where: { codi: "LN00001" },
-    select: {
-      centres: {
-        where: { isActive: true },
-        select: { id: true, codi: true, nom: true },
-      },
+  return unstable_cache(
+    async () => {
+      const ln = await db.liniaNegoci.findUnique({
+        where: { codi: "LN00001" },
+        select: {
+          centres: {
+            where: { isActive: true },
+            select: { id: true, codi: true, nom: true },
+          },
+        },
+      });
+      const { CENTRE_CODI_MIRALL_SERVEIS_FDLC } = await import("@/lib/fdlc/mirall-vendes-centre");
+      return ordenaPerCodi(
+        (ln?.centres ?? [])
+          .filter((c) => !nomesMirallFdlc || c.codi === CENTRE_CODI_MIRALL_SERVEIS_FDLC)
+          .map((c) => ({
+            ...c,
+            etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
+          }))
+      );
     },
-  });
-  const { CENTRE_CODI_MIRALL_SERVEIS_FDLC } = await import("@/lib/fdlc/mirall-vendes-centre");
-  return ordenaPerCodi(
-    (ln?.centres ?? [])
-      .filter((c) => !nomesMirallFdlc || c.codi === CENTRE_CODI_MIRALL_SERVEIS_FDLC)
-      .map((c) => ({
-        ...c,
-        etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
-      }))
-  );
+    ["cost-sal-centres-v1", nomesMirallFdlc ? "1" : "0"],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
 }
 
 export async function getInformeRestaurant(
+  centreId: string,
+  any: number,
+  mes: number | null,
+  compte: CompteCostSalarial = "directe"
+): Promise<InformeRestaurant> {
+  return unstable_cache(
+    () => computeInformeRestaurant(centreId, any, mes, compte),
+    ["cost-sal-inf-v1", centreId, String(any), String(mes ?? 0), compte],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeInformeRestaurant(
   centreId: string,
   any: number,
   mes: number | null,
@@ -331,6 +358,18 @@ export async function getInformeRestaurant(
 }
 
 export async function getComparativaRestaurants(
+  any: number,
+  mes: number | null,
+  compte: CompteCostSalarial = "directe"
+): Promise<ComparativaRestaurants> {
+  return unstable_cache(
+    () => computeComparativaRestaurants(any, mes, compte),
+    ["cost-sal-cmp-v1", String(any), String(mes ?? 0), compte],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeComparativaRestaurants(
   any: number,
   mes: number | null,
   compte: CompteCostSalarial = "directe"

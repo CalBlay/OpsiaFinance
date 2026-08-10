@@ -75,15 +75,15 @@ export function ConsultesNav() {
     [searchParams]
   );
 
-  // Prefetch de pestanyes germanes en idle perquè el canvi sigui gairebé instantani.
+  // Prefetch només pestanyes veïnes en idle (evita stampede de totes les consultes).
   useEffect(() => {
-    const targets = tabs
-      .map((tab) => tabHref(tab.href, sharedParams))
-      .filter((href) => {
-        const [basePath] = href.split("?");
-        return basePath ? !pathname.startsWith(basePath) : true;
-      });
+    const idx = tabs.findIndex((tab) => pathname.startsWith(tab.href));
+    if (idx < 0) return;
 
+    const adjacent = [tabs[idx - 1], tabs[idx + 1]].filter(
+      (tab): tab is (typeof tabs)[number] => tab != null
+    );
+    const targets = adjacent.map((tab) => tabHref(tab.href, sharedParams));
     if (targets.length === 0) return;
 
     const run = () => {

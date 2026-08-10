@@ -533,6 +533,23 @@
 .detallBody {
   padding-top: 0.75rem;
 }
+.detallLoading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 1rem 0.25rem;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+.detallSpinner {
+  animation: detallSpin 0.8s linear infinite;
+}
+@keyframes detallSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* KPIs */
 .kpiRow {

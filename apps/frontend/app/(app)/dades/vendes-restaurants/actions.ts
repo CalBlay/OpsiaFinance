@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { importarVendesDesDeBuffer } from "@/lib/vendes-restaurants/import";
 import { teTaxonomiaVendesArticle } from "@/lib/vendes-restaurants/prisma-fields";
@@ -24,8 +25,10 @@ async function getEditor() {
 }
 
 function refresh() {
+  revalidateConsultesDades();
   revalidatePath("/dades/vendes-restaurants");
   revalidatePath("/consultes/vendes-restaurants");
+  revalidatePath("/consultes/quadre-mando");
 }
 
 export async function uploadVendesRestaurantsAction(formData: FormData): Promise<Result> {

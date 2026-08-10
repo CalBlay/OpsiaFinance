@@ -10,10 +10,10 @@ const nextConfig: NextConfig = {
     },
     /**
      * Cache del router al client: en canviar de pestanya no es torna a demanar
-     * la RSC si s'ha visitat fa menys de 30s (abans era 0 → cada clic = fetch complet).
+     * la RSC si s'ha visitat fa menys de 90s (consultes es beneficen del reuse).
      */
     staleTimes: {
-      dynamic: 30,
+      dynamic: 90,
       static: 180,
     },
   },

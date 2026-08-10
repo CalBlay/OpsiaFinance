@@ -1,6 +1,5 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
-import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
-import { type PivotColumn, PivotTable } from "@/components/consultes/PivotTable";
+import type { PivotColumn } from "@/components/consultes/PivotTable";
 import {
   type KpiPesEmpresa,
   type PesLnComparativa,
@@ -9,7 +8,6 @@ import {
   type SerieComparativaMes,
 } from "@/components/consultes/PresentacioComparativa";
 import styles from "@/components/consultes/report.module.css";
-import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import {
   filtraConceptesPerMesos,
   inferDefaultMesos,
@@ -43,6 +41,11 @@ import {
   NODE_VENDES,
 } from "@/lib/kpi-definitions";
 import type { VistaCompte } from "@/lib/vista-compte";
+import {
+  ComparativaDetallLazy,
+  ComparativaExportLazy,
+  ComparativaPivotProvider,
+} from "./ComparativaPivotLazy";
 import { ComparativaSelectors } from "./ComparativaSelectors";
 
 export const dynamic = "force-dynamic";
@@ -411,8 +414,6 @@ export default async function ComparativaPage({
   const titol = granularitat === "mensual" ? compMensual?.titol : comp?.titol;
   const buit = granularitat === "mensual" ? compMensual?.buit : comp?.buit;
 
-  const pivotRows = granularitat === "mensual" ? conceptsTaula : (comp?.concepts ?? []);
-
   let pesLn: PesLnComparativa | null = null;
   if (scope === "empresa" && !buit) {
     const anysPesLn =
@@ -466,88 +467,87 @@ export default async function ComparativaPage({
   }
 
   return (
-    <div className={styles.page}>
-      <ConsultaHeader
-        title="Comparativa temporal"
-        subtitle={
-          titol && periodeDesc
-            ? `${titol} — ${periodeDesc}`
-            : "Tria un àmbit per comparar-lo al llarg del temps."
-        }
-        actions={
+    <ComparativaPivotProvider
+      params={{
+        scope,
+        id,
+        granularitat,
+        mes: mesActual,
+        mesosRaw: sp.mesos ?? null,
+        vista,
+        grup,
+      }}
+    >
+      <div className={styles.page}>
+        <ConsultaHeader
+          title="Comparativa temporal"
+          subtitle={
+            titol && periodeDesc
+              ? `${titol} — ${periodeDesc}`
+              : "Tria un àmbit per comparar-lo al llarg del temps."
+          }
+          actions={
+            <>
+              <ComparativaSelectors
+                arbre={arbre}
+                scope={scope}
+                id={id}
+                granularitat={granularitat}
+                mes={mesActual}
+                mesosSeleccionats={mesosSeleccionats}
+                vista={vista}
+                grup={grup}
+                nomesEmpresa={false}
+              />
+              <ComparativaExportLazy
+                disabled={!!necessitaId || !!buit}
+                filename={slugFilename(
+                  `comparativa-${titol ?? scope}-${periodeDesc ?? granularitat}`
+                )}
+                title="Comparativa temporal"
+                subtitle={titol && periodeDesc ? `${titol} — ${periodeDesc}` : undefined}
+              />
+            </>
+          }
+        />
+
+        {necessitaId ? (
+          <div className={styles.prompt}>
+            <h3>Selecciona {scope === "linia" ? "una línia" : "un centre"}</h3>
+            <p>Tria l&apos;element que vols comparar al llarg del temps.</p>
+          </div>
+        ) : buit ? (
+          <div className={styles.prompt}>
+            <h3>Sense dades</h3>
+            <p>Encara no hi ha prou dades carregades per comparar períodes.</p>
+          </div>
+        ) : (
           <>
-            <ComparativaSelectors
-              arbre={arbre}
-              scope={scope}
-              id={id}
-              granularitat={granularitat}
-              mes={mesActual}
-              mesosSeleccionats={mesosSeleccionats}
-              vista={vista}
-              grup={grup}
-              nomesEmpresa={false}
+            {granularitat === "anual" && columns.length === 1 && (
+              <p className={styles.tableCaption} style={{ marginBottom: "1rem" }}>
+                Només hi ha dades d&apos;un any ({columns[0].label}). Carrega més exercicis o canvia
+                a granularitat per període.
+              </p>
+            )}
+
+            <PresentacioComparativa
+              titol={titol ?? "Comparativa"}
+              periode={periodeDesc ?? ""}
+              kpis={kpis}
+              periodeLabelKpi={granularitat === "mensual" ? periodeLabel : compLabel}
+              perAny={perAny}
+              mensual={mensual}
+              anysMensual={anysComparats}
+              mode={granularitat}
+              ambit={esLn ? "linia" : "general"}
+              pesEmpresa={pesEmpresa}
+              pesLn={pesLn}
             />
-            <ExportInformeButton
-              disabled={!!necessitaId || !!buit}
-              filename={slugFilename(
-                `comparativa-${titol ?? scope}-${periodeDesc ?? granularitat}`
-              )}
-              title="Comparativa temporal"
-              subtitle={titol && periodeDesc ? `${titol} — ${periodeDesc}` : undefined}
-              columns={columns}
-              rows={pivotRows}
-              showTotal={granularitat === "mensual"}
-              totalLabel="Període"
-              sheetName="Comparativa"
-            />
+
+            <ComparativaDetallLazy />
           </>
-        }
-      />
-
-      {necessitaId ? (
-        <div className={styles.prompt}>
-          <h3>Selecciona {scope === "linia" ? "una línia" : "un centre"}</h3>
-          <p>Tria l&apos;element que vols comparar al llarg del temps.</p>
-        </div>
-      ) : buit ? (
-        <div className={styles.prompt}>
-          <h3>Sense dades</h3>
-          <p>Encara no hi ha prou dades carregades per comparar períodes.</p>
-        </div>
-      ) : (
-        <>
-          {granularitat === "anual" && columns.length === 1 && (
-            <p className={styles.tableCaption} style={{ marginBottom: "1rem" }}>
-              Només hi ha dades d&apos;un any ({columns[0].label}). Carrega més exercicis o canvia a
-              granularitat per període.
-            </p>
-          )}
-
-          <PresentacioComparativa
-            titol={titol ?? "Comparativa"}
-            periode={periodeDesc ?? ""}
-            kpis={kpis}
-            periodeLabelKpi={granularitat === "mensual" ? periodeLabel : compLabel}
-            perAny={perAny}
-            mensual={mensual}
-            anysMensual={anysComparats}
-            mode={granularitat}
-            ambit={esLn ? "linia" : "general"}
-            pesEmpresa={pesEmpresa}
-            pesLn={pesLn}
-          />
-
-          <DetallCompteCollapsible title="Obrir compte d'explotació detallat">
-            <PivotTable
-              columns={columns}
-              rows={pivotRows}
-              showTotal={granularitat === "mensual"}
-              totalLabel="Període"
-              firstColLabel="Concepte"
-            />
-          </DetallCompteCollapsible>
-        </>
-      )}
-    </div>
+        )}
+      </div>
+    </ComparativaPivotProvider>
   );
 }

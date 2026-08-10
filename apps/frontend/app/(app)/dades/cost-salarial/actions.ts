@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { importarCostSalarialDesDeBuffer } from "@/lib/cost-salarial/import";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
@@ -18,8 +19,10 @@ async function getEditor() {
 }
 
 function refresh() {
+  revalidateConsultesDades();
   revalidatePath("/dades/cost-salarial");
   revalidatePath("/consultes/cost-salarial");
+  revalidatePath("/consultes/quadre-mando");
 }
 
 export interface CostSalarialInput {

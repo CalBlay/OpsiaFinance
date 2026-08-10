@@ -9,7 +9,7 @@ import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown"
 import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
-import type { AmbitEvolucio, EvolucioMensual } from "@/lib/consultes";
+import type { AmbitEvolucio, ConceptePivot, EvolucioMensual } from "@/lib/consultes";
 import { slugFilename } from "@/lib/export/filename";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
 import type { KpiInformeItem } from "@/lib/kpi-definitions";
@@ -24,9 +24,10 @@ import { MESOS_CURTS } from "@/lib/periodes";
 import type { InfoGestioConsulta } from "@/lib/repartiment/service";
 import type { VistaCompte } from "@/lib/vista-compte";
 import { replaceVistaQuery } from "@/lib/vista-url";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { EvolucioSelectors } from "./EvolucioSelectors";
+import { carregarEvolucioGestioAction, carregarEvolucioPivotAction } from "./actions";
 
 type LnOpt = { id: string; codi: string; nom: string };
 
@@ -52,8 +53,9 @@ export function EvolucioBoard({
   grup,
   lnIdsEmpresa,
   directe,
-  gestio,
-  infoGestio,
+  gestio: gestioInicial,
+  infoGestio: infoGestioInicial,
+  potCarregarGestio = false,
 }: {
   linies: LnOpt[];
   anys: number[];
@@ -70,14 +72,54 @@ export function EvolucioBoard({
   directe: EvolucioMensual | null;
   gestio: EvolucioMensual | null;
   infoGestio: InfoGestioConsulta | null;
+  potCarregarGestio?: boolean;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
+  const [gestio, setGestio] = useState<EvolucioMensual | null>(gestioInicial);
+  const [infoGestio, setInfoGestio] = useState<InfoGestioConsulta | null>(infoGestioInicial);
+  const pivotScopeKey = `${scope}:${lnId ?? ""}:${anyActual}:${grup}`;
+  const [pivotScope, setPivotScope] = useState(pivotScopeKey);
+  const [pivotByVista, setPivotByVista] = useState<Partial<Record<VistaCompte, ConceptePivot[]>>>(
+    {}
+  );
+  const [pivotLoading, setPivotLoading] = useState(false);
+  const pivotRef = useRef(pivotByVista);
+  pivotRef.current = pivotByVista;
+
+  if (pivotScope !== pivotScopeKey) {
+    setPivotScope(pivotScopeKey);
+    setPivotByVista({});
+  }
 
   useEffect(() => {
     setVista(vistaInicial);
   }, [vistaInicial]);
 
+  useEffect(() => {
+    setGestio(gestioInicial);
+  }, [gestioInicial]);
+
+  useEffect(() => {
+    setInfoGestio(infoGestioInicial);
+  }, [infoGestioInicial]);
+
+  // Prefetch Gestió en background després del primer paint Directe.
+  useEffect(() => {
+    if (!potCarregarGestio || gestio) return;
+    let cancelled = false;
+    carregarEvolucioGestioAction({ scope, lnId, any: anyActual, grup }).then((data) => {
+      if (cancelled || !data) return;
+      setGestio(data.gestio);
+      setInfoGestio(data.infoGestio);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [potCarregarGestio, gestio, scope, lnId, anyActual, grup]);
+
   const ev = vista === "gestio" && gestio ? gestio : directe;
+  const pivotRows = pivotByVista[vista] ?? null;
+  const rowsTaula = pivotRows ?? [];
   const canEdit = isAdmin && vista === "directe" && scope === "linia";
   const vistaLabel = vista === "gestio" ? "compte de gestió" : "directe SAP";
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
@@ -103,6 +145,23 @@ export function EvolucioBoard({
     ];
   }, [ev]);
 
+  const ensurePivot = useCallback(async () => {
+    if (pivotRef.current[vista]?.length) return;
+    setPivotLoading(true);
+    try {
+      const rows = await carregarEvolucioPivotAction({
+        scope,
+        lnId,
+        any: anyActual,
+        grup,
+        vista,
+      });
+      setPivotByVista((prev) => ({ ...prev, [vista]: rows }));
+    } finally {
+      setPivotLoading(false);
+    }
+  }, [anyActual, grup, lnId, scope, vista]);
+
   const onVistaLocal =
     potGestio && gestio
       ? (next: VistaCompte) => {
@@ -112,6 +171,7 @@ export function EvolucioBoard({
       : undefined;
 
   const necessitaLn = scope === "linia" && !lnId;
+  const exportRows = pivotRows ?? [];
 
   return (
     <div className={styles.page}>
@@ -135,16 +195,20 @@ export function EvolucioBoard({
               mostraVistaGestio={mostraVistaGestio}
               onVistaLocal={onVistaLocal}
             />
-            <ExportInformeButton
-              disabled={!ev || ev.buit}
-              filename={slugFilename(`evolucio-${ev?.titol ?? scope}-${anyActual}`)}
-              title="Evolució mensual"
-              subtitle={ev ? `${ev.titol} — ${anyActual} · ${vistaLabel}` : `Acumulat ${anyActual}`}
-              columns={columns}
-              rows={ev?.concepts ?? []}
-              totalLabel="Any"
-              sheetName="Evolució"
-            />
+            <span onPointerEnter={() => void ensurePivot()}>
+              <ExportInformeButton
+                disabled={!ev || ev.buit || (!exportRows.length && pivotLoading)}
+                filename={slugFilename(`evolucio-${ev?.titol ?? scope}-${anyActual}`)}
+                title="Evolució mensual"
+                subtitle={
+                  ev ? `${ev.titol} — ${anyActual} · ${vistaLabel}` : `Acumulat ${anyActual}`
+                }
+                columns={columns}
+                rows={exportRows}
+                totalLabel="Any"
+                sheetName="Evolució"
+              />
+            </span>
           </>
         }
       />
@@ -169,10 +233,13 @@ export function EvolucioBoard({
             <EvolucioChart categories={MESOS_CURTS} series={chartSeries} />
           </div>
 
-          <DetallCompteCollapsible>
+          <DetallCompteCollapsible
+            onFirstOpen={ensurePivot}
+            loading={pivotLoading && !pivotRows?.length}
+          >
             <PivotTableDrilldown
               columns={columns}
-              rows={ev?.concepts ?? []}
+              rows={rowsTaula}
               totalLabel="Any"
               firstColLabel="Concepte"
               canEdit={canEdit}

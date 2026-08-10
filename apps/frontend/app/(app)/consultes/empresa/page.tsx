@@ -8,6 +8,7 @@ import {
   getEvolucioMensual,
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
+import { sensePivotRows } from "@/lib/consultes-slim";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { aplicarVistaGestioEvolucioEmpresa } from "@/lib/repartiment/gestio-consultes";
@@ -107,8 +108,8 @@ export default async function ConsultaEmpresaPage({
       rang={rang}
       grup={grup}
       vistaInicial={vista}
-      directe={directe}
-      gestio={gestio}
+      directe={sensePivotRows(directe)}
+      gestio={gestio ? sensePivotRows(gestio) : null}
       potCarregarGestio={potGestio && gestio == null}
     />
   );

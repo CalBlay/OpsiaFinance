@@ -1,5 +1,6 @@
 import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
 import type { VistaCompte } from "@/lib/consultes";
+import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import {
@@ -16,6 +17,7 @@ import {
 } from "@/lib/cost-personal-centre/nodes";
 import { db } from "@/lib/db";
 import { NODE_VENDES } from "@/lib/kpi-definitions";
+import { unstable_cache } from "next/cache";
 
 export type NivellCostPersonal = "linies" | "centres" | "departaments";
 
@@ -375,31 +377,53 @@ function buildBarres(
 }
 
 export async function getAnysCostPersonalCentre(): Promise<number[]> {
-  const [payroll, sap] = await Promise.all([
-    db.period.findMany({
-      where: { costsPersonalsCentre: { some: {} } },
-      select: { any: true },
-      distinct: ["any"],
-    }),
-    db.period.findMany({
-      where: {
-        dadesResultat: {
-          some: {
-            concepteResultat: {
-              node: { in: [NODE_SOUS_SALARIS, NODE_SEGURETAT_SOCIAL, NODE_TOTAL_COST_SALARIAL] },
+  return unstable_cache(
+    async () => {
+      const [payroll, sap] = await Promise.all([
+        db.period.findMany({
+          where: { costsPersonalsCentre: { some: {} } },
+          select: { any: true },
+          distinct: ["any"],
+        }),
+        db.period.findMany({
+          where: {
+            dadesResultat: {
+              some: {
+                concepteResultat: {
+                  node: {
+                    in: [NODE_SOUS_SALARIS, NODE_SEGURETAT_SOCIAL, NODE_TOTAL_COST_SALARIAL],
+                  },
+                },
+              },
             },
           },
-        },
-      },
-      select: { any: true },
-      distinct: ["any"],
-    }),
-  ]);
-  const set = new Set([...payroll, ...sap].map((p) => p.any));
-  return [...set].sort((a, b) => b - a);
+          select: { any: true },
+          distinct: ["any"],
+        }),
+      ]);
+      const set = new Set([...payroll, ...sap].map((p) => p.any));
+      return [...set].sort((a, b) => b - a);
+    },
+    ["cost-pers-anys-v1"],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
 }
 
 export async function getInformeCostPersonalLinies(
+  any: number,
+  mes: number | null,
+  vista: VistaCompte,
+  opts?: { basePath?: string; lnIds?: string[] }
+): Promise<InformeCostPersonal> {
+  const lnKey = (opts?.lnIds ?? []).slice().sort().join(",");
+  return unstable_cache(
+    () => computeInformeCostPersonalLinies(any, mes, vista, opts),
+    ["cost-pers-linies-v1", String(any), String(mes ?? 0), vista, opts?.basePath ?? "", lnKey],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeInformeCostPersonalLinies(
   any: number,
   mes: number | null,
   vista: VistaCompte,
@@ -557,6 +581,29 @@ export async function getInformeCostPersonalCentres(
   vista: VistaCompte,
   opts?: { basePath?: string; lnIds?: string[] }
 ): Promise<InformeCostPersonal> {
+  const lnKey = (opts?.lnIds ?? []).slice().sort().join(",");
+  return unstable_cache(
+    () => computeInformeCostPersonalCentres(liniaNegociId, any, mes, vista, opts),
+    [
+      "cost-pers-centres-v1",
+      liniaNegociId,
+      String(any),
+      String(mes ?? 0),
+      vista,
+      opts?.basePath ?? "",
+      lnKey,
+    ],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeInformeCostPersonalCentres(
+  liniaNegociId: string,
+  any: number,
+  mes: number | null,
+  vista: VistaCompte,
+  opts?: { basePath?: string; lnIds?: string[] }
+): Promise<InformeCostPersonal> {
   const basePath = opts?.basePath ?? "/consultes/cost-personal";
   const [conceptes, ln, perCentre] = await Promise.all([
     getConceptesPersonal(),
@@ -685,6 +732,21 @@ export async function getInformeCostPersonalCentres(
 }
 
 export async function getInformeCostPersonalDepartaments(
+  centreId: string,
+  any: number,
+  mes: number | null,
+  vista: VistaCompte,
+  opts?: { lnIds?: string[] }
+): Promise<InformeCostPersonal> {
+  const lnKey = (opts?.lnIds ?? []).slice().sort().join(",");
+  return unstable_cache(
+    () => computeInformeCostPersonalDepartaments(centreId, any, mes, vista, opts),
+    ["cost-pers-depts-v1", centreId, String(any), String(mes ?? 0), vista, lnKey],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeInformeCostPersonalDepartaments(
   centreId: string,
   any: number,
   mes: number | null,

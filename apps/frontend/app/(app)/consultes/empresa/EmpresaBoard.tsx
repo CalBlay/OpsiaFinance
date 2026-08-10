@@ -14,10 +14,10 @@ import type { RangMesos } from "@/lib/periodes";
 import { etiquetaRangMesos } from "@/lib/periodes";
 import type { VistaCompte } from "@/lib/vista-compte";
 import { replaceVistaQuery } from "@/lib/vista-url";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { EmpresaSelectors } from "./EmpresaSelectors";
-import { carregarEmpresaGestioAction } from "./actions";
+import { carregarEmpresaGestioAction, carregarEmpresaPivotAction } from "./actions";
 import type { EmpresaVistaData } from "./empresa-vista-data";
 
 function etiquetaTitolEmpresa(grup: GrupEmpresa): string {
@@ -45,6 +45,19 @@ export function EmpresaBoard({
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
   const [gestio, setGestio] = useState<EmpresaVistaData | null>(gestioInicial);
+  const pivotScopeKey = `${anyActual}:${rang.des}-${rang.fins}:${grup}`;
+  const [pivotScope, setPivotScope] = useState(pivotScopeKey);
+  const [pivotByVista, setPivotByVista] = useState<
+    Partial<Record<VistaCompte, EmpresaVistaData["pivotRows"]>>
+  >({});
+  const [pivotLoading, setPivotLoading] = useState(false);
+  const pivotRef = useRef(pivotByVista);
+  pivotRef.current = pivotByVista;
+
+  if (pivotScope !== pivotScopeKey) {
+    setPivotScope(pivotScopeKey);
+    setPivotByVista({});
+  }
 
   useEffect(() => {
     setVista(vistaInicial);
@@ -67,8 +80,25 @@ export function EmpresaBoard({
   }, [potCarregarGestio, gestio, anyActual, rang, grup]);
 
   const data = vista === "gestio" && gestio ? gestio : directe;
+  const pivotRows = data.pivotRows.length ? data.pivotRows : (pivotByVista[vista] ?? []);
   const nomEmpresa = etiquetaGrupEmpresa(grup);
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
+
+  const ensurePivot = useCallback(async () => {
+    if (data.pivotRows.length || pivotRef.current[vista]?.length) return;
+    setPivotLoading(true);
+    try {
+      const rows = await carregarEmpresaPivotAction({
+        any: anyActual,
+        rang,
+        grup,
+        vista,
+      });
+      setPivotByVista((prev) => ({ ...prev, [vista]: rows }));
+    } finally {
+      setPivotLoading(false);
+    }
+  }, [anyActual, data.pivotRows.length, grup, rang, vista]);
 
   const onVistaLocal = gestio
     ? (next: VistaCompte) => {
@@ -92,16 +122,18 @@ export function EmpresaBoard({
               grup={grup}
               onVistaLocal={onVistaLocal}
             />
-            <ExportInformeButton
-              disabled={data.buit}
-              filename={slugFilename(`compte-empresa-${nomEmpresa}-${periodeLabel}`)}
-              title={etiquetaTitolEmpresa(grup)}
-              subtitle={data.exportSubtitle}
-              columns={data.columns}
-              rows={data.pivotRows}
-              totalLabel={data.totalLabel}
-              sheetName="Compte"
-            />
+            <span onPointerEnter={() => void ensurePivot()}>
+              <ExportInformeButton
+                disabled={data.buit || (!pivotRows.length && pivotLoading)}
+                filename={slugFilename(`compte-empresa-${nomEmpresa}-${periodeLabel}`)}
+                title={etiquetaTitolEmpresa(grup)}
+                subtitle={data.exportSubtitle}
+                columns={data.columns}
+                rows={pivotRows}
+                totalLabel={data.totalLabel}
+                sheetName="Compte"
+              />
+            </span>
           </>
         }
       />
@@ -130,10 +162,15 @@ export function EmpresaBoard({
             />
           ) : null}
 
-          <DetallCompteCollapsible caption={data.tableCaption} defaultOpen={false}>
+          <DetallCompteCollapsible
+            caption={data.tableCaption}
+            defaultOpen={false}
+            onFirstOpen={ensurePivot}
+            loading={pivotLoading && !pivotRows.length}
+          >
             <PivotTableDrilldown
               columns={data.columns}
-              rows={data.pivotRows}
+              rows={pivotRows}
               totalLabel={data.totalLabel}
               firstColLabel="Concepte"
               canEdit={data.canEdit}

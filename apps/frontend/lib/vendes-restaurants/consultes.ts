@@ -1,3 +1,4 @@
+import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { esCentreAdministracio, etiquetaGrafic } from "@/lib/consultes-grafics";
 import { normalitzaNomRestaurant } from "@/lib/cost-salarial/import";
@@ -7,6 +8,7 @@ import { MESOS_LLARGS } from "@/lib/periodes";
 import type { CategoriaVenda } from "@/lib/vendes-restaurants/categories";
 import { categoriaDesDeTaxonomia, esSubfamiliaMenus } from "@/lib/vendes-restaurants/categories";
 import { teTaxonomiaVendesArticle } from "@/lib/vendes-restaurants/prisma-fields";
+import { unstable_cache } from "next/cache";
 
 export type CriteriRanking = "base" | "unitats";
 export type OrigenVista = "DETALL" | "PACK";
@@ -213,42 +215,73 @@ function mesosBuits(): MesEvolucio[] {
 }
 
 export async function getAnysVendesRestaurants(): Promise<number[]> {
-  const periods = await db.period.findMany({
-    where: {
-      OR: [{ vendesDiaries: { some: {} } }, { vendesArticles: { some: {} } }],
+  return unstable_cache(
+    async () => {
+      const periods = await db.period.findMany({
+        where: {
+          OR: [{ vendesDiaries: { some: {} } }, { vendesArticles: { some: {} } }],
+        },
+        select: { any: true },
+        distinct: ["any"],
+        orderBy: { any: "desc" },
+      });
+      return periods.map((p) => p.any);
     },
-    select: { any: true },
-    distinct: ["any"],
-    orderBy: { any: "desc" },
-  });
-  return periods.map((p) => p.any);
+    ["vendes-anys-v1"],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
 }
 
 export async function getCentresRestaurantsVendes(
   nomesMirallFdlc = false
 ): Promise<CentreRestOpt[]> {
-  const ln = await db.liniaNegoci.findUnique({
-    where: { codi: "LN00001" },
-    select: {
-      centres: {
-        where: { isActive: true },
-        select: { id: true, codi: true, nom: true },
-      },
+  return unstable_cache(
+    async () => {
+      const ln = await db.liniaNegoci.findUnique({
+        where: { codi: "LN00001" },
+        select: {
+          centres: {
+            where: { isActive: true },
+            select: { id: true, codi: true, nom: true },
+          },
+        },
+      });
+      const { CENTRE_CODI_MIRALL_SERVEIS_FDLC } = await import("@/lib/fdlc/mirall-vendes-centre");
+      return ordenaPerCodi(
+        (ln?.centres ?? [])
+          .filter((c) => !esCentreAdministracio(c))
+          .filter((c) => !nomesMirallFdlc || c.codi === CENTRE_CODI_MIRALL_SERVEIS_FDLC)
+          .map((c) => ({
+            ...c,
+            etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
+          }))
+      );
     },
-  });
-  const { CENTRE_CODI_MIRALL_SERVEIS_FDLC } = await import("@/lib/fdlc/mirall-vendes-centre");
-  return ordenaPerCodi(
-    (ln?.centres ?? [])
-      .filter((c) => !esCentreAdministracio(c))
-      .filter((c) => !nomesMirallFdlc || c.codi === CENTRE_CODI_MIRALL_SERVEIS_FDLC)
-      .map((c) => ({
-        ...c,
-        etiqueta: etiquetaGrafic(c) || normalitzaNomRestaurant(c.nom),
-      }))
-  );
+    ["vendes-centres-v1", nomesMirallFdlc ? "1" : "0"],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
 }
 
 export async function getComparativaVendes(
+  any: number,
+  mes: number,
+  nomesMirallFdlc = false,
+  opts?: { totalsOnly?: boolean }
+): Promise<ComparativaVendes> {
+  return unstable_cache(
+    () => computeComparativaVendes(any, mes, nomesMirallFdlc, opts),
+    [
+      "vendes-cmp-v1",
+      String(any),
+      String(mes),
+      nomesMirallFdlc ? "1" : "0",
+      opts?.totalsOnly ? "t" : "f",
+    ],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeComparativaVendes(
   any: number,
   mes: number,
   nomesMirallFdlc = false,
@@ -803,6 +836,19 @@ async function carregaArticles(
 }
 
 export async function getInformeVendesRestaurant(
+  centreId: string,
+  any: number,
+  mes: number,
+  opts?: { totalsOnly?: boolean }
+): Promise<InformeVendesRestaurant> {
+  return unstable_cache(
+    () => computeInformeVendesRestaurant(centreId, any, mes, opts),
+    ["vendes-inf-v1", centreId, String(any), String(mes), opts?.totalsOnly ? "t" : "f"],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeInformeVendesRestaurant(
   centreId: string,
   any: number,
   mes: number,

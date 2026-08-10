@@ -1,6 +1,4 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
-import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
-import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
 import styles from "@/components/consultes/report.module.css";
 import { type VistaCompte, getArbreSeleccio } from "@/lib/consultes";
 import {
@@ -13,6 +11,7 @@ import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { CostPersonalPresentacio } from "../presenters-dynamic";
+import { CostPersonalDetallLazy } from "./CostPersonalDetallLazy";
 import { CostPersonalSelectors } from "./CostPersonalSelectors";
 import local from "./page.module.css";
 
@@ -183,30 +182,17 @@ export default async function ConsultaCostPersonalPage({
             chartTitle={chartTitle}
           />
 
-          <DetallCompteCollapsible defaultOpen={false} title="Detall del compte">
-            <PivotTableDrilldown
-              columns={informe.columns}
-              rows={informe.rows}
-              totalLabel="Total"
-              firstColLabel="Concepte"
-              canEdit={false}
-              drilldown={{
-                any: anyActual,
-                vista,
-                grup,
-                colMap: Object.fromEntries(
-                  Object.entries(informe.colMap).map(([k, v]) => [
-                    k,
-                    {
-                      mes: v.mes,
-                      centreId: v.centreId,
-                      liniaNegociId: v.liniaNegociId,
-                    },
-                  ])
-                ),
-              }}
-            />
-          </DetallCompteCollapsible>
+          <CostPersonalDetallLazy
+            params={{
+              any: anyActual,
+              mes,
+              lnId,
+              centreId,
+              vista,
+            }}
+            vista={vista}
+            grup={grup}
+          />
         </>
       )}
     </div>

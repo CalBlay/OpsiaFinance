@@ -5,6 +5,7 @@ import {
   getCompteExplotacioCentre,
   getCompteExplotacioCentreParell,
 } from "@/lib/consultes";
+import { slimConceptsForPaint } from "@/lib/consultes-slim";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { CentreBoard } from "./CentreBoard";
@@ -69,8 +70,16 @@ export default async function ConsultaCentrePage({
       anyActual={anyActual}
       vistaInicial={vista}
       isAdmin={session?.user?.role === "ADMIN"}
-      directe={parell?.directe ?? null}
-      gestio={parell?.gestio ?? null}
+      directe={
+        parell?.directe
+          ? { ...parell.directe, concepts: slimConceptsForPaint(parell.directe.concepts) }
+          : null
+      }
+      gestio={
+        parell?.gestio
+          ? { ...parell.gestio, concepts: slimConceptsForPaint(parell.gestio.concepts) }
+          : null
+      }
       potCarregarGestio={!!centreId && vista === "directe"}
     />
   );

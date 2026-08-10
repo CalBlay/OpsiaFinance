@@ -347,6 +347,19 @@ export async function getComparativaLn(
   rang: RangMesos,
   vista: VistaCompte = "directe"
 ): Promise<ComparativaLn> {
+  return unstable_cache(
+    () => computeComparativaLn(liniaNegociId, any, rang, vista),
+    ["consultes-cmp-ln-v1", liniaNegociId, String(any), String(rang.des), String(rang.fins), vista],
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+}
+
+async function computeComparativaLn(
+  liniaNegociId: string,
+  any: number,
+  rang: RangMesos,
+  vista: VistaCompte = "directe"
+): Promise<ComparativaLn> {
   const periodFilter = prismaPeriodFilter(any, rang);
   const [ln, concepts, dades, ajustos] = await Promise.all([
     db.liniaNegoci.findUnique({
