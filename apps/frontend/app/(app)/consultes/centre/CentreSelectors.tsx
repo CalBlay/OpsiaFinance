@@ -101,7 +101,7 @@ export function CentreSelectors({
               value={lnId ?? ""}
               onChange={(e) => go(e.target.value || null, null, any, vista)}
             >
-              <option value="">Selecciona…</option>
+              <option value="">Totes les línies</option>
               {arbre.map((ln) => (
                 <option key={ln.id} value={ln.id}>
                   {etiquetaLiniaNegoci(ln)}
@@ -120,9 +120,7 @@ export function CentreSelectors({
               disabled={!lnId}
               onChange={(e) => go(lnId, e.target.value || null, any, vista)}
             >
-              <option value="" disabled>
-                {lnId ? "Selecciona…" : "Tria línia…"}
-              </option>
+              <option value="">{lnId ? "Tots (resum costos)" : "Tria línia…"}</option>
               {centres.map((c) => (
                 <option key={c.id} value={c.id}>
                   {etiquetaCentre(c)}

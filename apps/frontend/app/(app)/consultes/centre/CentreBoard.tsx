@@ -18,6 +18,8 @@ import type { VistaCompte } from "@/lib/vista-compte";
 import { replaceVistaQuery } from "@/lib/vista-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
+import { CentreLnChooser, CentreResumPresentacio } from "../presenters-dynamic";
+import type { FilaResumCentre, MesCostCentre } from "./CentreResumPresentacio";
 import { CentreSelectors } from "./CentreSelectors";
 import { carregarCentreGestioAction, carregarCentrePivotAction } from "./actions";
 
@@ -26,6 +28,21 @@ type LnOpt = {
   codi: string;
   nom: string;
   centres: { id: string; codi: string; nom: string }[];
+};
+
+type ResumCentre = {
+  lnNom: string;
+  totals: {
+    costPersonal: number;
+    vendes: number;
+    personalPctVendes: number | null;
+    foodPctVendes: number | null;
+    ebitdaPct: number | null;
+  };
+  cobertura: { ambDades: number; total: number };
+  files: FilaResumCentre[];
+  evolucioMensual: MesCostCentre[];
+  buit: boolean;
 };
 
 export function CentreBoard({
@@ -39,6 +56,8 @@ export function CentreBoard({
   directe,
   gestio: gestioInicial,
   potCarregarGestio = false,
+  resum = null,
+  lnChooser = null,
 }: {
   arbre: LnOpt[];
   anys: number[];
@@ -50,6 +69,8 @@ export function CentreBoard({
   directe: CompteExplotacioCentre | null;
   gestio: CompteExplotacioCentre | null;
   potCarregarGestio?: boolean;
+  resum?: ResumCentre | null;
+  lnChooser?: { id: string; name: string; nCentres: number; href: string }[] | null;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
   const [gestio, setGestio] = useState<CompteExplotacioCentre | null>(gestioInicial);
@@ -91,6 +112,7 @@ export function CentreBoard({
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
   const periodeLabel = `Acumulat ${anyActual}`;
   const pivotRows = pivotByVista[vista] ?? null;
+  const vistaLabel = vista === "gestio" ? "Gestió" : "Directe";
 
   const kpis = useMemo(() => {
     if (!compte) return [];
@@ -128,24 +150,29 @@ export function CentreBoard({
     }
   }, [anyActual, centreId, vista]);
 
-  const onVistaLocal = gestio
-    ? (next: VistaCompte) => {
-        setVista(next);
-        replaceVistaQuery(next);
-      }
-    : undefined;
+  const onVistaLocal =
+    centreId && gestio
+      ? (next: VistaCompte) => {
+          setVista(next);
+          replaceVistaQuery(next);
+        }
+      : undefined;
 
   const exportRows = pivotRows ?? [];
+
+  const subtitle = compte?.centre
+    ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom}${vista === "gestio" ? " · gestió (traspassos personal)" : " · directe SAP"}`
+    : lnId && !centreId && resum
+      ? `Costos i intensitat per centre · ${resum.lnNom} · ${periodeLabel} · ${vistaLabel}`
+      : !lnId
+        ? "Tria una línia per veure el resum de costos dels seus centres."
+        : "Selecciona un centre per veure el seu compte d'explotació anual, mes a mes.";
 
   return (
     <div className={styles.page}>
       <ConsultaHeader
         title="Compte d'explotació · per centre"
-        subtitle={
-          compte?.centre
-            ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom}${vista === "gestio" ? " · gestió (traspassos personal)" : " · directe SAP"}`
-            : "Selecciona un centre per veure el seu compte d'explotació anual, mes a mes."
-        }
+        subtitle={subtitle}
         actions={
           <>
             <CentreSelectors
@@ -157,44 +184,59 @@ export function CentreBoard({
               vista={vista}
               onVistaLocal={onVistaLocal}
             />
-            <span onPointerEnter={() => void ensurePivot()}>
-              <ExportInformeButton
-                disabled={!compte || compte.buit || (!exportRows.length && pivotLoading)}
-                filename={slugFilename(
-                  `compte-centre-${compte?.centre ? etiquetaCentre(compte.centre) : "centre"}-${anyActual}`
-                )}
-                title="Compte d'explotació · per centre"
-                subtitle={
-                  compte?.centre
-                    ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom} · ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
-                    : periodeLabel
-                }
-                columns={columns}
-                rows={exportRows}
-                totalLabel="Any"
-                sheetName="Centre"
-              />
-            </span>
+            {centreId ? (
+              <span onPointerEnter={() => void ensurePivot()}>
+                <ExportInformeButton
+                  disabled={!compte || compte.buit || (!exportRows.length && pivotLoading)}
+                  filename={slugFilename(
+                    `compte-centre-${compte?.centre ? etiquetaCentre(compte.centre) : "centre"}-${anyActual}`
+                  )}
+                  title="Compte d'explotació · per centre"
+                  subtitle={
+                    compte?.centre
+                      ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom} · ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
+                      : periodeLabel
+                  }
+                  columns={columns}
+                  rows={exportRows}
+                  totalLabel="Any"
+                  sheetName="Centre"
+                />
+              </span>
+            ) : null}
           </>
         }
       />
 
       {!lnId ? (
-        <div className={styles.prompt}>
-          <h3>Cap línia seleccionada</h3>
-          <p>
-            Tria primer una línia de negoci i després un centre per veure el compte
-            d&apos;explotació de tot l&apos;any.
-          </p>
-        </div>
+        lnChooser ? (
+          <CentreLnChooser linies={lnChooser} anyActual={anyActual} vista={vistaLabel} />
+        ) : (
+          <div className={styles.prompt}>
+            <h3>Cap línia seleccionada</h3>
+            <p>Tria una línia de negoci per veure el resum de costos dels centres.</p>
+          </div>
+        )
       ) : !centreId ? (
-        <div className={styles.prompt}>
-          <h3>Cap centre seleccionat</h3>
-          <p>
-            Tria un centre de {arbre.find((l) => l.id === lnId)?.nom ?? "la línia"} per veure el
-            compte d&apos;explotació de tot l&apos;any.
-          </p>
-        </div>
+        resum && !resum.buit ? (
+          <CentreResumPresentacio
+            periode={periodeLabel}
+            lnNom={resum.lnNom}
+            vistaLabel={vistaLabel}
+            totals={resum.totals}
+            cobertura={resum.cobertura}
+            files={resum.files}
+            evolucioMensual={resum.evolucioMensual}
+          />
+        ) : (
+          <div className={styles.prompt}>
+            <h3>Sense dades de cost</h3>
+            <p>
+              No hi ha cost personal ni compte per als centres de{" "}
+              {arbre.find((l) => l.id === lnId)?.nom ?? "aquesta línia"} a {anyActual}.
+            </p>
+          </div>
+        )
       ) : compte?.buit ? (
         <div className={styles.prompt}>
           <h3>Sense dades per {anyActual}</h3>

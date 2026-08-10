@@ -15,6 +15,7 @@ export type PropostaMapeig = {
   centreId: string;
   centreCodi: string;
   centreNom: string;
+  departamentId: string | null;
   departamentSalarial: DepartamentSalarial | null;
   puntuacio: number;
   motiu: string;
@@ -63,7 +64,48 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return inter / (a.size + b.size - inter);
 }
 
-type CentreOpt = { id: string; codi: string; nom: string; lnCodi: string };
+type DeptOpt = { id: string; codi: string; nom: string };
+type CentreOpt = {
+  id: string;
+  codi: string;
+  nom: string;
+  lnCodi: string;
+  departaments: DeptOpt[];
+};
+
+/** Encaixa un text payroll amb un departament de Dimensions del centre. */
+function trobarDepartamentPerEtiqueta(
+  etiquetaRaw: string,
+  depts: DeptOpt[]
+): { dept: DeptOpt; puntuacio: number; motiu: string } | null {
+  if (!depts.length) return null;
+  const etiqueta = etiquetaSenseCodi(etiquetaRaw);
+  const clau = normalitzaClau(etiqueta);
+  if (!clau) return null;
+
+  let millor: { dept: DeptOpt; puntuacio: number; motiu: string } | null = null;
+  for (const d of depts) {
+    const cn = normalitzaClau(d.nom);
+    const cc = normalitzaClau(d.codi);
+    if (!cn && !cc) continue;
+    let puntuacio = 0;
+    let motiu = "";
+    if (clau === cn || clau.includes(cn) || cn.includes(clau)) {
+      puntuacio = clau === cn ? 92 : 78;
+      motiu = "nom departament";
+    } else {
+      const score = jaccard(tokens(clau), tokens(cn));
+      if (score >= 0.45) {
+        puntuacio = Math.round(60 + score * 30);
+        motiu = "nom departament (parcial)";
+      }
+    }
+    if (puntuacio && (!millor || puntuacio > millor.puntuacio)) {
+      millor = { dept: d, puntuacio, motiu };
+    }
+  }
+  return millor && millor.puntuacio >= 70 ? millor : null;
+}
 
 /**
  * Troba el centre Opsia que millor encaixa amb una etiqueta del payroll.
@@ -176,6 +218,11 @@ export async function proposarMapeigDesDePayroll(
       codi: true,
       nom: true,
       liniaNegoci: { select: { codi: true } },
+      departaments: {
+        where: { isActive: true },
+        select: { id: true, codi: true, nom: true },
+        orderBy: { ordre: "asc" },
+      },
     },
   });
   const centres: CentreOpt[] = centresRaw.map((c) => ({
@@ -183,6 +230,7 @@ export async function proposarMapeigDesDePayroll(
     codi: c.codi,
     nom: c.nom,
     lnCodi: c.liniaNegoci.codi,
+    departaments: c.departaments,
   }));
 
   const byRestaurant = new Map<string, CentreOpt>();
@@ -217,10 +265,31 @@ export async function proposarMapeigDesDePayroll(
       textNet = etiquetaSenseCodi(text) || text;
     }
 
-    const dept =
+    const deptSalarial =
       hit.centre.lnCodi === "LN00001"
         ? (inferDeptSalarialDesDeText(text) ?? inferDeptSalarialDesDeText(textNet))
         : null;
+
+    let departamentId: string | null = null;
+    let motiu = hit.motiu;
+    let puntuacio = hit.puntuacio;
+    // Codis 6–8 dígits: intenta encaixar amb un departament de Dimensions del centre
+    if (codi.length >= 6) {
+      const deptHit = trobarDepartamentPerEtiqueta(textNet || text, hit.centre.departaments);
+      if (deptHit) {
+        departamentId = deptHit.dept.id;
+        motiu = `${hit.motiu} + ${deptHit.motiu}`;
+        puntuacio = Math.min(99, Math.round((hit.puntuacio + deptHit.puntuacio) / 2 + 8));
+      }
+    }
+
+    const deptSalarialFinal =
+      deptSalarial ??
+      (departamentId
+        ? inferDeptSalarialDesDeText(
+            hit.centre.departaments.find((d) => d.id === departamentId)?.nom ?? ""
+          )
+        : null);
 
     propostes.push({
       codi,
@@ -228,9 +297,10 @@ export async function proposarMapeigDesDePayroll(
       centreId: hit.centre.id,
       centreCodi: hit.centre.codi,
       centreNom: hit.centre.nom,
-      departamentSalarial: dept,
-      puntuacio: hit.puntuacio,
-      motiu: hit.motiu,
+      departamentId,
+      departamentSalarial: deptSalarialFinal,
+      puntuacio,
+      motiu,
     });
   }
 
@@ -264,11 +334,13 @@ export async function aplicarPropostesMapeig(
           codi: p.codi,
           text: p.text,
           centreId: p.centreId,
+          departamentId: p.departamentId,
           departamentSalarial: p.departamentSalarial,
         },
         update: {
           text: p.text,
           centreId: p.centreId,
+          departamentId: p.departamentId,
           departamentSalarial: p.departamentSalarial,
           isActive: true,
         },

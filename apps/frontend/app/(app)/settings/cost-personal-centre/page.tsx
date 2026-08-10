@@ -11,24 +11,44 @@ export default async function CostPersonalCentreSettingsPage() {
   const session = await auth();
   const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
 
-  const mapeigs = await llistaMapeigsCostPersonal();
-
-  const centres = await db.centre.findMany({
-    where: { isActive: true },
-    orderBy: [{ liniaNegoci: { ordre: "asc" } }, { codi: "asc" }],
-    select: { id: true, codi: true, nom: true },
-  });
+  const [mapeigs, arbre] = await Promise.all([
+    llistaMapeigsCostPersonal(),
+    db.liniaNegoci.findMany({
+      where: { isActive: true },
+      orderBy: { ordre: "asc" },
+      select: {
+        id: true,
+        codi: true,
+        nom: true,
+        centres: {
+          where: { isActive: true },
+          orderBy: { ordre: "asc" },
+          select: {
+            id: true,
+            codi: true,
+            nom: true,
+            departaments: {
+              where: { isActive: true },
+              orderBy: { ordre: "asc" },
+              select: { id: true, codi: true, nom: true },
+            },
+          },
+        },
+      },
+    }),
+  ]);
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <h1 className={styles.title}>Cost personal per centre</h1>
         <p className={styles.subtitle}>
-          Mapeig codi payroll → centre Opsia (+ Sala/Cuina si restaurant). El mapeig es fa
-          manualment o important un Excel; no es regenera sol.
+          Mapeja cada codi payroll (5 o 8 dígits) a LN → centre → departament. En importar la
+          nòmina, el cost queda lligat a l&apos;arbre i a consultes es pot veure per LN, centre o
+          departament.
         </p>
       </header>
-      <CostPersonalCentreSettingsPanel mapeigs={mapeigs} centres={centres} canEdit={canEdit} />
+      <CostPersonalCentreSettingsPanel mapeigs={mapeigs} arbre={arbre} canEdit={canEdit} />
     </div>
   );
 }

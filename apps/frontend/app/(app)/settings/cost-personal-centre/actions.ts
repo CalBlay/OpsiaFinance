@@ -2,13 +2,14 @@
 
 import { auth } from "@/lib/auth";
 import { generarMapeigDesDePayrollBuffer } from "@/lib/cost-personal-centre/auto-mapeig";
+import { inferDeptSalarialDesDeText } from "@/lib/cost-personal-centre/parser";
 import {
   deleteMapeigCostPersonal,
   esborrarTotMapeigCostPersonal,
   importarMapeigCostPersonalDesDeBuffer,
   upsertMapeigCostPersonal,
 } from "@/lib/cost-personal-centre/service";
-import type { DepartamentSalarial } from "@prisma/client";
+import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string };
@@ -27,46 +28,76 @@ function refresh() {
   revalidatePath("/consultes/centre");
 }
 
-function parseDept(raw: string): DepartamentSalarial | null {
-  if (raw === "SALA" || raw === "CUINA") return raw;
-  if (!raw || raw === "_") return null;
-  return null;
-}
+/** Valida LN → centre → departament i desa el mapeig. */
+async function desarMapeig(input: {
+  id?: string;
+  codi: string;
+  text: string;
+  liniaNegociId: string;
+  centreId: string;
+  departamentId: string | null;
+}): Promise<Result> {
+  if (!input.codi.trim()) return ERR("El codi és obligatori.");
+  if (!input.liniaNegociId) return ERR("Selecciona una línia de negoci.");
+  if (!input.centreId) return ERR("Selecciona un centre.");
 
-export async function createMapeigCostPersonalAction(
-  codi: string,
-  centreId: string,
-  text: string,
-  departament: string
-): Promise<Result> {
-  if (!(await requireEditor())) return ERR("No tens permisos.");
+  const centre = await db.centre.findUnique({
+    where: { id: input.centreId },
+    select: { id: true, liniaNegociId: true, isActive: true },
+  });
+  if (!centre?.isActive) return ERR("Centre no trobat.");
+  if (centre.liniaNegociId !== input.liniaNegociId) {
+    return ERR("El centre no pertany a la línia seleccionada.");
+  }
+
+  const departamentId: string | null = input.departamentId?.trim() || null;
+  let departamentSalarial = null as ReturnType<typeof inferDeptSalarialDesDeText>;
+
+  if (departamentId) {
+    const dept = await db.departament.findUnique({
+      where: { id: departamentId },
+      select: { id: true, centreId: true, nom: true, isActive: true },
+    });
+    if (!dept?.isActive) return ERR("Departament no trobat a l'arbre de dimensions.");
+    if (dept.centreId !== input.centreId) {
+      return ERR("El departament no pertany al centre seleccionat.");
+    }
+    departamentSalarial = inferDeptSalarialDesDeText(dept.nom);
+  }
+
   const r = await upsertMapeigCostPersonal({
-    codi,
-    centreId,
-    text,
-    departamentSalarial: parseDept(departament),
+    id: input.id,
+    codi: input.codi,
+    text: input.text,
+    centreId: input.centreId,
+    departamentId,
+    departamentSalarial,
   });
   if (r.ok) refresh();
   return r;
 }
 
-export async function updateMapeigCostPersonalAction(
-  id: string,
-  codi: string,
-  centreId: string,
-  text: string,
-  departament: string
-): Promise<Result> {
+export async function createMapeigCostPersonalAction(input: {
+  codi: string;
+  text: string;
+  liniaNegociId: string;
+  centreId: string;
+  departamentId: string | null;
+}): Promise<Result> {
   if (!(await requireEditor())) return ERR("No tens permisos.");
-  const r = await upsertMapeigCostPersonal({
-    id,
-    codi,
-    centreId,
-    text,
-    departamentSalarial: parseDept(departament),
-  });
-  if (r.ok) refresh();
-  return r;
+  return desarMapeig(input);
+}
+
+export async function updateMapeigCostPersonalAction(input: {
+  id: string;
+  codi: string;
+  text: string;
+  liniaNegociId: string;
+  centreId: string;
+  departamentId: string | null;
+}): Promise<Result> {
+  if (!(await requireEditor())) return ERR("No tens permisos.");
+  return desarMapeig(input);
 }
 
 export async function deleteMapeigCostPersonalAction(id: string): Promise<Result> {

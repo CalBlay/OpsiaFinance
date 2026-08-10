@@ -71,6 +71,7 @@ export default async function CostPersonalCentreDadesPage({
             departamentSalarial: true,
             period: { select: { nom: true, any: true, mes: true } },
             centre: { select: { codi: true, nom: true } },
+            departament: { select: { codi: true, nom: true } },
           },
           take: 5000,
         })
@@ -141,8 +142,9 @@ export default async function CostPersonalCentreDadesPage({
               origen: (r.origen === "MILLORES" ? "Millores" : "Nòmina") as "Nòmina" | "Millores",
               centreLabel: `${r.centre.codi} · ${r.centre.nom}`,
               centreCodi: r.centre.codi,
-              dept:
-                r.departamentSalarial === "CUINA"
+              dept: r.departament
+                ? `${r.departament.codi} · ${r.departament.nom}`
+                : r.departamentSalarial === "CUINA"
                   ? "Cuina"
                   : r.departamentSalarial === "SALA"
                     ? "Sala"

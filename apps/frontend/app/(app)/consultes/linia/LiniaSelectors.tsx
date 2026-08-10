@@ -17,6 +17,15 @@ interface LnOpt {
   nom: string;
 }
 
+function hrefLinia(ln: string, any: number, rang: RangMesos, vista: VistaCompte): string {
+  const qs = new URLSearchParams();
+  if (ln) qs.set("ln", ln);
+  qs.set("any", String(any));
+  qs.set("vista", vista);
+  const rangQ = rangToQuery(rang); // &des=&fins=
+  return `/consultes/linia?${qs.toString()}${rangQ}`;
+}
+
 export function LiniaSelectors({
   linies,
   anys,
@@ -53,20 +62,16 @@ export function LiniaSelectors({
   useEffect(() => {
     if (!lnId) return;
     const other: VistaCompte = vista === "gestio" ? "directe" : "gestio";
-    router.prefetch(`/consultes/linia?ln=${lnId}&any=${any}${rangToQuery(rang)}&vista=${other}`);
+    router.prefetch(hrefLinia(lnId, any, rang, other));
   }, [router, lnId, any, rang, vista]);
 
   const go = (nextLn: string, nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
-    if (!nextLn) return;
     setLocalLn(nextLn);
     setLocalAny(nextAny);
     setLocalRang(nextRang);
     setLocalVista(nextVista);
     startTransition(() => {
-      router.replace(
-        `/consultes/linia?ln=${nextLn}&any=${nextAny}${rangToQuery(nextRang)}&vista=${nextVista}`,
-        { scroll: false }
-      );
+      router.replace(hrefLinia(nextLn, nextAny, nextRang, nextVista), { scroll: false });
     });
   };
 
@@ -114,9 +119,7 @@ export function LiniaSelectors({
             disabled={isPending}
             onChange={(e) => go(e.target.value, localAny, localRang, localVista)}
           >
-            <option value="" disabled>
-              Selecciona…
-            </option>
+            <option value="">Totes (resum)</option>
             {linies.map((ln) => (
               <option key={ln.id} value={ln.id}>
                 {etiquetaLiniaNegoci(ln)}

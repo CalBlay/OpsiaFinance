@@ -4,7 +4,7 @@
  * Regles de negoci (docs/gestio-i-cost-personal.md):
  *   - Columnes: Importe bruto + Provisión + Seguridad Social (+ Operación ignorada)
  *   - Sous = brut + provisió · SS = L · Cost = brut + provisió + SS (mai Operación)
- *   - Només centres (codi 5 dígits) i detalls heretables (Sala/Cuina / 100.x)
+ *   - Centres (5 dígits) i departaments (6–8 dígits); l’import evita doble comptatge
  *   - Capçaleres LN («04 - PRECUINATS») NO s’importen ni hereten al centre anterior
  */
 
@@ -514,10 +514,8 @@ function extreureFiles(
     const suma = Math.abs(j) + Math.abs(prov) + Math.abs(ss);
     if (suma < 0.05) continue;
 
-    // Només el TOTAL del centre (codi exacte 5 dígits).
-    // Files de departament («… 03001 … 03001001 …») tenen codi 8 dígits → fora
-    // (si les suméssim amb el centre, el resultat es dobla).
-    if (!codiPropi || codiPropi.length !== 5) {
+    // Centres (5) i departaments (6–8). El servei d’import decideix fulles vs pare.
+    if (!codiPropi || codiPropi.length < 5 || codiPropi.length > 8) {
       continue;
     }
 
@@ -528,12 +526,12 @@ function extreureFiles(
       segSocialEmpresa: Math.abs(prov),
       totalSegSocial: Math.abs(ss),
       costPersonal: absRound2(j, prov, ss),
-      nivell: 0,
+      nivell: codiPropi.length === 5 ? 0 : 1,
       codiHeretat: false,
     });
   }
 
-  // Un sol registre per codi de centre (si el fitxer repeteix la fila, ens quedem l’última)
+  // Un sol registre per codi (si el fitxer repeteix la fila, ens quedem l’última)
   const perCodi = new Map<string, FilaCostPersonalExcel>();
   for (const f of out) {
     perCodi.set(f.codi, f);

@@ -3,7 +3,7 @@ import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteColl
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
-import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
+import type { KpiComite } from "@/components/consultes/PresentacioComite";
 import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
@@ -14,20 +14,31 @@ import {
   etiquetaRangMesos,
   getAnysAmbDades,
   getArbreSeleccio,
+  getComparativaEmpresa,
   getEvolucioMensual,
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
+import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
-import { NODE_EBITDA, NODE_INGRESSOS, buildKpisInforme } from "@/lib/kpi-definitions";
+import {
+  NODE_COMPRES,
+  NODE_COST_GESTIO,
+  NODE_COST_SALARIAL,
+  NODE_EBITDA,
+  NODE_INGRESSOS,
+  buildKpisInforme,
+} from "@/lib/kpi-definitions";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
-import type { RangMesos } from "@/lib/periodes";
+import { type RangMesos, esAnyComplet, etiquetaRangMesosLlarga, rangToQuery } from "@/lib/periodes";
 import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { ajustarImportConsultaAction } from "../actions";
+import { LiniaResumPresentacio } from "../presenters-dynamic";
 import { LiniaCentresLazy } from "./LiniaCentresLazy";
+import type { FilaResumLinia } from "./LiniaResumPresentacio";
 import { LiniaSelectors } from "./LiniaSelectors";
 
 export const dynamic = "force-dynamic";
@@ -42,6 +53,17 @@ function retallaRang(rows: PivotRow[], rang: RangMesos): PivotRow[] {
       total: valors.reduce((a, b) => a + b, 0),
     };
   });
+}
+
+function pctSobreIngressos(
+  valor: number,
+  ingressos: number,
+  opts?: { signed?: boolean }
+): number | null {
+  if (!ingressos) return null;
+  return opts?.signed
+    ? (valor / Math.abs(ingressos)) * 100
+    : (Math.abs(valor) / Math.abs(ingressos)) * 100;
 }
 
 export default async function ConsultaLiniaPage({
@@ -76,23 +98,150 @@ export default async function ConsultaLiniaPage({
     grup
   );
 
-  // Només evolució (+ gestió): el desglossament per centres es carrega sota demanda.
-  const [evRaw, infoGestio] = lnId
-    ? await Promise.all([
-        getEvolucioMensual("linia", lnId, anyActual),
-        vista === "gestio" ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
-      ])
-    : [null, null];
+  const periodeLabel = etiquetaRangMesos(rang, anyActual);
+  const periodeLlarga = etiquetaRangMesosLlarga(rang, anyActual);
+  const vistaLabel = vista === "gestio" ? "Gestió" : "Directe";
+
+  // Resum multi-LN quan no n'hi ha cap de seleccionada.
+  if (!lnId) {
+    const [comp, evEmpresa] = await Promise.all([
+      getComparativaEmpresa(anyActual, rang, vista, grup),
+      getEvolucioMensual("empresa", null, anyActual, grup),
+    ]);
+
+    const findRow = (node: number) => comp.concepts.find((c) => c.node === node);
+    const findEv = (node: number) => evEmpresa?.concepts.find((c) => c.node === node);
+
+    const ingressosTotal = findRow(NODE_INGRESSOS)?.total ?? 0;
+    const personalTotal = findRow(NODE_COST_SALARIAL)?.total ?? 0;
+    const compresTotal = findRow(NODE_COMPRES)?.total ?? 0;
+    const gestioTotal = findRow(NODE_COST_GESTIO)?.total ?? 0;
+    const ebitdaTotal = findRow(NODE_EBITDA)?.total ?? 0;
+
+    const kpisComite: KpiComite[] = [
+      {
+        label: "Ingressos",
+        import_: ingressosTotal,
+        hint: "Explotació",
+        accent: "ingressos",
+      },
+      {
+        label: "Personal",
+        import_: personalTotal,
+        pct: pctSobreIngressos(personalTotal, ingressosTotal),
+        pctHint: "s/ ingressos",
+        accent: "cost",
+      },
+      {
+        label: "Compres",
+        import_: compresTotal,
+        pct: pctSobreIngressos(compresTotal, ingressosTotal),
+        pctHint: "s/ ingressos",
+        accent: "cost",
+      },
+      {
+        label: "Gestió",
+        import_: gestioTotal,
+        pct: pctSobreIngressos(gestioTotal, ingressosTotal),
+        pctHint: "s/ ingressos",
+        accent: "cost",
+      },
+      {
+        label: "EBITDA",
+        import_: ebitdaTotal,
+        pct: pctSobreIngressos(ebitdaTotal, ingressosTotal, { signed: true }),
+        pctHint: "s/ ingressos",
+        accent: "ebitda",
+      },
+    ];
+
+    const mesIni = rang.des - 1;
+    const mesFi = rang.fins;
+    const sliceMes = <T,>(arr: T[]): T[] => (esAnyComplet(rang) ? arr : arr.slice(mesIni, mesFi));
+
+    const perLn = {
+      etiquetes: comp.linies.map(etiquetaGrafic),
+      ingressos: findRow(NODE_INGRESSOS)?.valors ?? [],
+      ebitda: findRow(NODE_EBITDA)?.valors ?? [],
+      personal: findRow(NODE_COST_SALARIAL)?.valors ?? [],
+      compres: findRow(NODE_COMPRES)?.valors ?? [],
+      gestio: findRow(NODE_COST_GESTIO)?.valors ?? [],
+    };
+
+    const mensual = {
+      mesos: sliceMes([...MESOS_CURTS]),
+      ingressos: sliceMes(findEv(NODE_INGRESSOS)?.valors ?? []),
+      ebitda: sliceMes(findEv(NODE_EBITDA)?.valors ?? []),
+      personal: sliceMes(findEv(NODE_COST_SALARIAL)?.valors ?? []),
+      compres: sliceMes(findEv(NODE_COMPRES)?.valors ?? []),
+      gestio: sliceMes(findEv(NODE_COST_GESTIO)?.valors ?? []),
+    };
+
+    const totalIngAbs = Math.abs(ingressosTotal) || 0;
+    const files: FilaResumLinia[] = comp.linies.map((l, i) => {
+      const ingressos = perLn.ingressos[i] ?? 0;
+      const ebitda = perLn.ebitda[i] ?? 0;
+      return {
+        id: l.id,
+        name: etiquetaGrafic(l),
+        ingressos,
+        pctSobreTotal: totalIngAbs ? (Math.abs(ingressos) / totalIngAbs) * 100 : null,
+        ebitda,
+        ebitdaPct: ingressos ? (ebitda / Math.abs(ingressos)) * 100 : null,
+        href: `/consultes/linia?ln=${l.id}&any=${anyActual}${rangToQuery(rang)}&vista=${vista}`,
+      };
+    });
+
+    return (
+      <div className={styles.page}>
+        <ConsultaHeader
+          title="Compte d'explotació · per línia de negoci"
+          subtitle={`Resum de totes les línies · ${periodeLlarga} · ${vistaLabel}`}
+          actions={
+            <LiniaSelectors
+              linies={linies}
+              anys={anys.length ? anys : [anyActual]}
+              lnId={null}
+              any={anyActual}
+              rang={rang}
+              vista={vista}
+            />
+          }
+        />
+
+        {comp.buit ? (
+          <div className={styles.prompt}>
+            <h3>Sense dades</h3>
+            <p>No hi ha dades de línies per {periodeLabel.toLowerCase()}.</p>
+          </div>
+        ) : (
+          <LiniaResumPresentacio
+            periode={periodeLlarga}
+            vistaLabel={vistaLabel}
+            kpis={kpisComite}
+            mensual={mensual}
+            perLn={perLn}
+            files={files}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // Detall d'una línia concreta.
+  const [evRaw, infoGestio] = await Promise.all([
+    getEvolucioMensual("linia", lnId, anyActual),
+    vista === "gestio" ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
+  ]);
 
   let ev = evRaw;
-  if (ev && vista === "gestio" && lnId) {
+  if (ev && vista === "gestio") {
     ev = {
       ...ev,
       concepts: await aplicarVistaGestioEvolucioLn(lnId, anyActual, ev.concepts),
     };
   }
 
-  const periodeLabel = etiquetaRangMesos(rang, anyActual);
   const findEvRow = (node: number) => ev?.concepts.find((c) => c.node === node);
 
   const valorKpi = (node: number) => {
@@ -127,7 +276,7 @@ export default async function ConsultaLiniaPage({
     : [];
 
   const buit = !ev || ev.buit;
-  const lnLabel = ev?.titol ?? (lnId ? linies.find((l) => l.id === lnId) : null);
+  const lnLabel = ev?.titol ?? linies.find((l) => l.id === lnId);
   const lnEtiqueta =
     typeof lnLabel === "string" ? lnLabel : lnLabel ? etiquetaLiniaNegoci(lnLabel) : "";
 
@@ -135,11 +284,7 @@ export default async function ConsultaLiniaPage({
     <div className={styles.page}>
       <ConsultaHeader
         title="Compte d'explotació · per línia de negoci"
-        subtitle={
-          lnId && (ev || lnEtiqueta)
-            ? `${ev?.titol ?? lnEtiqueta} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · gestió" : " · directe SAP"}`
-            : "Selecciona una línia de negoci per veure el total del període."
-        }
+        subtitle={`${ev?.titol ?? lnEtiqueta} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · gestió" : " · directe SAP"}`}
         actions={
           <>
             <LiniaSelectors
@@ -170,16 +315,7 @@ export default async function ConsultaLiniaPage({
         }
       />
 
-      {!lnId ? (
-        <div className={styles.prompt}>
-          <h3>Cap línia seleccionada</h3>
-          <p>
-            Tria una línia de negoci per veure el compte d&apos;explotació total (mes a mes). El
-            detall per centre és opcional; per analitzar un centre concret fes servir Consultes →
-            Per centre.
-          </p>
-        </div>
-      ) : buit ? (
+      {buit ? (
         <div className={styles.prompt}>
           <h3>Sense dades</h3>
           <p>Aquesta línia no té dades per {periodeLabel.toLowerCase()}.</p>
@@ -208,10 +344,7 @@ export default async function ConsultaLiniaPage({
                 any: anyActual,
                 vista,
                 colMap: Object.fromEntries(
-                  columnsMes.map((c, i) => [
-                    c.key,
-                    { mes: rang.des + i, liniaNegociId: lnId ?? undefined },
-                  ])
+                  columnsMes.map((c, i) => [c.key, { mes: rang.des + i, liniaNegociId: lnId }])
                 ),
               }}
             />

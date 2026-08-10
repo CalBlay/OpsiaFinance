@@ -86,7 +86,8 @@ type ColMeta = {
   sublabel?: string;
   liniaNegociId?: string;
   centreId?: string;
-  departament?: "SALA" | "CUINA" | "SENSE";
+  /** SALA/CUINA/SENSE o id de Departament Dimensions. */
+  departament?: string;
 };
 
 const SUBTITOL_GESTIO =
@@ -763,6 +764,11 @@ async function computeInformeCostPersonalDepartaments(
         nom: true,
         liniaNegociId: true,
         liniaNegoci: { select: { id: true, codi: true, nom: true } },
+        departaments: {
+          where: { isActive: true },
+          orderBy: { ordre: "asc" },
+          select: { id: true, codi: true, nom: true },
+        },
       },
     }),
   ]);
@@ -779,6 +785,125 @@ async function computeInformeCostPersonalDepartaments(
     { centreId },
     { lnIds: opts?.lnIds }
   );
+
+  // Nòmina/millores amb mapeig a Dimensions → desglossament real per departament.
+  const payrollRows = await db.costPersonalCentre.findMany({
+    where: {
+      centreId,
+      period: periodWhere(any, mes),
+    },
+    select: {
+      departamentId: true,
+      importBrut: true,
+      totalSegSocial: true,
+      costPersonal: true,
+      departament: { select: { id: true, codi: true, nom: true } },
+    },
+  });
+
+  const teDeptsDimensions = payrollRows.some((r) => r.departamentId);
+  if (teDeptsDimensions) {
+    const importsPerCol = new Map<string, Imports>();
+    const metaByKey = new Map<string, { label: string; departamentId: string | null }>();
+
+    const add = (
+      key: string,
+      label: string,
+      departamentId: string | null,
+      row: (typeof payrollRows)[0]
+    ) => {
+      let acc = importsPerCol.get(key);
+      if (!acc) {
+        acc = emptyImports();
+        importsPerCol.set(key, acc);
+        metaByKey.set(key, { label, departamentId });
+      }
+      acc.importBrut += Number(row.importBrut);
+      acc.totalSegSocial += Number(row.totalSegSocial);
+      acc.costPersonal += Number(row.costPersonal);
+    };
+
+    for (const r of payrollRows) {
+      if (r.departamentId && r.departament) {
+        add(
+          r.departamentId,
+          etiquetaGrafic(r.departament) || `${r.departament.codi} · ${r.departament.nom}`,
+          r.departamentId,
+          r
+        );
+      } else {
+        add("__sense__", "Sense departament (tot el centre)", null, r);
+      }
+    }
+
+    // Inclou depts de l'arbre sense import (0) només si ja tenim altres amb import? No — només els amb dada.
+    const cols: ColMeta[] = [...metaByKey.entries()]
+      .map(([key, meta]) => ({
+        key,
+        label: meta.label,
+        centreId,
+        liniaNegociId: centre?.liniaNegociId,
+        departament: meta.departamentId ?? "SENSE",
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, "ca", { numeric: true }));
+
+    const totalCostAbs = cols.reduce(
+      (s, c) => s + absCost((importsPerCol.get(c.key) ?? emptyImports()).costPersonal),
+      0
+    );
+    for (const col of cols) {
+      const cost = absCost((importsPerCol.get(col.key) ?? emptyImports()).costPersonal);
+      const p = pct(cost, totalCostAbs);
+      col.sublabel = p != null ? `${p.toFixed(1)}%` : undefined;
+    }
+
+    const rows = buildRows(conceptes, cols, importsPerCol);
+    const vendes = await getVendesMap([centreId], any, mes);
+    const vendesVal = vendes.get(centreId) ?? 0;
+    const vendesPerCol = new Map(cols.map((c) => [c.key, vendesVal]));
+
+    const totalsImp = emptyImports();
+    for (const col of cols) {
+      const imp = importsPerCol.get(col.key) ?? emptyImports();
+      totalsImp.importBrut += imp.importBrut;
+      totalsImp.totalSegSocial += imp.totalSegSocial;
+      totalsImp.costPersonal += imp.costPersonal;
+    }
+
+    return {
+      any,
+      mes,
+      vista,
+      nivell: "departaments",
+      titol: `Cost de personal · ${centreLabel}`,
+      subtitol: lnLabel
+        ? `${lnLabel} · Nòmina/millores per departament (Dimensions)`
+        : "Nòmina/millores per departament (Dimensions)",
+      columns: cols.map((c) => ({ key: c.key, label: c.label, sublabel: c.sublabel })),
+      rows,
+      colMap: Object.fromEntries(
+        cols.map((c) => [
+          c.key,
+          {
+            centreId,
+            liniaNegociId: centre?.liniaNegociId,
+            ...(mes != null ? { mes } : {}),
+            ...(c.departament && c.departament !== "SENSE" ? { departament: c.departament } : {}),
+          },
+        ])
+      ),
+      barres: buildBarres(cols, importsPerCol, vendesPerCol, totalCostAbs),
+      evolucioMensual,
+      totals: {
+        costPersonal: absCost(totalsImp.costPersonal),
+        importBrut: absCost(totalsImp.importBrut),
+        totalSegSocial: absCost(totalsImp.totalSegSocial),
+        vendes: vendesVal,
+        pctSobreVendes: pctSobreVendesSegur(totalsImp.costPersonal, vendesVal),
+      },
+      buit: !cols.length || !conceptes.length,
+    };
+  }
 
   if (vista === "directe") {
     const perCentre = await carregaPerCentre(any, mes, "directe", { centreId });
@@ -797,7 +922,9 @@ async function computeInformeCostPersonalDepartaments(
       vista,
       nivell: "departaments",
       titol: `Cost de personal · ${centreLabel}`,
-      subtitol: lnLabel ? `${lnLabel} · ${SUBTITOL_DIRECTE}` : SUBTITOL_DIRECTE,
+      subtitol: lnLabel
+        ? `${lnLabel} · ${SUBTITOL_DIRECTE} (sense mapeig de departaments)`
+        : `${SUBTITOL_DIRECTE} (sense mapeig de departaments)`,
       columns: cols.map((c) => ({ key: c.key, label: c.label })),
       rows,
       colMap: {
@@ -830,7 +957,7 @@ async function computeInformeCostPersonalDepartaments(
     };
   }
 
-  // Gestió: SAP+ajust+traspass a Sense (payroll no alimenta Gestió; desglossament SALA/CUINA és informatiu a nòmina).
+  // Gestió sense mapeig dept: SAP+ajust+traspass a Sense.
   const [base] = await Promise.all([carregarBaseGestioPersonal({ any, mes, centreId })]);
 
   const depts: Array<"SALA" | "CUINA" | "SENSE"> = ["SALA", "CUINA", "SENSE"];
@@ -905,7 +1032,9 @@ async function computeInformeCostPersonalDepartaments(
     vista,
     nivell: "departaments",
     titol: `Cost de personal · ${centreLabel}`,
-    subtitol: lnLabel ? `${lnLabel} · ${SUBTITOL_GESTIO}` : SUBTITOL_GESTIO,
+    subtitol: lnLabel
+      ? `${lnLabel} · ${SUBTITOL_GESTIO} (mapeja codis 8 dígits per desglossar)`
+      : `${SUBTITOL_GESTIO} (mapeja codis 8 dígits per desglossar)`,
     columns: cols.map((c) => ({ key: c.key, label: c.label, sublabel: c.sublabel })),
     rows,
     colMap: Object.fromEntries(

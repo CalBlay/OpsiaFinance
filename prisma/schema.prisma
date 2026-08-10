@@ -72,16 +72,18 @@ model Centre {
 /// Dimensió 3 — Departament / àrea interna del centre (DRO0001, DCC0002, …)
 /// Els codis de departament es repeteixen entre centres → únic per centre.
 model Departament {
-  id        String      @id @default(cuid())
-  codi      String
-  nom       String
-  ordre     Int         @default(0)
-  isActive  Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  centreId  String
-  centre    Centre      @relation(fields: [centreId], references: [id], onDelete: Cascade)
-  rows      ImportRow[]
+  id                   String                  @id @default(cuid())
+  codi                 String
+  nom                  String
+  ordre                Int                     @default(0)
+  isActive             Boolean                 @default(true)
+  createdAt            DateTime                @default(now())
+  updatedAt            DateTime                @updatedAt
+  centreId             String
+  centre               Centre                  @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  rows                 ImportRow[]
+  mapeigsCostPersonal  MapeigCodiCostPersonal[]
+  costsPersonalsCentre CostPersonalCentre[]
 
   @@unique([centreId, codi])
   @@index([centreId])
@@ -464,33 +466,40 @@ model CostSalarialRestaurant {
   @@index([centreId, periodId])
 }
 
-/// Mapeig codi del fitxer payroll → centre Opsia (+ Sala/Cuina si restaurant).
+/// Mapeig codi del fitxer payroll → centre Opsia (+ departament de l'arbre si n'hi ha).
 model MapeigCodiCostPersonal {
   id                  String               @id @default(cuid())
-  /// Codi del fitxer (ex. 02001, 0015, 02001001).
+  /// Codi del fitxer (ex. 02001, 0015, 02001001, 04043005).
   codi                String               @unique
   /// Text descriptiu opcional (ex. ADMINISTRACIO EMPRESA).
   text                String?
   centreId            String
-  /// Per restaurants: SALA/CUINA. Null = agregat al centre sense dept salarial.
+  /// Dimensió 3 de l'arbre (DRO… / DCC…). Null = agregat només al centre.
+  departamentId       String?
+  /// Compat restaurants / traspassos: SALA/CUINA (es pot inferir del nom del dept).
   departamentSalarial DepartamentSalarial?
   ordre               Int                  @default(0)
   isActive            Boolean              @default(true)
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
   centre              Centre               @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  departament         Departament?         @relation(fields: [departamentId], references: [id], onDelete: SetNull)
 
   @@index([centreId])
+  @@index([departamentId])
   @@index([departamentSalarial])
 }
 
-/// Fet de cost personal importat (payroll) per període × centre.
+/// Fet de cost personal importat (payroll) per període × centre (+ dept Dimensions).
 model CostPersonalCentre {
   id                  String                   @id @default(cuid())
   periodId            String
   centreId            String
   /// Nòmina mensual vs millores (mateix layout Excel; millores sense provisió a K).
   origen              OrigenCostPersonalCentre @default(NOMINA)
+  /// Dimensió 3 (arbre). Null = agregat només al centre.
+  departamentId       String?
+  /// Compat restaurants / traspassos: SALA/CUINA.
   departamentSalarial DepartamentSalarial?
   carregaId           String?
   /// Text/codi original de la fila (traçabilitat al detall).
@@ -507,10 +516,12 @@ model CostPersonalCentre {
   updatedAt           DateTime                 @updatedAt
   carrega             CarregaFitxer?           @relation(fields: [carregaId], references: [id], onDelete: Cascade)
   centre              Centre                   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  departament         Departament?             @relation(fields: [departamentId], references: [id], onDelete: SetNull)
   period              Period                   @relation(fields: [periodId], references: [id], onDelete: Cascade)
 
   @@index([periodId])
   @@index([centreId])
+  @@index([departamentId])
   @@index([carregaId])
   @@index([periodId, centreId])
   @@index([periodId, origen])

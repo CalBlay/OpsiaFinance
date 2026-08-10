@@ -31,3 +31,18 @@ export const CostPersonalPresentacio = dynamic(
   () => import("./cost-personal/CostPersonalPresentacio").then((m) => m.CostPersonalPresentacio),
   { ssr: false, loading: PresenterFallback }
 );
+
+export const LiniaResumPresentacio = dynamic(
+  () => import("./linia/LiniaResumPresentacio").then((m) => m.LiniaResumPresentacio),
+  { ssr: false, loading: PresenterFallback }
+);
+
+export const CentreResumPresentacio = dynamic(
+  () => import("./centre/CentreResumPresentacio").then((m) => m.CentreResumPresentacio),
+  { ssr: false, loading: PresenterFallback }
+);
+
+export const CentreLnChooser = dynamic(
+  () => import("./centre/CentreResumPresentacio").then((m) => m.CentreLnChooser),
+  { ssr: false, loading: PresenterFallback }
+);
