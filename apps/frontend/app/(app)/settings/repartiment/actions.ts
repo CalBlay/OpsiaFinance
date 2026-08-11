@@ -21,6 +21,7 @@ export async function inicialitzarNormesAction() {
   if (!user) return { ok: false, missatge: "Sense permisos." };
   const res = await ensureNormesRepartimentInicials();
   revalidatePath("/settings/repartiment");
+  revalidatePath("/settings/repartiment/normes");
   revalidatePath("/dades/repartiment");
   return res;
 }
@@ -30,6 +31,7 @@ export async function carregarNormesSeedAction() {
   if (!user) return { ok: false, missatge: "Sense permisos." };
   const res = await reiniciarAmbNormesSeed();
   revalidatePath("/settings/repartiment");
+  revalidatePath("/settings/repartiment/normes");
   revalidatePath("/dades/repartiment");
   return res;
 }
@@ -39,6 +41,7 @@ export async function esborrarTotRepartimentAction() {
   if (!user) return { ok: false, missatge: "Sense permisos." };
   const res = await resetNormesRepartiment();
   revalidatePath("/settings/repartiment");
+  revalidatePath("/settings/repartiment/normes");
   revalidatePath("/dades/repartiment");
   return res;
 }
@@ -49,6 +52,7 @@ export async function toggleNormaAction(id: string, actiu: boolean) {
   const { db } = await import("@/lib/db");
   await db.normaRepartiment.update({ where: { id }, data: { actiu } });
   revalidatePath("/settings/repartiment");
+  revalidatePath("/settings/repartiment/normes");
   return { ok: true, missatge: actiu ? "Norma activada." : "Norma desactivada." };
 }
 
@@ -97,6 +101,7 @@ export async function updateNormaAction(
 
   await db.normaRepartiment.update({ where: { id }, data: patch });
   revalidatePath("/settings/repartiment");
+  revalidatePath("/settings/repartiment/normes");
   revalidatePath("/dades/repartiment");
   return { ok: true, missatge: "Norma actualitzada." };
 }

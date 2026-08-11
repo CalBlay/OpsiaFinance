@@ -37,8 +37,11 @@ model LiniaNegoci {
   movimentsRepartiment MovimentRepartiment[]   @relation("MovimentDesti")
   liniesNegociDesti    NormaRepartiment[]      @relation("NormaDesti")
   liniesNegociOrigen   NormaRepartiment[]      @relation("NormaOrigen")
-  pesosRepartiment     PesRepartiment[]
-  grupsRepartiment     RepartimentGrupMembre[]
+  pesosRepartiment              PesRepartiment[]
+  grupsRepartiment              RepartimentGrupMembre[]
+  configPersonalLn              ConfigPersonalLn?
+  configPersonalDept            ConfigPersonalDept[]
+  pesDefectePersonalComercial   PesDefectePersonalComercial?
 }
 
 /// Dimensió 2 — Centre de cost (CCR00001, CCC00003, …)
@@ -84,6 +87,7 @@ model Departament {
   rows                 ImportRow[]
   mapeigsCostPersonal  MapeigCodiCostPersonal[]
   costsPersonalsCentre CostPersonalCentre[]
+  configPersonalDept   ConfigPersonalDept[]
 
   @@unique([centreId, codi])
   @@index([centreId])
@@ -341,6 +345,45 @@ model MovimentRepartiment {
 
   @@index([execucioId])
   @@index([liniaNegociDestiId])
+}
+
+/// Mode d'assignació de personal SC per LN configurable (LN00001, 00004, 00005, 00006).
+model ConfigPersonalLn {
+  id             String                    @id @default(cuid())
+  liniaNegociId  String                    @unique
+  mode           ModeRepartimentPersonalLn @default(PERCENT_DEPT)
+  /// Quan mode = FIX_TOTAL: import mensual repartit entre departaments actius (pes intern).
+  importFixTotal Decimal?                  @db.Decimal(18, 2)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  liniaNegoci    LiniaNegoci               @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
+}
+
+/// Assignació per departament SC (LN00000) cap a una LN configurable.
+model ConfigPersonalDept {
+  id            String      @id @default(cuid())
+  liniaNegociId String
+  departamentId String
+  actiu         Boolean     @default(true)
+  /// Mode PERCENT_DEPT: % del cost del departament (nòmina+millores).
+  percentDept   Decimal?    @db.Decimal(9, 4)
+  /// Mode FIX_TOTAL: pes relatiu dins l'import fix de la LN.
+  pesInternFix  Decimal?    @db.Decimal(9, 4)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  liniaNegoci   LiniaNegoci @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
+  departament   Departament @relation(fields: [departamentId], references: [id], onDelete: Cascade)
+
+  @@unique([liniaNegociId, departamentId])
+  @@index([departamentId])
+}
+
+/// Pes per defecte quan LN00002/LN00003 no tenen vendes al mes (sobrant automàtic).
+model PesDefectePersonalComercial {
+  id            String      @id @default(cuid())
+  liniaNegociId String      @unique
+  pesDefecte    Decimal     @db.Decimal(9, 6)
+  liniaNegoci   LiniaNegoci @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
 }
 
 /// Configuració global del mòdul (singleton).
@@ -672,6 +715,11 @@ enum TipusNormaRepartiment {
 enum EstatExecucioRepartiment {
   BORRADOR
   CONFIRMAT
+}
+
+enum ModeRepartimentPersonalLn {
+  PERCENT_DEPT
+  FIX_TOTAL
 }
 
 enum EstatExecucioTraspassPersonal {

@@ -9,6 +9,7 @@ import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
+import { recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import {
   MESOS_CURTS,
   type VistaCompte,
@@ -21,6 +22,7 @@ import {
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
+import { db } from "@/lib/db";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
@@ -34,7 +36,23 @@ import {
 } from "@/lib/kpi-definitions";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import { type RangMesos, esAnyComplet, etiquetaRangMesosLlarga, rangToQuery } from "@/lib/periodes";
-import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
+import { aplicarDeltaPresentacioGestio } from "@/lib/repartiment/gestio-consultes";
+import {
+  CODI_LN_CENTRAL,
+  fraccionsRepartimentDetall,
+  nodesPresentacioGestio,
+} from "@/lib/repartiment/nodes";
+import {
+  CODI_LN_GREEN_VITA,
+  CODI_LN_RESTAURANTS,
+  NOM_NORMA_ADMIN_REST_GREEN_VITA,
+} from "@/lib/repartiment/personal-admin-restaurants";
+import { carregarCostSapAdminRestaurants } from "@/lib/repartiment/personal-admin-restaurants-data";
+import { calcularMovimentsPersonalDepartaments } from "@/lib/repartiment/personal-departaments";
+import {
+  carregarConfigPersonal,
+  carregarCostPersonalDeptSc,
+} from "@/lib/repartiment/personal-departaments-data";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { ajustarImportConsultaAction } from "../actions";
 import { LiniaResumPresentacio } from "../presenters-dynamic";
@@ -127,16 +145,16 @@ export default async function ConsultaLiniaPage({
         accent: "ingressos",
       },
       {
-        label: "Personal",
-        import_: personalTotal,
-        pct: pctSobreIngressos(personalTotal, ingressosTotal),
+        label: "Compres",
+        import_: compresTotal,
+        pct: pctSobreIngressos(compresTotal, ingressosTotal),
         pctHint: "s/ ingressos",
         accent: "cost",
       },
       {
-        label: "Compres",
-        import_: compresTotal,
-        pct: pctSobreIngressos(compresTotal, ingressosTotal),
+        label: "Personal",
+        import_: personalTotal,
+        pct: pctSobreIngressos(personalTotal, ingressosTotal),
         pctHint: "s/ ingressos",
         accent: "cost",
       },
@@ -235,29 +253,403 @@ export default async function ConsultaLiniaPage({
     vista === "gestio" ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
-  let ev = evRaw;
-  if (ev && vista === "gestio") {
-    ev = {
-      ...ev,
-      concepts: await aplicarVistaGestioEvolucioLn(lnId, anyActual, ev.concepts),
-    };
-  }
-
+  const ev = evRaw;
   const findEvRow = (node: number) => ev?.concepts.find((c) => c.node === node);
 
+  /**
+   * Base de Gestió per als KPI i la taula:
+   * - Agenda = total mensual visible de Central × el seu Valor (%).
+   * - Resta de LN = gestió pròpia + (total Central × el seu Valor (%)).
+   * Els percentatges de totes les LN, inclosa Agenda, sumen 100%.
+   *
+   * La base és sempre la mateixa fila 30 que veu l'usuari al compte d'explotació,
+   * mai el subtotal importat de SAP.
+   */
+  let gestioKpiMensual: number[] | null = null;
+  let compresKpiMensual: number[] | null = null;
+  let personalKpiMensual: number[] | null = null;
+  let ebitdaKpiMensual: number[] | null = null;
+  let esAgenda = false;
+  let esAgendaCompres = false;
+  let codiLnPersonal: string | null = null;
+  if (ev && vista === "gestio") {
+    const [central, normesGestio] = await Promise.all([
+      db.liniaNegoci.findUnique({
+        where: { codi: CODI_LN_CENTRAL },
+        select: { id: true },
+      }),
+      db.normaRepartiment.findMany({
+        where: {
+          actiu: true,
+          concepteNode: NODE_COST_GESTIO,
+          tipus: "PERCENT_POOL_CENTRAL",
+          valorPercent: { not: null },
+        },
+        select: { liniaNegociDestiId: true, valorPercent: true },
+      }),
+    ]);
+
+    if (central) {
+      esAgenda = central.id === lnId;
+      const evCentral = esAgenda ? ev : await getEvolucioMensual("linia", central.id, anyActual);
+      const gestioCentral =
+        evCentral.concepts.find((c) => c.node === NODE_COST_GESTIO)?.valors ?? [];
+      const gestioPropi = findEvRow(NODE_COST_GESTIO)?.valors ?? [];
+      const percent = (ln: string) =>
+        Number(normesGestio.find((n) => n.liniaNegociDestiId === ln)?.valorPercent ?? 0) / 100;
+      const percentAgenda = percent(central.id);
+      const percentLn = percent(lnId);
+
+      gestioKpiMensual = gestioPropi.map((propi, i) => {
+        const totalCentral = gestioCentral[i] ?? 0;
+        if (esAgenda) return totalCentral * percentAgenda;
+        return propi + totalCentral * percentLn;
+      });
+    }
+  }
+
+  /**
+   * Compres:
+   * 1. Central, 04, 05 i 06 reben el % sobre les vendes indicat a la norma.
+   * 2. Aquestes quantitats es resten de TOTAL COMPRES Central (7 + 8).
+   * 3. El restant es distribueix a 02 i 03 segons el pes de vendes mensual.
+   */
+  if (ev && vista === "gestio") {
+    const lnsCompres = await db.liniaNegoci.findMany({
+      where: { codi: { in: ["LN00000", "LN00002", "LN00003", "LN00004", "LN00005", "LN00006"] } },
+      select: { id: true, codi: true },
+    });
+    const lnActual = lnsCompres.find((ln) => ln.id === lnId);
+
+    if (lnActual) {
+      const [normesCompres, evolucions] = await Promise.all([
+        db.normaRepartiment.findMany({
+          where: {
+            actiu: true,
+            concepteNode: NODE_COMPRES,
+            tipus: { in: ["PERCENT_VENDES_PROPIES", "REPARTIMENT_PROPORCIONAL"] },
+          },
+          select: { liniaNegociDestiId: true, tipus: true, valorPercent: true },
+        }),
+        Promise.all(
+          lnsCompres.map(
+            async (ln) =>
+              [
+                ln.codi,
+                ln.id === lnId ? ev : await getEvolucioMensual("linia", ln.id, anyActual),
+              ] as const
+          )
+        ),
+      ]);
+      const evolucioPerCodi = new Map(evolucions);
+      const valors = (codi: string, node: number) =>
+        evolucioPerCodi.get(codi)?.concepts.find((row) => row.node === node)?.valors ?? [];
+      const idPerCodi = new Map(lnsCompres.map((ln) => [ln.codi, ln.id]));
+      const normaPercent = (codi: string) =>
+        normesCompres.find(
+          (n) =>
+            n.liniaNegociDestiId === idPerCodi.get(codi) &&
+            n.tipus === "PERCENT_VENDES_PROPIES" &&
+            n.valorPercent != null
+        );
+      const teProporcional = (codi: string) =>
+        normesCompres.some(
+          (n) =>
+            n.liniaNegociDestiId === idPerCodi.get(codi) && n.tipus === "REPARTIMENT_PROPORCIONAL"
+        );
+      const imputatPercent = (codi: string) => {
+        const norma = normaPercent(codi);
+        if (!norma) return null;
+        const pct = Number(norma.valorPercent) / 100;
+        return valors(codi, NODE_INGRESSOS).map((vendes) => -(Math.abs(vendes) * pct));
+      };
+
+      const imputatsFixos = new Map(
+        ["LN00000", "LN00004", "LN00005", "LN00006"].map((codi) => [codi, imputatPercent(codi)])
+      );
+      const compresCentral = valors("LN00000", NODE_COMPRES);
+      const poolRestant = compresCentral.map((total, mesIdx) => {
+        let pool = total;
+        for (const imputat of imputatsFixos.values()) {
+          pool -= imputat?.[mesIdx] ?? 0;
+        }
+        return pool;
+      });
+      const compresPropies = valors(lnActual.codi, NODE_COMPRES);
+
+      if (imputatsFixos.has(lnActual.codi)) {
+        const imputat = imputatsFixos.get(lnActual.codi);
+        if (imputat) {
+          esAgendaCompres = lnActual.codi === "LN00000";
+          const sumaSapPropia = ["LN00005", "LN00006"].includes(lnActual.codi);
+          compresKpiMensual = imputat.map(
+            (import_, mesIdx) => import_ + (sumaSapPropia ? (compresPropies[mesIdx] ?? 0) : 0)
+          );
+        }
+      } else if (
+        (lnActual.codi === "LN00002" || lnActual.codi === "LN00003") &&
+        teProporcional(lnActual.codi)
+      ) {
+        const vendesEmpresa = valors("LN00002", NODE_INGRESSOS);
+        const vendesCasaments = valors("LN00003", NODE_INGRESSOS);
+        compresKpiMensual = poolRestant.map((pool, mesIdx) => {
+          const vendesActual =
+            lnActual.codi === "LN00002"
+              ? Math.max(0, vendesEmpresa[mesIdx] ?? 0)
+              : Math.max(0, vendesCasaments[mesIdx] ?? 0);
+          const vendesTotal =
+            Math.max(0, vendesEmpresa[mesIdx] ?? 0) + Math.max(0, vendesCasaments[mesIdx] ?? 0);
+          const pes = vendesTotal > 0 ? vendesActual / vendesTotal : 0;
+          return pool * pes + (compresPropies[mesIdx] ?? 0);
+        });
+      }
+    }
+  }
+
+  /**
+   * Personal SC:
+   * - Pool = TOTAL COST SALARIAL visible de Central (13–16).
+   * - Assignacions explícites per departament a 00/01/04/05/06.
+   * - Sobrant a 02/03 segons vendes mensuals (o pes configurat sense vendes).
+   */
+  if (ev && vista === "gestio") {
+    const [lnsPersonal, configPersonal] = await Promise.all([
+      db.liniaNegoci.findMany({
+        where: {
+          codi: {
+            in: ["LN00000", "LN00001", "LN00002", "LN00003", "LN00004", "LN00005", "LN00006"],
+          },
+        },
+        select: { id: true, codi: true },
+      }),
+      carregarConfigPersonal(),
+    ]);
+    const lnActual = lnsPersonal.find((ln) => ln.id === lnId);
+
+    if (lnActual) {
+      codiLnPersonal = lnActual.codi;
+      const evolucions = await Promise.all(
+        lnsPersonal.map(
+          async (ln) =>
+            [
+              ln.id,
+              ln.id === lnId ? ev : await getEvolucioMensual("linia", ln.id, anyActual),
+            ] as const
+        )
+      );
+      const evolucioPerLn = new Map(evolucions);
+      const lnIdByCodi = new Map(lnsPersonal.map((ln) => [ln.codi, ln.id]));
+      const [centres, periods] = await Promise.all([
+        db.centre.findMany({
+          where: { liniaNegociId: { in: lnsPersonal.map((ln) => ln.id) } },
+          select: { id: true, liniaNegociId: true },
+        }),
+        db.period.findMany({
+          where: { any: anyActual },
+          select: { id: true, mes: true },
+        }),
+      ]);
+      const lnIdPerCentre = new Map(centres.map((centre) => [centre.id, centre.liniaNegociId]));
+      const deltaTraspassPerLn = new Map(
+        lnsPersonal.map((ln) => [ln.id, new Array<number>(12).fill(0)])
+      );
+      const execucionsTraspass = await db.execucioTraspassPersonal.findMany({
+        where: {
+          estat: "CONFIRMAT",
+          periodId: { in: periods.map((period) => period.id) },
+        },
+        select: {
+          periodId: true,
+          moviments: {
+            where: {
+              OR: [
+                { centreOrigenId: { in: centres.map((centre) => centre.id) } },
+                { centreDestiId: { in: centres.map((centre) => centre.id) } },
+              ],
+            },
+            select: { centreOrigenId: true, centreDestiId: true, import_: true },
+          },
+        },
+      });
+      const mesPerPeriodId = new Map(periods.map((period) => [period.id, period.mes]));
+      for (const execucio of execucionsTraspass) {
+        const mes = mesPerPeriodId.get(execucio.periodId);
+        if (!mes) continue;
+        for (const moviment of execucio.moviments) {
+          const import_ = Number(moviment.import_);
+          const lnOrigen = lnIdPerCentre.get(moviment.centreOrigenId);
+          const lnDesti = lnIdPerCentre.get(moviment.centreDestiId);
+          const deltasOrigen = lnOrigen ? deltaTraspassPerLn.get(lnOrigen) : null;
+          const deltasDesti = lnDesti ? deltaTraspassPerLn.get(lnDesti) : null;
+          if (deltasOrigen) deltasOrigen[mes - 1] = (deltasOrigen[mes - 1] ?? 0) + import_;
+          if (deltasDesti) deltasDesti[mes - 1] = (deltasDesti[mes - 1] ?? 0) - import_;
+        }
+      }
+      const personalDirecte = (findEvRow(NODE_COST_SALARIAL)?.valors ?? []).map(
+        (valor, mesIdx) => valor + (deltaTraspassPerLn.get(lnActual.id)?.[mesIdx] ?? 0)
+      );
+
+      personalKpiMensual = await Promise.all(
+        Array.from({ length: 12 }, async (_, mesIdx) => {
+          const directe = new Map(
+            lnsPersonal.map((ln) => {
+              const nodes = new Map(
+                (evolucioPerLn.get(ln.id)?.concepts ?? []).map((row) => [
+                  row.node,
+                  row.valors[mesIdx] ?? 0,
+                ])
+              );
+              const deltaTraspass = deltaTraspassPerLn.get(ln.id)?.[mesIdx] ?? 0;
+              if (deltaTraspass !== 0) {
+                const detalls = nodesPresentacioGestio(NODE_COST_SALARIAL);
+                const bases = detalls.map((node) => nodes.get(node) ?? 0);
+                const fraccions = fraccionsRepartimentDetall(bases);
+                for (let i = 0; i < detalls.length; i++) {
+                  const node = detalls[i];
+                  if (node == null) continue;
+                  nodes.set(node, (nodes.get(node) ?? 0) + deltaTraspass * (fraccions[i] ?? 0));
+                }
+              }
+              return [ln.id, nodes] as const;
+            })
+          );
+          const [costs] = await Promise.all([carregarCostPersonalDeptSc(anyActual, mesIdx + 1)]);
+          const moviments = calcularMovimentsPersonalDepartaments(
+            costs,
+            configPersonal.configsLn,
+            configPersonal.configsDept,
+            directe,
+            lnIdByCodi,
+            configPersonal.pesDefecte
+          );
+          const objectiu = moviments.find(
+            (moviment) =>
+              moviment.liniaNegociDestiId === lnActual.id &&
+              moviment.concepteNode === NODE_COST_SALARIAL
+          )?.importCalculat;
+
+          // Sense retenció configurada, Central/Agenda queda a zero; la resta
+          // de LN conserva el seu Directe si no rep cap assignació.
+          if (objectiu != null) return objectiu;
+          return lnActual.codi === CODI_LN_CENTRAL ? 0 : (personalDirecte[mesIdx] ?? 0);
+        })
+      );
+    }
+  }
+
+  /** Traspàs específic: Administració Restaurants (LN00001) → Green Vita (LN00006). */
+  if (
+    vista === "gestio" &&
+    personalKpiMensual &&
+    (codiLnPersonal === CODI_LN_RESTAURANTS || codiLnPersonal === CODI_LN_GREEN_VITA)
+  ) {
+    const [norma, periods] = await Promise.all([
+      db.normaRepartiment.findFirst({
+        where: { nom: NOM_NORMA_ADMIN_REST_GREEN_VITA, actiu: true, valorPercent: { not: null } },
+        select: { valorPercent: true },
+      }),
+      db.period.findMany({
+        where: { any: anyActual },
+        select: { id: true, mes: true },
+      }),
+    ]);
+
+    if (norma) {
+      const periodIdPerMes = new Map(periods.map((period) => [period.mes, period.id]));
+      const pct = Number(norma.valorPercent) / 100;
+      const costsAdmin = await Promise.all(
+        Array.from({ length: 12 }, (_, mesIdx) => {
+          const periodId = periodIdPerMes.get(mesIdx + 1);
+          return periodId ? carregarCostSapAdminRestaurants(periodId) : Promise.resolve(null);
+        })
+      );
+
+      personalKpiMensual = personalKpiMensual.map((personal, mesIdx) => {
+        const cost = costsAdmin[mesIdx];
+        if (!cost) return personal;
+        const quota = (Math.abs(cost.sous) + Math.abs(cost.seguretatSocial)) * pct;
+        return codiLnPersonal === CODI_LN_GREEN_VITA ? personal - quota : personal + quota;
+      });
+    }
+  }
+
+  if (ev && (gestioKpiMensual || compresKpiMensual || personalKpiMensual)) {
+    const ebitdaPropi = findEvRow(NODE_EBITDA)?.valors ?? [];
+    const gestioPropia = findEvRow(NODE_COST_GESTIO)?.valors ?? [];
+    const compresPropies = findEvRow(NODE_COMPRES)?.valors ?? [];
+    const personalPropi = findEvRow(NODE_COST_SALARIAL)?.valors ?? [];
+    ebitdaKpiMensual = ebitdaPropi.map(
+      (ebitda, mesIdx) =>
+        ebitda +
+        (gestioKpiMensual?.[mesIdx] ?? gestioPropia[mesIdx] ?? 0) -
+        (gestioPropia[mesIdx] ?? 0) +
+        (compresKpiMensual?.[mesIdx] ?? compresPropies[mesIdx] ?? 0) -
+        (compresPropies[mesIdx] ?? 0) +
+        (personalKpiMensual?.[mesIdx] ?? personalPropi[mesIdx] ?? 0) -
+        (personalPropi[mesIdx] ?? 0)
+    );
+  }
+
   const valorKpi = (node: number) => {
-    const row = findEvRow(node);
-    if (!row) return 0;
-    return row.valors.slice(rang.des - 1, rang.fins).reduce((s, v) => s + v, 0);
+    const valors =
+      node === NODE_COST_GESTIO && gestioKpiMensual
+        ? gestioKpiMensual
+        : node === NODE_COMPRES && compresKpiMensual
+          ? compresKpiMensual
+          : node === NODE_COST_SALARIAL && personalKpiMensual
+            ? personalKpiMensual
+            : node === NODE_EBITDA && ebitdaKpiMensual
+              ? ebitdaKpiMensual
+              : (findEvRow(node)?.valors ?? []);
+    return valors.slice(rang.des - 1, rang.fins).reduce((s, v) => s + v, 0);
   };
   const kpis = ev && !ev.buit ? buildKpisInforme(valorKpi) : [];
+
+  // Mateix càlcul que el KPI, aplicat als detalls de Compres (7–8), Personal
+  // (13–16) i Gestió (18–29) perquè els totals i l'EBITDA quadrin amb Gestió.
+  let conceptsTaula = ev?.concepts ?? [];
+  if (ev && vista === "gestio" && (gestioKpiMensual || compresKpiMensual || personalKpiMensual)) {
+    const rowsGestio = ev.concepts.map((row) => ({ ...row, valors: [...row.valors] }));
+    const byNode = new Map(rowsGestio.map((row) => [row.node, row]));
+    if (gestioKpiMensual) {
+      const gestioDirecte = findEvRow(NODE_COST_GESTIO)?.valors ?? [];
+      for (let mesIdx = 0; mesIdx < gestioKpiMensual.length; mesIdx++) {
+        const delta = (gestioKpiMensual[mesIdx] ?? 0) - (gestioDirecte[mesIdx] ?? 0);
+        aplicarDeltaPresentacioGestio(byNode, NODE_COST_GESTIO, mesIdx, delta, {
+          substituirObjectiu: esAgenda,
+        });
+      }
+    }
+
+    if (compresKpiMensual) {
+      const compresDirecte = findEvRow(NODE_COMPRES)?.valors ?? [];
+      for (let mesIdx = 0; mesIdx < compresKpiMensual.length; mesIdx++) {
+        const delta = (compresKpiMensual[mesIdx] ?? 0) - (compresDirecte[mesIdx] ?? 0);
+        aplicarDeltaPresentacioGestio(byNode, NODE_COMPRES, mesIdx, delta, {
+          substituirObjectiu: esAgendaCompres,
+        });
+      }
+    }
+
+    if (personalKpiMensual) {
+      const personalDirecte = findEvRow(NODE_COST_SALARIAL)?.valors ?? [];
+      for (let mesIdx = 0; mesIdx < personalKpiMensual.length; mesIdx++) {
+        const delta = (personalKpiMensual[mesIdx] ?? 0) - (personalDirecte[mesIdx] ?? 0);
+        aplicarDeltaPresentacioGestio(byNode, NODE_COST_SALARIAL, mesIdx, delta, {
+          substituirObjectiu: esAgenda,
+        });
+      }
+    }
+
+    conceptsTaula = recalcularSubtotalsCompte(rowsGestio, rowsGestio);
+  }
 
   const mesosCols = MESOS_CURTS.slice(rang.des - 1, rang.fins);
   const columnsMes: PivotColumn[] = mesosCols.map((m, i) => ({
     key: String(rang.des - 1 + i),
     label: m,
   }));
-  const rowsMes = ev ? retallaRang(ev.concepts, rang) : [];
+  const rowsMes = ev ? retallaRang(conceptsTaula, rang) : [];
 
   const chartSeries = ev
     ? [

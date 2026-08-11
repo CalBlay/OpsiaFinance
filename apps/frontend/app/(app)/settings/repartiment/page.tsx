@@ -1,76 +1,108 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { syncGrupsRepartiment } from "@/lib/repartiment/normes-default";
 import {
-  syncGrupsRepartiment,
-  syncNormaPersonalPrecuinats,
-} from "@/lib/repartiment/normes-default";
-import { decimalToNumber } from "@/lib/repartiment/serialize";
-import { NormesRepartimentPanel } from "./NormesRepartimentPanel";
+  CODIS_LN_PERSONAL_COMERCIAL,
+  CODIS_LN_PERSONAL_CONFIG,
+} from "@/lib/repartiment/personal-departaments-constants";
+import {
+  carregarConfigPersonal,
+  carregarCostPersonalDeptSc,
+  desactivarNormesPersonalObsoletes,
+  ensureConfigPersonalInicial,
+} from "@/lib/repartiment/personal-departaments-data";
+import { RepartimentSubNav } from "./RepartimentSubNav";
 import styles from "./page.module.css";
+import { PersonalRepartimentPanel } from "./personal/PersonalRepartimentPanel";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Normes de repartiment — OpsiaFinance" };
+export const metadata = { title: "Repartiment personal SC — OpsiaFinance" };
 
 export default async function RepartimentSettingsPage() {
   const session = await auth();
   const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
 
   await syncGrupsRepartiment();
-  await syncNormaPersonalPrecuinats();
+  await ensureConfigPersonalInicial();
+  await desactivarNormesPersonalObsoletes();
 
-  const [normesRaw, grupsRaw] = await Promise.all([
-    db.normaRepartiment.findMany({
-      orderBy: { ordre: "asc" },
-      include: {
-        liniaNegociDesti: { select: { codi: true, nom: true } },
-        grup: { select: { codi: true, nom: true } },
+  const latestPeriod = await db.period.findFirst({
+    where: { costsPersonalsCentre: { some: {} } },
+    orderBy: [{ any: "desc" }, { mes: "desc" }],
+    select: { any: true, mes: true, nom: true },
+  });
+
+  const refAny = latestPeriod?.any ?? new Date().getFullYear();
+  const refMes = latestPeriod?.mes ?? 1;
+
+  const [lns, costs, config] = await Promise.all([
+    db.liniaNegoci.findMany({
+      where: {
+        codi: { in: [...CODIS_LN_PERSONAL_CONFIG, ...CODIS_LN_PERSONAL_COMERCIAL] },
+        isActive: true,
       },
+      orderBy: { codi: "asc" },
+      select: { id: true, codi: true, nom: true },
     }),
-    db.repartimentGrup.findMany({
-      where: { isActive: true },
-      orderBy: { ordre: "asc" },
-      include: {
-        membres: {
-          orderBy: { ordre: "asc" },
-          include: { liniaNegoci: { select: { codi: true } } },
-        },
-      },
-    }),
+    carregarCostPersonalDeptSc(refAny, refMes),
+    carregarConfigPersonal(),
   ]);
 
-  const normes = normesRaw.map((n) => ({
-    id: n.id,
-    nom: n.nom,
-    tipus: n.tipus,
-    actiu: n.actiu,
-    ordre: n.ordre,
-    concepteNode: n.concepteNode,
-    valorPercent: decimalToNumber(n.valorPercent),
-    valorImport: decimalToNumber(n.valorImport),
-    liniaNegociDesti: n.liniaNegociDesti
-      ? { codi: n.liniaNegociDesti.codi, nom: n.liniaNegociDesti.nom }
-      : null,
-    grup: n.grup ? { codi: n.grup.codi, nom: n.grup.nom } : null,
+  // Si un centre SC no té departaments i tampoc té cost salarial al mes de referència,
+  // no l'hem de mostrar.
+  const departaments = costs.map((c) => ({
+    departamentId: c.departamentId,
+    centreCodi: c.centreCodi,
+    centreNom: c.centreNom,
+    deptCodi: c.deptCodi,
+    deptNom: c.deptNom,
+    costRef: c.costPersonal,
   }));
 
-  const grups = grupsRaw.map((g) => ({
-    codi: g.codi,
-    nom: g.nom,
-    membres: g.membres.map((m) => ({
-      liniaNegoci: { codi: m.liniaNegoci.codi },
-    })),
-  }));
+  const lnsConfig = lns
+    .filter((l) =>
+      CODIS_LN_PERSONAL_CONFIG.includes(l.codi as (typeof CODIS_LN_PERSONAL_CONFIG)[number])
+    )
+    .map((l) => {
+      const cfg = config.configsLn.find((c) => c.liniaNegociId === l.id);
+      return {
+        id: l.id,
+        codi: l.codi,
+        nom: l.nom,
+        mode: cfg?.mode ?? ("PERCENT_DEPT" as const),
+        importFixTotal: cfg?.importFixTotal ?? null,
+      };
+    });
+
+  const lnsComercial = lns.filter((l) =>
+    CODIS_LN_PERSONAL_COMERCIAL.includes(l.codi as (typeof CODIS_LN_PERSONAL_COMERCIAL)[number])
+  );
+
+  const pesDefecteMap = new Map(config.pesDefecte.map((p) => [p.liniaNegociId, p.pesDefecte]));
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1 className={styles.title}>Normes de repartiment</h1>
+        <h1 className={styles.title}>Repartiment</h1>
         <p className={styles.subtitle}>
-          Configuració permanent del repartiment Central → LN. Els percentatges sobre vendes es
-          recalculen cada mes; aquí defineixes les regles fixes i els grups proporcionals.
+          Imports fixos (00/01/04/05/06) des de Central; el sobrant a Empresa i Casaments pel pes de
+          vendes entre les dues.
         </p>
+        <RepartimentSubNav />
       </header>
-      <NormesRepartimentPanel normes={normes} grups={grups} canEdit={canEdit} />
+      <PersonalRepartimentPanel
+        lnsConfig={lnsConfig}
+        lnsComercial={lnsComercial}
+        departaments={departaments}
+        assignacions={config.configsDept}
+        pesDefecte={lnsComercial.map((l) => ({
+          liniaNegociId: l.id,
+          codi: l.codi,
+          pesDefecte: pesDefecteMap.get(l.id) ?? 0.5,
+        }))}
+        refMesLabel={latestPeriod?.nom ?? null}
+        canEdit={canEdit}
+      />
     </div>
   );
 }

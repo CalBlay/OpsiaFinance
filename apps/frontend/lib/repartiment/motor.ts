@@ -7,19 +7,30 @@ import {
   restarGestioImputadaDelPool,
 } from "@/lib/repartiment/gestio-ln";
 import { NODE_COMPRES, NODE_COST_SALARIAL, NODE_INGRESSOS } from "@/lib/repartiment/nodes";
-import { calcularMovimentsPersonalGrupCentral } from "@/lib/repartiment/personal-central-pool";
 import {
-  calcularMovimentsPersonalEspecial,
-  esNormaPersonalEspecial,
-} from "@/lib/repartiment/personal-ln";
+  type CostSapAdminRestaurants,
+  calcularMovimentsAdminRestGreenVita,
+  esNormaAdminRestGreenVita,
+} from "@/lib/repartiment/personal-admin-restaurants";
 import {
-  type SuportPersonalPrecuinats,
-  calcularMovimentPersonalPrecuinats,
-  esNormaPersonalPrecuinats,
-} from "@/lib/repartiment/personal-precuinats";
+  type ConfigPersonalDept,
+  type ConfigPersonalLn,
+  type CostDeptMes,
+  type PesDefecteComercial,
+  calcularMovimentsPersonalDepartaments,
+} from "@/lib/repartiment/personal-departaments";
 import type { NormaRepartiment, TipusNormaRepartiment } from "@prisma/client";
 
 export type { MovimentCalculat };
+
+export type ContextPersonalDept = {
+  costs: CostDeptMes[];
+  configsLn: ConfigPersonalLn[];
+  configsDept: ConfigPersonalDept[];
+  pesDefecte: PesDefecteComercial[];
+  /** Cost SAP sous+SS del centre Admin restaurants (opcional). */
+  costAdminRestaurants?: CostSapAdminRestaurants | null;
+};
 
 /** Redueix el pool distribuïble segons normes pròpies de Central (destí LN00000). */
 function aplicarRetencioCentral(
@@ -59,15 +70,6 @@ function aplicarRetencioCentral(
   }
 }
 
-function esNormaPersonalGrupCentral(norma: NormaRepartiment, grupPersonalId: string): boolean {
-  return (
-    !!grupPersonalId &&
-    norma.grupId === grupPersonalId &&
-    norma.concepteNode === NODE_COST_SALARIAL &&
-    norma.tipus === "REPARTIMENT_PROPORCIONAL"
-  );
-}
-
 function esNormaCompresExterna(norma: NormaRepartiment): boolean {
   return (
     norma.concepteNode === NODE_COMPRES &&
@@ -84,8 +86,7 @@ export function calcularMoviments(
   pesOverrides: Map<string, number>,
   lnIdByCodi: Map<string, string>,
   grupCompresId: string,
-  grupPersonalId: string,
-  suportPrecuinats: SuportPersonalPrecuinats
+  personalDept: ContextPersonalDept
 ): MovimentCalculat[] {
   const normesActives = normes.filter((n) => n.actiu).sort((a, b) => a.ordre - b.ordre);
 
@@ -105,36 +106,33 @@ export function calcularMoviments(
   );
 
   const movimentsCentral = calcularMovimentsCentralLn(normesActives, directe, centralLnId);
-  const movimentsPersonal = calcularMovimentsPersonalEspecial(normesActives, directe, lnIdByCodi);
-  const movimentsPersonalPrecuinats = calcularMovimentPersonalPrecuinats(
-    normesActives,
-    directe,
-    lnIdByCodi,
-    suportPrecuinats
-  );
   const movimentsGestio = calcularMovimentsGestioEspecial(
     normesActives,
     directe,
     centralLnId,
     lnIdByCodi
   );
-  const movimentsPersonalGrup = calcularMovimentsPersonalGrupCentral(
+  const movimentsPersonal = calcularMovimentsPersonalDepartaments(
+    personalDept.costs,
+    personalDept.configsLn,
+    personalDept.configsDept,
+    directe,
+    lnIdByCodi,
+    personalDept.pesDefecte
+  );
+  const movimentsAdminRest = calcularMovimentsAdminRestGreenVita(
     normesActives,
     directe,
-    centralLnId,
     lnIdByCodi,
-    grupPersonalId,
-    pesMap,
-    suportPrecuinats
+    personalDept.costAdminRestaurants ?? null
   );
 
   const moviments: MovimentCalculat[] = [
     ...movimentsCompres,
     ...movimentsCentral,
-    ...movimentsPersonal,
-    ...movimentsPersonalPrecuinats,
     ...movimentsGestio,
-    ...movimentsPersonalGrup,
+    ...movimentsPersonal,
+    ...movimentsAdminRest,
   ];
   const poolRestant = new Map<number, number>();
   const central = directe.get(centralLnId) ?? new Map();
@@ -150,10 +148,9 @@ export function calcularMoviments(
 
   for (const norma of normesActives) {
     if (esNormaCompresExterna(norma)) continue;
-    if (esNormaPersonalEspecial(norma, lnIdByCodi)) continue;
-    if (esNormaPersonalPrecuinats(norma, lnIdByCodi)) continue;
     if (esNormaGestioEspecial(norma, lnIdByCodi)) continue;
-    if (esNormaPersonalGrupCentral(norma, grupPersonalId)) continue;
+    if (norma.concepteNode === NODE_COST_SALARIAL) continue;
+    if (esNormaAdminRestGreenVita(norma.nom)) continue;
 
     const pct = norma.valorPercent != null ? Number(norma.valorPercent) / 100 : 0;
     const fix = norma.valorImport != null ? Number(norma.valorImport) : 0;
@@ -189,8 +186,6 @@ export function calcularMoviments(
         break;
       }
       case "IMPORT_FIX": {
-        // Imputació des de Central (no substitueix el SAP de la LN).
-        // Ex.: Restaurants −20.000 € de personal = SAP propi + fix.
         const sap = directe.get(destId)?.get(norma.concepteNode) ?? 0;
         moviments.push({
           normaId: norma.id,
@@ -224,7 +219,6 @@ export function calcularMoviments(
   for (const [, grupNormes] of propPerGrupNode) {
     const ref = grupNormes[0];
     if (!ref) continue;
-    if (esNormaPersonalGrupCentral(ref, grupPersonalId)) continue;
 
     const node = ref.concepteNode;
     const pool = poolRestant.get(node) ?? 0;

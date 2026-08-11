@@ -165,14 +165,14 @@ El motor no calcula mai només sobre SAP cru.
 **Capes que SÍ entren al càlcul de Gestió**, en aquest ordre:
 
 1. **Ajustos** (ja inclosos a la base quan es calcula el repartiment)
-2. **Repartiment** (Central → altres LN), calculat sobre SAP + ajustos
-3. **Traspassos de personal**
+2. **Traspassos de personal** (cost al centre on s’han treballat les hores)
+3. **Repartiment** (Central → altres LN), calculat sobre la base ja traspassada
 
 ```
 Base Directe = SAP + Ajustos
 Gestió       = Base Directe
-             → + Repartiment (calculat sobre Base Directe)
              → + Traspassos de personal
+             → + Repartiment (calculat sobre la base traspassada)
 ```
 
 **Cost de personal (nòmina + millores):** no entra al càlcul de Gestió (només informatiu / comparativa).

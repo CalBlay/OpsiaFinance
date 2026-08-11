@@ -1,7 +1,8 @@
 import { recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import type { ConceptePivot } from "@/lib/consultes";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
-import { NODE_COST_SALARIAL, nodePresentacioGestio } from "@/lib/repartiment/nodes";
+import { aplicarDeltaPresentacioGestio } from "@/lib/repartiment/gestio-consultes";
+import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
 
 /** Acumula delta per centre i node. */
 export function aplicarDeltaCentre(
@@ -52,6 +53,7 @@ export async function carregarDeltasTraspassPersonalPerCentre(
       // Costos al C.Explotació van en negatiu. El traspass mou cost:
       //   origen: surt cost → cal fer el cost menys negatiu (+import)
       //   destí:  entra cost → cal fer el cost més negatiu (−import)
+      // Es calcula sobre el total 17 i es presenta repartit a sous (13) + SS (15).
       const node = NODE_COST_SALARIAL;
       aplicarDeltaCentre(perCentre, m.centreOrigenId, node, imp);
       aplicarDeltaCentre(perCentre, m.centreDestiId, node, -imp);
@@ -73,9 +75,7 @@ export function aplicarDeltasTraspassPersonalCentres(
     const nodes = deltaByCentreNode.get(centreIds[i]);
     if (!nodes) continue;
     for (const [node, delta] of nodes) {
-      if (delta === 0) continue;
-      const row = byNode.get(nodePresentacioGestio(node));
-      if (row) row.valors[i] += delta;
+      aplicarDeltaPresentacioGestio(byNode, node, i, delta);
     }
   }
 
@@ -146,17 +146,20 @@ export async function aplicarTraspassPersonalEvolucioCentre(
   });
 
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
-  const targetNode = nodePresentacioGestio(NODE_COST_SALARIAL);
-  const sousRow = merged.find((r) => r.node === targetNode);
+  const byNode = new Map(merged.map((r) => [r.node, r]));
 
   for (const ex of execucions) {
     const mesIdx = ex.period.mes - 1;
-    if (mesIdx < 0 || mesIdx > 11 || !sousRow) continue;
+    if (mesIdx < 0 || mesIdx > 11) continue;
     for (const m of ex.moviments) {
       const imp = Number(m.import_);
-      // Mateix criteri de signe (costos negatius al compte).
-      if (m.centreOrigenId === centreId) sousRow.valors[mesIdx] += imp;
-      if (m.centreDestiId === centreId) sousRow.valors[mesIdx] -= imp;
+      // Mateix criteri de signe (costos negatius al compte) → presentat a sous + SS.
+      if (m.centreOrigenId === centreId) {
+        aplicarDeltaPresentacioGestio(byNode, NODE_COST_SALARIAL, mesIdx, imp);
+      }
+      if (m.centreDestiId === centreId) {
+        aplicarDeltaPresentacioGestio(byNode, NODE_COST_SALARIAL, mesIdx, -imp);
+      }
     }
   }
 

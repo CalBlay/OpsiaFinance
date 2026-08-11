@@ -1,11 +1,15 @@
 import { db } from "@/lib/db";
-import { CODI_LN_CENTRAL, NODE_COST_GESTIO, NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
+import { CODI_LN_CENTRAL } from "@/lib/repartiment/nodes";
 import {
   GRUPS_REPARTIMENT,
   type NormaSeed,
   normesConfirmades,
 } from "@/lib/repartiment/normes-seed";
-import { SUPORT_PERSONAL_PRECUINATS_CENTRES } from "@/lib/repartiment/personal-precuinats";
+import { ensureNormaAdminRestGreenVita } from "@/lib/repartiment/personal-admin-restaurants-data";
+import {
+  desactivarNormesPersonalObsoletes,
+  ensureConfigPersonalInicial,
+} from "@/lib/repartiment/personal-departaments-data";
 
 async function getLnByCodi(): Promise<Map<string, string>> {
   return new Map(
@@ -43,83 +47,6 @@ export async function syncGrupsRepartiment(): Promise<void> {
       },
     });
   }
-}
-
-/** Converteix la regla històrica de Precuinats en quatre normes editables per centre. */
-export async function syncNormaPersonalPrecuinats(): Promise<void> {
-  const [lnPrecuinats, lnCentral] = await Promise.all([
-    db.liniaNegoci.findUnique({
-      where: { codi: "LN00004" },
-      select: { id: true },
-    }),
-    db.liniaNegoci.findUnique({
-      where: { codi: CODI_LN_CENTRAL },
-      select: { id: true },
-    }),
-  ]);
-  if (!lnPrecuinats || !lnCentral) return;
-
-  const normes = await db.normaRepartiment.findMany({
-    where: {
-      liniaNegociDestiId: lnPrecuinats.id,
-      concepteNode: NODE_COST_SALARIAL,
-      tipus: "REPARTIMENT_PROPORCIONAL",
-    },
-    select: { id: true },
-  });
-
-  if (normes.length) {
-    await db.normaRepartiment.deleteMany({
-      where: { id: { in: normes.map((norma) => norma.id) } },
-    });
-  }
-
-  const existents = await db.normaRepartiment.findMany({
-    where: {
-      liniaNegociDestiId: lnPrecuinats.id,
-      concepteNode: NODE_COST_SALARIAL,
-      nom: { in: SUPORT_PERSONAL_PRECUINATS_CENTRES.map((regla) => regla.nomNorma) },
-    },
-    select: { id: true, nom: true },
-  });
-  const existentByNom = new Map(existents.map((norma) => [norma.nom, norma.id]));
-
-  for (const regla of SUPORT_PERSONAL_PRECUINATS_CENTRES) {
-    const id = existentByNom.get(regla.nomNorma);
-    if (id) {
-      await db.normaRepartiment.update({
-        where: { id },
-        data: {
-          tipus: "PERCENT_POOL_CENTRAL",
-          grupId: null,
-          liniaNegociOrigenId: lnCentral.id,
-          concepteNode: NODE_COST_SALARIAL,
-          ordre: regla.ordre,
-        },
-      });
-      continue;
-    }
-    await db.normaRepartiment.create({
-      data: {
-        nom: regla.nomNorma,
-        tipus: "PERCENT_POOL_CENTRAL",
-        ordre: regla.ordre,
-        liniaNegociDestiId: lnPrecuinats.id,
-        liniaNegociOrigenId: lnCentral.id,
-        concepteNode: NODE_COST_SALARIAL,
-        valorPercent: regla.percentDefecte,
-      },
-    });
-  }
-
-  await db.normaRepartiment.updateMany({
-    where: {
-      liniaNegociDestiId: lnPrecuinats.id,
-      concepteNode: NODE_COST_GESTIO,
-      tipus: "PERCENT_POOL_CENTRAL",
-    },
-    data: { ordre: 455 },
-  });
 }
 
 async function crearNormes(
@@ -182,7 +109,9 @@ export async function syncNormesNovesDesDeSeed(): Promise<{ ok: boolean; missatg
   }
 
   await syncGrupsRepartiment();
-  await syncNormaPersonalPrecuinats();
+  await ensureConfigPersonalInicial();
+  await desactivarNormesPersonalObsoletes();
+  await ensureNormaAdminRestGreenVita();
 
   const existents = await db.normaRepartiment.findMany({
     include: { liniaNegociDesti: { select: { codi: true } }, grup: { select: { codi: true } } },
@@ -226,7 +155,9 @@ export async function reiniciarAmbNormesSeed(): Promise<{ ok: boolean; missatge:
     };
   }
   const creats = await crearNormes(normesConfirmades(), lnByCodi, centralId);
-  await syncNormaPersonalPrecuinats();
+  await ensureConfigPersonalInicial();
+  await desactivarNormesPersonalObsoletes();
+  await ensureNormaAdminRestGreenVita();
 
   return {
     ok: true,
@@ -248,6 +179,9 @@ export async function ensureNormesRepartimentInicials(): Promise<{
   }
 
   await syncGrupsRepartiment();
+  await ensureConfigPersonalInicial();
+  await desactivarNormesPersonalObsoletes();
+  await ensureNormaAdminRestGreenVita();
 
   const existents = await db.normaRepartiment.count();
   if (existents > 0) {

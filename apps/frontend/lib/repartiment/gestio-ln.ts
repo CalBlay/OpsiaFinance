@@ -1,8 +1,11 @@
 import type { MovimentCalculat } from "@/lib/repartiment/compres-pool";
-import { NODE_COST_GESTIO } from "@/lib/repartiment/nodes";
+import { NODES_GESTIO_DETALL, NODE_COST_GESTIO } from "@/lib/repartiment/nodes";
 import type { NormaRepartiment } from "@prisma/client";
 
-/** LN operatives: gestió SAP pròpia + % del pool distribuïble Central. */
+/**
+ * LN operatives: gestió SAP pròpia + % del pool distribuïble Central.
+ * El % de cada LN (i d’Agenda/LN00000) surt sempre de la norma a Configuració (Valor).
+ */
 const GESTIO_SAP_PROPI_MES_PERCENT_CENTRAL = new Set([
   "LN00002",
   "LN00003",
@@ -11,16 +14,13 @@ const GESTIO_SAP_PROPI_MES_PERCENT_CENTRAL = new Set([
   "LN00006",
 ]);
 
-/** Suma de % sobre el pool distribuïble (ha de ser 100%). */
-export const PERCENTS_GESTIO_POOL: Record<string, number> = {
-  LN00002: 44,
-  LN00003: 14,
-  LN00004: 30,
-  LN00005: 8,
-  LN00006: 4,
-};
-
 function directeLn(directe: Map<string, Map<number, number>>, lnId: string, node: number): number {
+  // El node 30 és un subtotal de pantalla; cal recomputar-lo amb les partides
+  // reals (18–29), no usar el subtotal que venia al fitxer SAP.
+  if (node === NODE_COST_GESTIO) {
+    const nodes = directe.get(lnId);
+    return NODES_GESTIO_DETALL.reduce((sum, detall) => sum + (nodes?.get(detall) ?? 0), 0);
+  }
   return directe.get(lnId)?.get(node) ?? 0;
 }
 
@@ -45,7 +45,7 @@ function normaGestioPercentCentral(
   );
 }
 
-/** % retenció gestió pròpia Agenda (LN00000) sobre el SAP Central. */
+/** % retenció gestió Agenda (LN00000) sobre el SAP Central — valor de la norma. */
 export function percentRetencioGestioCentral(
   centralLnId: string,
   normes: NormaRepartiment[]
@@ -62,8 +62,8 @@ export function percentRetencioGestioCentral(
 }
 
 /**
- * Pool gestió Central distribuïble després de la retenció Agenda (10%):
- *   pool = gestió SAP Central × (1 − % Agenda)
+ * Pas 1: apartar Agenda (LN00000) amb el % de la norma.
+ * Pool distribuïble = gestió SAP Central − retenció Agenda.
  */
 export function poolGestioCentralDistribuible(
   directe: Map<string, Map<number, number>>,
@@ -123,9 +123,9 @@ export function restarGestioImputadaDelPool(
 }
 
 /**
- * Gestió operativa:
- *   TOTAL GESTIÓ = gestió SAP pròpia + % × pool distribuïble Central
- * Agenda queda amb el 10% restant via moviment propi (central-ln.ts).
+ * Pas 2: repartir el pool a les LN operatives.
+ * TOTAL GESTIÓ = gestió SAP pròpia + (Valor% × pool).
+ * Pas 3 (tornar Agenda): moviment propi a central-ln.ts.
  */
 export function calcularMovimentsGestioEspecial(
   normes: NormaRepartiment[],
@@ -145,7 +145,7 @@ export function calcularMovimentsGestioEspecial(
     if (!lnId) continue;
 
     const norma = normaGestioPercentCentral(lnId, normes);
-    if (!norma) continue;
+    if (!norma || norma.valorPercent == null) continue;
 
     const sapPropi = directeLn(directe, lnId, NODE_COST_GESTIO);
     const pct = Number(norma.valorPercent);

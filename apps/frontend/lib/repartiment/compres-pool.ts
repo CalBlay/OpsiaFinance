@@ -7,14 +7,14 @@ import {
 import type { NormaRepartiment } from "@prisma/client";
 
 export interface MovimentCalculat {
-  normaId: string;
+  normaId: string | null;
   liniaNegociDestiId: string;
   concepteNode: number;
   importCalculat: number;
   detallCalcul: string;
 }
 
-/** LN amb compres = % ingressos explotació (es resten del pool abans del repartiment Empresa+Casaments). */
+/** LN amb compres = % ingressos explotació (es resten del pool; també objectiu destí). */
 const CODIS_COMPRES_PERCENT_VENDES = ["LN00000", "LN00004", "LN00005", "LN00006"] as const;
 
 /** LN que sumen línies SAP directes (compres + altres aprov.) a l'objectiu TOTAL COMPRES. */
@@ -31,6 +31,12 @@ const CODIS_COMPRES_PROPORCIONAL = ["LN00002", "LN00003"] as const;
 export const CODI_GRUP_COMPRES_CENTRAL = "GRUP_COMPRES_CENTRAL";
 
 function directeLn(directe: Map<string, Map<number, number>>, lnId: string, node: number): number {
+  // El node 11 és un subtotal de pantalla: la base del repartiment ha de ser
+  // sempre el total real de Compres (línies 7 + 8), no el subtotal importat SAP.
+  if (node === NODE_COMPRES) {
+    const nodes = directe.get(lnId);
+    return (nodes?.get(NODE_COMPRES_DETALL) ?? 0) + (nodes?.get(NODE_ALTRES_APROVISIONAMENTS) ?? 0);
+  }
   return directe.get(lnId)?.get(node) ?? 0;
 }
 
@@ -89,7 +95,8 @@ export function objectiuCompresLn(
   const imputat = compresPercentImputat(lnId, directe, normes);
   if (imputat == null) return { objectiu: null, imputat: null, detall: "" };
 
-  const norma = normaPercentCompres(lnId, normes)!;
+  const norma = normaPercentCompres(lnId, normes);
+  if (!norma) return { objectiu: null, imputat: null, detall: "" };
   const base = vendesLn(directe, lnId);
   const parts = [
     `${Number(norma.valorPercent)}% × ingressos ${base.toFixed(2)} = ${imputat.toFixed(2)}`,
@@ -201,9 +208,9 @@ export function calcularMovimentsCompres(
     }
   }
 
-  // LN00000 (Agenda): la retenció es resta del pool; l'objectiu de gestió el crea central-ln.ts.
+  // LN00000 també és LN destí: mateix objectiu % × vendes pròpies que 04/05/06.
+  // (La quota ja s’ha restat del pool de 02/03 més amunt.)
   for (const codi of CODIS_COMPRES_PERCENT_VENDES) {
-    if (codi === "LN00000") continue;
     const lnId = lnIdByCodi.get(codi);
     if (!lnId) continue;
     const mov = movimentCompresLn(codi, lnId, directe, normes);

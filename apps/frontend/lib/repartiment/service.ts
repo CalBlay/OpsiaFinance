@@ -1,4 +1,3 @@
-import { carregarBaseGestioPersonal } from "@/lib/cost-personal-centre/base-gestio";
 import { db } from "@/lib/db";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import {
@@ -8,25 +7,33 @@ import {
   getDirectePerLnNodeMany,
 } from "@/lib/repartiment/bases-vendes";
 import {
+  NODES_REPARTIMENT_GESTIO_ACTIUS,
+  REPARTIMENT_APLICAT_A_GESTIO,
+} from "@/lib/repartiment/constants";
+import {
+  NODES_INVARIANT_EMPRESA,
   aplicarDeltaDesti,
   balanceZeroSumCentral,
   validarZeroSumDeltas,
 } from "@/lib/repartiment/gestio-consultes";
 import type { InfoGestioConsulta } from "@/lib/repartiment/info-gestio";
-import { calcularMoviments, movimentsADeltas } from "@/lib/repartiment/motor";
+import {
+  type ContextPersonalDept,
+  calcularMoviments,
+  movimentsADeltas,
+} from "@/lib/repartiment/motor";
 import { CODI_LN_CENTRAL } from "@/lib/repartiment/nodes";
+import { getNormesVigents, syncGrupsRepartiment } from "@/lib/repartiment/normes-default";
 import {
-  getNormesVigents,
-  syncGrupsRepartiment,
-  syncNormaPersonalPrecuinats,
-} from "@/lib/repartiment/normes-default";
+  carregarCostSapAdminRestaurants,
+  ensureNormaAdminRestGreenVita,
+} from "@/lib/repartiment/personal-admin-restaurants-data";
 import {
-  SUPORT_PERSONAL_PRECUINATS_CENTRES,
-  type SuportPersonalPrecuinats,
-  reglesSuportPersonalPrecuinats,
-  suportPersonalPrecuinatsDesDeCentres,
-} from "@/lib/repartiment/personal-precuinats";
-import type { NormaRepartiment } from "@prisma/client";
+  carregarConfigPersonal,
+  carregarCostPersonalDeptSc,
+  desactivarNormesPersonalObsoletes,
+  ensureConfigPersonalInicial,
+} from "@/lib/repartiment/personal-departaments-data";
 import { cache } from "react";
 
 export function validarZeroSumMoviments(
@@ -34,12 +41,20 @@ export function validarZeroSumMoviments(
   centralId: string
 ) {
   const perLn = new Map<string, Map<number, number>>();
+  const nodesAgendaExplicita = new Set<number>();
   for (const m of moviments) {
-    // No acumular moviments amb destí Central: la columna és sempre residual.
-    if (m.liniaNegociDestiId === centralId) continue;
+    if (m.liniaNegociDestiId === centralId) {
+      // Agenda (LN00000): objectiu explícit des de la norma (ex. gestió %).
+      if (NODES_REPARTIMENT_GESTIO_ACTIUS.includes(m.concepteNode)) {
+        aplicarDeltaDesti(perLn, centralId, m.concepteNode, m.importCalculat);
+        nodesAgendaExplicita.add(m.concepteNode);
+      }
+      continue;
+    }
     aplicarDeltaDesti(perLn, m.liniaNegociDestiId, m.concepteNode, m.importCalculat);
   }
-  balanceZeroSumCentral(perLn, centralId);
+  const nodesResidual = NODES_INVARIANT_EMPRESA.filter((n) => !nodesAgendaExplicita.has(n));
+  if (nodesResidual.length) balanceZeroSumCentral(perLn, centralId, nodesResidual);
   return validarZeroSumDeltas(perLn);
 }
 
@@ -58,95 +73,94 @@ type DepsComunsDelta = {
   normes: Awaited<ReturnType<typeof getNormesVigents>>;
   lnIdByCodi: Map<string, string>;
   grupCompresId: string;
-  grupPersonalId: string;
   grups: { id: string; membres: { liniaNegociId: string }[] }[];
 };
 
-type PeriodeSuportPrecuinats = {
-  id: string;
-  any: number;
-  mes: number;
-};
-
-/**
- * Suport de personal que Precuinats consumeix de Central, calculat sobre els
- * costos Gestió dels centres del mateix mes.
- */
-async function carregarSuportPersonalPrecuinats(
-  periods: PeriodeSuportPrecuinats[],
-  centralLnId: string,
-  normes: Pick<NormaRepartiment, "nom" | "actiu" | "valorPercent">[]
-): Promise<Map<string, SuportPersonalPrecuinats>> {
-  const regles = reglesSuportPersonalPrecuinats(normes);
-  const codisCentre = SUPORT_PERSONAL_PRECUINATS_CENTRES.map((r) => r.codiCentre);
-  const centres = await db.centre.findMany({
-    where: { liniaNegociId: centralLnId, codi: { in: codisCentre } },
-    select: { id: true, codi: true },
-  });
-  const idByCodi = new Map(centres.map((centre) => [centre.codi, centre.id]));
-  const centreIds = centres.map((centre) => centre.id);
-
-  const resultats = await Promise.all(
-    periods.map(async (period) => {
-      const base = await carregarBaseGestioPersonal({
-        any: period.any,
-        mes: period.mes,
-        centreIds,
-      });
-      const costPerCentre = new Map<string, number>();
-      for (const regla of regles) {
-        const centreId = idByCodi.get(regla.codiCentre);
-        const cost = centreId
-          ? (base.get(centreId)?.get(period.mes)?.imports.costPersonal ?? 0)
-          : 0;
-        costPerCentre.set(regla.codiCentre, cost);
-      }
-      return [period.id, suportPersonalPrecuinatsDesDeCentres(costPerCentre, regles)] as const;
-    })
-  );
-
-  return new Map(resultats);
+async function carregarContextPersonalDept(
+  any: number,
+  mes: number,
+  periodId?: string
+): Promise<ContextPersonalDept> {
+  const [costs, config, costAdminRestaurants] = await Promise.all([
+    carregarCostPersonalDeptSc(any, mes),
+    carregarConfigPersonal(),
+    periodId ? carregarCostSapAdminRestaurants(periodId) : Promise.resolve(null),
+  ]);
+  return { costs, ...config, costAdminRestaurants };
 }
 
-function deltasDesDeDirecte(
-  centralId: string,
-  directe: DirectePerLn,
-  deps: DepsComunsDelta,
-  execucio: ExecucioDeltaSelect | null | undefined,
-  suportPrecuinats: SuportPersonalPrecuinats
-): Map<string, Map<number, number>> {
-  const pesosCalc = calcularPesosGrupsFromDirecte(directe, deps.grups);
-
+function pesosOverridesDesDeExecucio(
+  execucio: ExecucioDeltaSelect | null | undefined
+): Map<string, number> {
   const pesOverrides = new Map<string, number>();
   for (const p of execucio?.pesos ?? []) {
     if (p.pesOverride != null) {
       pesOverrides.set(`${p.grupId}:${p.liniaNegociId}`, Number(p.pesOverride));
     }
   }
+  return pesOverrides;
+}
 
-  const moviments = movimentsADeltas(
+function movimentsDeltaDesDeDirecte(
+  centralId: string,
+  directe: DirectePerLn,
+  deps: DepsComunsDelta,
+  personalDept: ContextPersonalDept,
+  execucio: ExecucioDeltaSelect | null | undefined
+) {
+  const pesosCalc = calcularPesosGrupsFromDirecte(directe, deps.grups);
+  return movimentsADeltas(
     calcularMoviments(
       deps.normes,
       directe,
       centralId,
       pesosCalc,
-      pesOverrides,
+      pesosOverridesDesDeExecucio(execucio),
       deps.lnIdByCodi,
       deps.grupCompresId,
-      deps.grupPersonalId,
-      suportPrecuinats
+      personalDept
     ),
     directe
   );
+}
+
+function deltasDesDeDirecte(
+  centralId: string,
+  directe: DirectePerLn,
+  deps: DepsComunsDelta,
+  personalDept: ContextPersonalDept,
+  execucio: ExecucioDeltaSelect | null | undefined
+): Map<string, Map<number, number>> {
+  const moviments = movimentsDeltaDesDeDirecte(centralId, directe, deps, personalDept, execucio);
 
   const perLn = new Map<string, Map<number, number>>();
+  const nodesAgendaExplicita = new Set<number>();
   for (const m of moviments) {
-    if (m.liniaNegociDestiId === centralId) continue;
+    if (m.liniaNegociDestiId === centralId) {
+      // Agenda: retenció explícita (Valor% de Configuració), no residual zero-sum.
+      if (NODES_REPARTIMENT_GESTIO_ACTIUS.includes(m.concepteNode)) {
+        aplicarDeltaDesti(perLn, centralId, m.concepteNode, m.importCalculat);
+        nodesAgendaExplicita.add(m.concepteNode);
+      }
+      continue;
+    }
     aplicarDeltaDesti(perLn, m.liniaNegociDestiId, m.concepteNode, m.importCalculat);
   }
 
   for (const o of execucio?.moviments ?? []) {
-    if (o.liniaNegociDestiId === centralId || o.importOverride == null) continue;
+    if (o.importOverride == null) continue;
+    if (o.liniaNegociDestiId === centralId) {
+      if (NODES_REPARTIMENT_GESTIO_ACTIUS.includes(o.concepteNode)) {
+        let perNode = perLn.get(centralId);
+        if (!perNode) {
+          perNode = new Map();
+          perLn.set(centralId, perNode);
+        }
+        perNode.set(o.concepteNode, Number(o.importOverride));
+        nodesAgendaExplicita.add(o.concepteNode);
+      }
+      continue;
+    }
     let perNode = perLn.get(o.liniaNegociDestiId);
     if (!perNode) {
       perNode = new Map();
@@ -155,20 +169,163 @@ function deltasDesDeDirecte(
     perNode.set(o.concepteNode, Number(o.importOverride));
   }
 
-  balanceZeroSumCentral(perLn, centralId);
+  const nodesResidual = NODES_INVARIANT_EMPRESA.filter((n) => !nodesAgendaExplicita.has(n));
+  if (nodesResidual.length) balanceZeroSumCentral(perLn, centralId, nodesResidual);
   return perLn;
 }
 
+export type MovimentGestioDetall = {
+  periodId: string;
+  liniaNegociDestiId: string;
+  concepteNode: number;
+  import_: number;
+  normaNom: string;
+  detallCalcul: string | null;
+};
+
+/**
+ * Moviments de repartiment en viu (deltas) per al drill-down de Gestió.
+ * Una línia per norma (ex. Admin→GV i Personal SC) + residual Central.
+ * Si `nodePresentacio` és un detall (13/15 o 7/8), l'import es prorrateja.
+ */
+export async function getMovimentsGestioDetall(
+  periodIds: string[],
+  concepteNode: number,
+  liniaNegociIds?: string[],
+  nodePresentacio?: number
+): Promise<MovimentGestioDetall[]> {
+  if (!REPARTIMENT_APLICAT_A_GESTIO) return [];
+  if (!NODES_REPARTIMENT_GESTIO_ACTIUS.includes(concepteNode)) return [];
+  if (!periodIds.length) return [];
+
+  const { fraccioDetallDinsTotal, nodesPresentacioGestio } = await import(
+    "@/lib/repartiment/nodes"
+  );
+
+  const central = await db.liniaNegoci.findUnique({
+    where: { codi: CODI_LN_CENTRAL },
+    select: { id: true },
+  });
+  if (!central) return [];
+
+  const confirmats = await db.execucioRepartiment.findMany({
+    where: { periodId: { in: periodIds }, estat: "CONFIRMAT" },
+    select: { periodId: true },
+  });
+  const confirmatsIds = confirmats.map((c) => c.periodId);
+  if (!confirmatsIds.length) return [];
+
+  const lnFilter = liniaNegociIds?.length ? new Set(liniaNegociIds) : null;
+
+  const [deps, directeByPeriod, execucions, periods] = await Promise.all([
+    carregarDepsComunsDelta(),
+    getDirectePerLnNodeMany(confirmatsIds),
+    db.execucioRepartiment.findMany({
+      where: { periodId: { in: confirmatsIds } },
+      select: {
+        periodId: true,
+        pesos: { select: { grupId: true, liniaNegociId: true, pesOverride: true } },
+        moviments: {
+          where: { importOverride: { not: null } },
+          select: {
+            liniaNegociDestiId: true,
+            concepteNode: true,
+            importOverride: true,
+          },
+        },
+      },
+    }),
+    db.period.findMany({
+      where: { id: { in: confirmatsIds } },
+      select: { id: true, any: true, mes: true },
+    }),
+  ]);
+
+  const normaNomById = new Map(deps.normes.map((n) => [n.id, n.nom]));
+  const execByPeriod = new Map(execucions.map((e) => [e.periodId, e]));
+  const personalByPeriod = new Map(
+    await Promise.all(
+      periods.map(
+        async (p) => [p.id, await carregarContextPersonalDept(p.any, p.mes, p.id)] as const
+      )
+    )
+  );
+
+  const detallsPresentacio = nodesPresentacioGestio(concepteNode);
+  const calProrratejar =
+    nodePresentacio != null &&
+    nodePresentacio !== concepteNode &&
+    detallsPresentacio.includes(nodePresentacio);
+
+  const out: MovimentGestioDetall[] = [];
+  for (const period of periods) {
+    const directe = directeByPeriod.get(period.id) ?? new Map();
+    const personalDept =
+      personalByPeriod.get(period.id) ??
+      (await carregarContextPersonalDept(period.any, period.mes, period.id));
+    const exec = execByPeriod.get(period.id);
+    const moviments = movimentsDeltaDesDeDirecte(central.id, directe, deps, personalDept, exec);
+
+    for (const m of moviments) {
+      if (m.concepteNode !== concepteNode) continue;
+      if (lnFilter && !lnFilter.has(m.liniaNegociDestiId)) continue;
+      if (Math.abs(m.importCalculat) < 0.005) continue;
+      out.push({
+        periodId: period.id,
+        liniaNegociDestiId: m.liniaNegociDestiId,
+        concepteNode: m.concepteNode,
+        import_: m.importCalculat,
+        normaNom:
+          normaNomById.get(m.normaId) ??
+          (m.liniaNegociDestiId === central.id ? "LN00000 · destí" : "ESTRUCTURA"),
+        detallCalcul: m.detallCalcul,
+      });
+    }
+
+    // Si LN00000 no té moviment destí explícit, mostrar residual zero-sum.
+    const teCentralExplicita = out.some(
+      (o) => o.periodId === period.id && o.liniaNegociDestiId === central.id
+    );
+    if ((!lnFilter || lnFilter.has(central.id)) && !teCentralExplicita) {
+      const perLn = deltasDesDeDirecte(central.id, directe, deps, personalDept, exec);
+      const residual = perLn.get(central.id)?.get(concepteNode) ?? 0;
+      if (Math.abs(residual) >= 0.005) {
+        out.push({
+          periodId: period.id,
+          liniaNegociDestiId: central.id,
+          concepteNode,
+          import_: residual,
+          normaNom: "Residual LN00000 (zero-sum)",
+          detallCalcul: "Equilibri empresa: −Σ imputacions a les altres LN",
+        });
+      }
+    }
+  }
+
+  if (calProrratejar && nodePresentacio != null) {
+    for (const item of out) {
+      const perNode = directeByPeriod.get(item.periodId)?.get(item.liniaNegociDestiId);
+      const bases = new Map<number, number>();
+      for (const d of detallsPresentacio) {
+        bases.set(d, perNode?.get(d) ?? 0);
+      }
+      const f = fraccioDetallDinsTotal(nodePresentacio, concepteNode, bases);
+      item.import_ *= f;
+    }
+  }
+
+  return out.filter((m) => Math.abs(m.import_) >= 0.005);
+}
+
 async function carregarDepsComunsDelta(): Promise<DepsComunsDelta> {
-  const [normes, lns, grupCompres, grupPersonal, grups] = await Promise.all([
+  // Gestió recalcula en viu: cal assegurar la norma Admin→GV abans de llegir-ne la llista.
+  await ensureNormaAdminRestGreenVita();
+
+  const [normes, lns, grupCompres, grups] = await Promise.all([
     getNormesVigents(),
     db.liniaNegoci.findMany({ select: { id: true, codi: true } }),
     db.repartimentGrup.findUnique({
       where: { codi: "GRUP_COMPRES_CENTRAL" },
-      select: { id: true },
-    }),
-    db.repartimentGrup.findUnique({
-      where: { codi: "GRUP_PERSONAL_CENTRAL" },
       select: { id: true },
     }),
     db.repartimentGrup.findMany({
@@ -181,7 +338,6 @@ async function carregarDepsComunsDelta(): Promise<DepsComunsDelta> {
     normes,
     lnIdByCodi: new Map(lns.map((l) => [l.codi, l.id])),
     grupCompresId: grupCompres?.id ?? "",
-    grupPersonalId: grupPersonal?.id ?? "",
     grups,
   };
 }
@@ -195,29 +351,24 @@ export async function calcularExecucioRepartiment(periodId: string) {
   if (!period) throw new Error("Període no trobat.");
 
   await syncGrupsRepartiment();
-  await syncNormaPersonalPrecuinats();
-  const normes = await getNormesVigents();
-  const directe = await getDirectePerLnNode(periodId);
-  const suportPrecuinats = (
-    await carregarSuportPersonalPrecuinats([period], central.id, normes)
-  ).get(period.id) ?? { import: 0, detall: "Sense cost als centres de suport" };
-  // Reutilitza directe ja carregat (abans calcularPesosGrups tornava a demanar-lo).
-  const pesosCalc = await calcularPesosGrups(periodId, directe);
+  await ensureConfigPersonalInicial();
+  await ensureNormaAdminRestGreenVita();
+  await desactivarNormesPersonalObsoletes();
 
-  const [lns, grupCompres, grupPersonal] = await Promise.all([
+  const directe = await getDirectePerLnNode(periodId);
+  const [normes, personalDept, pesosCalc, lns, grupCompres] = await Promise.all([
+    getNormesVigents(),
+    carregarContextPersonalDept(period.any, period.mes, periodId),
+    calcularPesosGrups(periodId, directe),
     db.liniaNegoci.findMany({ select: { id: true, codi: true } }),
     db.repartimentGrup.findUnique({
       where: { codi: "GRUP_COMPRES_CENTRAL" },
       select: { id: true },
     }),
-    db.repartimentGrup.findUnique({
-      where: { codi: "GRUP_PERSONAL_CENTRAL" },
-      select: { id: true },
-    }),
   ]);
+
   const lnIdByCodi = new Map(lns.map((l) => [l.codi, l.id]));
   const grupCompresId = grupCompres?.id ?? "";
-  const grupPersonalId = grupPersonal?.id ?? "";
 
   const execucio = await db.execucioRepartiment.upsert({
     where: { periodId },
@@ -256,8 +407,7 @@ export async function calcularExecucioRepartiment(periodId: string) {
     pesOverrides,
     lnIdByCodi,
     grupCompresId,
-    grupPersonalId,
-    suportPrecuinats
+    personalDept
   );
   const moviments = movimentsADeltas(movimentsBruts, directe);
   const zeroSum = validarZeroSumMoviments(moviments, central.id);
@@ -320,6 +470,7 @@ export async function confirmarExecucioRepartiment(execucioId: string, userId: s
 export async function getDeltasGestioPerLn(
   periodIds: string[]
 ): Promise<Map<string, Map<string, Map<number, number>>>> {
+  if (!REPARTIMENT_APLICAT_A_GESTIO) return new Map();
   if (!periodIds.length) return new Map();
   const key = [...periodIds].sort().join(",");
   return getDeltasGestioPerLnCached(key);
@@ -373,23 +524,47 @@ async function getDeltasGestioPerLnImpl(
   ]);
 
   const execByPeriod = new Map(execucions.map((e) => [e.periodId, e]));
-  const suportByPeriod = await carregarSuportPersonalPrecuinats(periods, central.id, deps.normes);
+  const personalByPeriod = new Map(
+    await Promise.all(
+      periods.map(
+        async (p) => [p.id, await carregarContextPersonalDept(p.any, p.mes, p.id)] as const
+      )
+    )
+  );
   const result = new Map<string, Map<string, Map<number, number>>>();
 
   for (const periodId of confirmatsIds) {
     const directe = directeByPeriod.get(periodId) ?? new Map();
+    const periodMeta = periods.find((p) => p.id === periodId);
+    const personalDept = periodMeta
+      ? (personalByPeriod.get(periodMeta.id) ??
+        (await carregarContextPersonalDept(periodMeta.any, periodMeta.mes, periodMeta.id)))
+      : await carregarContextPersonalDept(new Date().getFullYear(), 1);
+
     result.set(
       periodId,
-      deltasDesDeDirecte(
-        central.id,
-        directe,
-        deps,
-        execByPeriod.get(periodId),
-        suportByPeriod.get(periodId) ?? { import: 0, detall: "Sense cost als centres de suport" }
+      filtrarDeltasCompresGestio(
+        deltasDesDeDirecte(central.id, directe, deps, personalDept, execByPeriod.get(periodId))
       )
     );
   }
   return result;
+}
+
+/** Fase Compres i gestió: només nodes 11 i 30 (sense personal SC). */
+function filtrarDeltasCompresGestio(
+  perLn: Map<string, Map<number, number>>
+): Map<string, Map<number, number>> {
+  const out = new Map<string, Map<number, number>>();
+  for (const [lnId, nodes] of perLn) {
+    const filtered = new Map<number, number>();
+    for (const node of NODES_REPARTIMENT_GESTIO_ACTIUS) {
+      const v = nodes.get(node);
+      if (v != null && v !== 0) filtered.set(node, v);
+    }
+    if (filtered.size) out.set(lnId, filtered);
+  }
+  return out;
 }
 
 /** Suma deltas de diversos mesos per LN (consulta acumulada). */
@@ -412,6 +587,17 @@ export async function getInfoGestioConsulta(
   any: number,
   rang: RangMesos
 ): Promise<InfoGestioConsulta> {
+  if (!REPARTIMENT_APLICAT_A_GESTIO || NODES_REPARTIMENT_GESTIO_ACTIUS.length === 0) {
+    return {
+      mesosAmbDades: 0,
+      mesosConfirmats: 0,
+      teGestio: false,
+      nomsConfirmats: [],
+      nomsPendents: [],
+      enReconstruccio: true,
+    };
+  }
+
   const periods = await db.period.findMany({
     where: {
       ...prismaPeriodFilter(any, rang),
@@ -427,11 +613,20 @@ export async function getInfoGestioConsulta(
   const confirmats = periods.filter((p) => p.execucioRepartiment?.estat === "CONFIRMAT");
   const pendents = periods.filter((p) => p.execucioRepartiment?.estat !== "CONFIRMAT");
 
+  const { NODE_COMPRES, NODE_COST_GESTIO, NODE_COST_SALARIAL } = await import(
+    "@/lib/repartiment/nodes"
+  );
+  const actius = NODES_REPARTIMENT_GESTIO_ACTIUS;
+
   return {
     mesosAmbDades: periods.length,
     mesosConfirmats: confirmats.length,
     teGestio: confirmats.length > 0,
     nomsConfirmats: confirmats.map((p) => p.nom),
     nomsPendents: pendents.map((p) => p.nom),
+    faseGestioDespeses: actius.includes(NODE_COST_GESTIO),
+    faseCompres: actius.includes(NODE_COMPRES),
+    faseCompresGestio: actius.includes(NODE_COMPRES) || actius.includes(NODE_COST_GESTIO),
+    fasePersonalSc: actius.includes(NODE_COST_SALARIAL),
   };
 }

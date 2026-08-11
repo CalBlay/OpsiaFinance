@@ -19,6 +19,33 @@
   margin-bottom: 1.5rem;
 }
 
+.subNav {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 1rem;
+  border-bottom: 1px solid var(--opsia-border, #e4e4e7);
+}
+
+.subTab {
+  padding: 0.45rem 0.9rem;
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 500;
+  color: var(--opsia-ink-soft);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.subTab:hover {
+  color: var(--opsia-ink-strong);
+}
+
+.subTabActive {
+  color: var(--opsia-ink-strong);
+  border-bottom-color: var(--color-primary, #2563eb);
+  font-weight: 600;
+}
+
 .stack {
   display: flex;
   flex-direction: column;
@@ -205,4 +232,48 @@
   padding-top: 0.65rem;
   padding-bottom: 0.35rem;
   border-top: 1px solid var(--opsia-border, #e4e4e7);
+}
+
+.cellOk {
+  color: var(--opsia-num-positive);
+  font-weight: 600;
+}
+
+.cellWarn {
+  color: var(--opsia-ink-soft);
+}
+
+.cellErr {
+  color: var(--color-destructive, #c0392b);
+  font-weight: 600;
+}
+
+.cellMuted {
+  color: var(--opsia-ink-soft);
+  font-style: italic;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: 1rem;
+}
+
+.modal {
+  background: var(--opsia-surface, #ffffff);
+  background-color: var(--opsia-surface, #ffffff);
+  opacity: 1;
+  border-radius: var(--opsia-radius-md);
+  border: 1px solid var(--opsia-border);
+  padding: 1.25rem 1.5rem;
+  max-width: 70rem;
+  width: 100%;
+  max-height: 95vh;
+  overflow: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }

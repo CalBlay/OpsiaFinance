@@ -1,7 +1,13 @@
 import { type ConcepteOrdre, recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import type { ConceptePivot } from "@/lib/consultes";
+import { db } from "@/lib/db";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
-import { nodePresentacioGestio } from "@/lib/repartiment/nodes";
+import {
+  CODI_LN_CENTRAL,
+  fraccionsRepartimentDetall,
+  nodesPresentacioGestio,
+  partsDeltaDetall,
+} from "@/lib/repartiment/nodes";
 import { cache } from "react";
 
 export {
@@ -10,6 +16,68 @@ export {
   COL_REPARTIMENT_LABEL_DETALL,
   COL_REPARTIMENT_NOM,
 } from "@/lib/repartiment/constants";
+
+type RowAmbValors = { node: number; valors: number[] };
+
+const getCentralLnId = cache(async (): Promise<string | null> => {
+  const c = await db.liniaNegoci.findUnique({
+    where: { codi: CODI_LN_CENTRAL },
+    select: { id: true },
+  });
+  return c?.id ?? null;
+});
+
+/**
+ * Aplica un delta de total (11/17/30) als detalls de presentació.
+ *
+ * - Mode normal (altres LN): suma el delta (amb clamp anti-positius per defecte).
+ * - Mode `substituirObjectiu` (LN00000 a Gestió): substitueix el Directe per l’objectiu
+ *   destí (base+delta); el SAP Directe de Central «desapareix» a Gestió.
+ */
+export function aplicarDeltaPresentacioGestio(
+  byNode: Map<number, RowAmbValors>,
+  nodeTotal: number,
+  colIdx: number,
+  delta: number,
+  opts?: {
+    pesosDesDaltresColumnes?: boolean;
+    substituirObjectiu?: boolean;
+    evitaPositius?: boolean;
+  }
+): void {
+  if (delta === 0 && !opts?.substituirObjectiu) return;
+  const detalls = nodesPresentacioGestio(nodeTotal);
+  const bases = detalls.map((d) => {
+    const row = byNode.get(d);
+    if (!row) return 0;
+    if (opts?.pesosDesDaltresColumnes) {
+      return row.valors.reduce((s, v, i) => (i === colIdx ? s : s + v), 0);
+    }
+    return row.valors[colIdx] ?? 0;
+  });
+
+  if (opts?.substituirObjectiu) {
+    const baseSum = bases.reduce((a, b) => a + b, 0);
+    const objectiu = baseSum + delta;
+    const fracs = fraccionsRepartimentDetall(bases);
+    for (let i = 0; i < detalls.length; i++) {
+      const detall = detalls[i];
+      if (detall == null) continue;
+      const row = byNode.get(detall);
+      if (row) row.valors[colIdx] = objectiu * (fracs[i] ?? 0);
+    }
+    return;
+  }
+
+  const parts = partsDeltaDetall(delta, bases, opts?.evitaPositius !== false);
+  for (let i = 0; i < detalls.length; i++) {
+    const detall = detalls[i];
+    if (detall == null) continue;
+    const row = byNode.get(detall);
+    const part = parts[i] ?? 0;
+    if (row && part !== 0) row.valors[colIdx] += part;
+  }
+}
 
 /** Suma deltas de diversos períodes en un mapa LN → node → import. */
 export function agregarDeltasPerLn(
@@ -37,24 +105,29 @@ function conceptsFromRows(rows: ConceptePivot[]): ConcepteOrdre[] {
 
 /**
  * Aplica moviments de repartiment confirmats sobre files directes SAP (columnes LN).
- * Els deltas es mostren a la línia de detall; els subtotals es recalculen.
+ * LN00000 a Gestió: substitueix Directe per l’objectiu destí (no és el mateix que Directe).
  */
 export function aplicarGestioRepartiment(
   _concepts: ConcepteOrdre[],
   rows: ConceptePivot[],
   lnIds: string[],
-  deltaByLnNode: Map<string, Map<number, number>>
+  deltaByLnNode: Map<string, Map<number, number>>,
+  opts?: { substituirLnIds?: ReadonlySet<string> }
 ): ConceptePivot[] {
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
   const byNode = new Map(merged.map((r) => [r.node, r]));
+  const substituir = opts?.substituirLnIds;
 
   for (let i = 0; i < lnIds.length; i++) {
-    const nodes = deltaByLnNode.get(lnIds[i]);
+    const lnId = lnIds[i];
+    if (!lnId) continue;
+    const nodes = deltaByLnNode.get(lnId);
     if (!nodes) continue;
+    const esDestiCentral = substituir?.has(lnId) ?? false;
     for (const [node, delta] of nodes) {
-      if (delta === 0) continue;
-      const row = byNode.get(nodePresentacioGestio(node));
-      if (row) row.valors[i] += delta;
+      aplicarDeltaPresentacioGestio(byNode, node, i, delta, {
+        substituirObjectiu: esDestiCentral,
+      });
     }
   }
 
@@ -66,12 +139,15 @@ export function aplicarGestioRepartiment(
 }
 
 /**
- * Vista per LN: centres en base Gestió + columna «ESTRUCTURA» amb la imputació de gestió.
+ * Vista per LN: centres + columna ESTRUCTURA.
+ * Si és LN00000 Gestió: el Directe dels centres es buida als nodes de repartiment
+ * i ESTRUCTURA porta l’objectiu destí (la «LN00000 Directe» desapareix).
  */
 export function aplicarGestioRepartimentLn(
   _concepts: ConcepteOrdre[],
   rows: ConceptePivot[],
-  deltaByNode: Map<number, number>
+  deltaByNode: Map<number, number>,
+  opts?: { substituirDirecteCentral?: boolean }
 ): ConceptePivot[] {
   const extended = rows.map((r) => ({
     ...r,
@@ -79,12 +155,37 @@ export function aplicarGestioRepartimentLn(
   }));
   if (extended.length === 0) return extended;
   const byNode = new Map(extended.map((r) => [r.node, r]));
-  const colRepart = extended[0].valors.length - 1;
+  const firstRow = extended[0];
+  if (!firstRow) return extended;
+  const colRepart = firstRow.valors.length - 1;
+  const nCentres = colRepart;
 
   for (const [node, delta] of deltaByNode) {
-    if (delta === 0) continue;
-    const row = byNode.get(nodePresentacioGestio(node));
-    if (row) row.valors[colRepart] += delta;
+    if (opts?.substituirDirecteCentral) {
+      const detalls = nodesPresentacioGestio(node);
+      const basesCentres = detalls.map((d) => {
+        const row = byNode.get(d);
+        if (!row) return 0;
+        let s = 0;
+        for (let c = 0; c < nCentres; c++) s += row.valors[c] ?? 0;
+        return s;
+      });
+      const baseSum = basesCentres.reduce((a, b) => a + b, 0);
+      const objectiu = baseSum + delta;
+      const fracs = fraccionsRepartimentDetall(basesCentres);
+      for (let i = 0; i < detalls.length; i++) {
+        const detall = detalls[i];
+        if (detall == null) continue;
+        const row = byNode.get(detall);
+        if (!row) continue;
+        for (let c = 0; c < nCentres; c++) row.valors[c] = 0;
+        row.valors[colRepart] = objectiu * (fracs[i] ?? 0);
+      }
+    } else {
+      aplicarDeltaPresentacioGestio(byNode, node, colRepart, delta, {
+        pesosDesDaltresColumnes: true,
+      });
+    }
   }
 
   for (const row of extended) {
@@ -212,6 +313,9 @@ export async function aplicarGestioEvolucioLn(
   const { mesByPeriodId, deltasPerPeriode } = await carregarDeltasEvolucioAny(any);
   if (!mesByPeriodId.size) return rows;
 
+  const centralId = await getCentralLnId();
+  const esCentralGestio = centralId != null && liniaNegociId === centralId;
+
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
   const byNode = new Map(merged.map((r) => [r.node, r]));
 
@@ -221,9 +325,9 @@ export async function aplicarGestioEvolucioLn(
     const nodes = perLn.get(liniaNegociId);
     if (!nodes) continue;
     for (const [node, delta] of nodes) {
-      if (delta === 0) continue;
-      const row = byNode.get(nodePresentacioGestio(node));
-      if (row) row.valors[mesIdx] += delta;
+      aplicarDeltaPresentacioGestio(byNode, node, mesIdx, delta, {
+        substituirObjectiu: esCentralGestio,
+      });
     }
   }
 
@@ -259,9 +363,7 @@ export async function aplicarGestioEvolucioEmpresa(
     }
 
     for (const [node, delta] of perNode) {
-      if (delta === 0) continue;
-      const row = byNode.get(nodePresentacioGestio(node));
-      if (row) row.valors[mesIdx] += delta;
+      aplicarDeltaPresentacioGestio(byNode, node, mesIdx, delta);
     }
   }
 
@@ -272,22 +374,13 @@ export async function aplicarGestioEvolucioEmpresa(
 }
 
 /**
- * Personal + repartiment en paral·lel (carrega), després composa la vista Gestió.
- * Evita la seqüència personal → espera → deltas.
+ * Fase Compres i gestió: Directe + deltas 11/30 (sense personal SC / traspass).
  */
 export async function aplicarVistaGestioEvolucioEmpresa(
   any: number,
   rows: ConceptePivot[]
 ): Promise<ConceptePivot[]> {
-  const { aplicarBaseGestioPersonalEvolucioEmpresa } = await import(
-    "@/lib/cost-personal-centre/gestio-consultes"
-  );
-  const rowsIn = rows.map((r) => ({ ...r, valors: [...r.valors] }));
-  const [withPersonal] = await Promise.all([
-    aplicarBaseGestioPersonalEvolucioEmpresa(any, rowsIn),
-    carregarDeltasEvolucioAny(any), // prefetch a la cache de la petició
-  ]);
-  return aplicarGestioEvolucioEmpresa(any, withPersonal);
+  return aplicarGestioEvolucioEmpresa(any, rows);
 }
 
 export async function aplicarVistaGestioEvolucioLn(
@@ -295,13 +388,5 @@ export async function aplicarVistaGestioEvolucioLn(
   any: number,
   rows: ConceptePivot[]
 ): Promise<ConceptePivot[]> {
-  const { aplicarBaseGestioPersonalEvolucioLn } = await import(
-    "@/lib/cost-personal-centre/gestio-consultes"
-  );
-  const rowsIn = rows.map((r) => ({ ...r, valors: [...r.valors] }));
-  const [withPersonal] = await Promise.all([
-    aplicarBaseGestioPersonalEvolucioLn(liniaNegociId, any, rowsIn),
-    carregarDeltasEvolucioAny(any),
-  ]);
-  return aplicarGestioEvolucioLn(liniaNegociId, any, withPersonal);
+  return aplicarGestioEvolucioLn(liniaNegociId, any, rows);
 }
