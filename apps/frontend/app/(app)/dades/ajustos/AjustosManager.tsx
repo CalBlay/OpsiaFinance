@@ -170,6 +170,8 @@ export function AjustosManager({
     });
   }, [ajustos, q, filtreAny, filtreMes, filtreConcepte, filtreAmbit]);
 
+  const totalImport = useMemo(() => filtrats.reduce((s, a) => s + a.import_, 0), [filtrats]);
+
   const netejaFiltres = () => {
     setQ("");
     setFiltreAny("");
@@ -805,6 +807,15 @@ export function AjustosManager({
                     </tr>
                   ))}
                 </tbody>
+                <tfoot>
+                  <tr className={styles.totalRow}>
+                    <td colSpan={3}>Total</td>
+                    <td className={cn(ui.right, ui.nowrap, totalImport < 0 && styles.neg)}>
+                      {formatNum(totalImport, 2)} €
+                    </td>
+                    <td colSpan={canEdit ? 3 : 2} />
+                  </tr>
+                </tfoot>
               </table>
             </div>
           )}

@@ -485,6 +485,14 @@
 .neg {
   color: var(--color-destructive);
 }
+
+.totalRow td {
+  font-weight: 700;
+  border-bottom: none;
+  border-top: 2px solid var(--color-border);
+  background: color-mix(in srgb, var(--opsia-accent-primary, #2f6f6d) 8%, transparent);
+  padding-top: 0.65rem;
+}
 .dim {
   color: var(--color-muted-foreground);
 }
