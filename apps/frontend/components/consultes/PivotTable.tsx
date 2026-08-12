@@ -33,10 +33,11 @@ export interface PivotEditConfig {
   onSave: PivotEditSave;
 }
 
-/** Accepta un import o una operació (p.ex. `122052,81 + 1000`). */
+/** Accepta un import o una operació (p.ex. `122052,81 + 1000` o `=-26120,8-22184,61`). */
 export function parseImportInput(s: string): number | null {
   const src = s
     .trim()
+    .replace(/^=/, "")
     .replace(/\s+/g, "")
     .replace(/(\d),(\d)/g, "$1.$2");
   if (!src) return null;

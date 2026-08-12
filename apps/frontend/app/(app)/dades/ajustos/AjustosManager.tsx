@@ -1,5 +1,6 @@
 "use client";
 
+import { parseImportInput } from "@/components/consultes/PivotTable";
 import { DadesFilterBar } from "@/components/dades/DadesFilterBar";
 import { DadesEmpty, DadesPanel, dadesUi as ui } from "@/components/dades/DadesPanel";
 import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
@@ -249,6 +250,11 @@ export function AjustosManager({
   };
 
   const desar = () => {
+    const import_ = parseImportInput(importTxt);
+    if (import_ == null) {
+      notify({ ok: false, missatge: "L'import no és vàlid." });
+      return;
+    }
     const mesActual = mesosSeleccionats.length === 1 ? mesosSeleccionats[0] : mes;
     const input: AjustInput = {
       any,
@@ -256,7 +262,7 @@ export function AjustosManager({
       concepteResultatId: concepteId,
       centreId: ambit === "centre" ? centreId || null : null,
       liniaNegociId: ambit === "linia" ? lnId || null : null,
-      import_: Number.parseFloat(importTxt.replace(",", ".")),
+      import_,
       motiu,
     };
     startTransition(async () => {
@@ -284,7 +290,11 @@ export function AjustosManager({
       return;
     }
 
-    const import_ = Number.parseFloat(importTxt.replace(",", "."));
+    const import_ = parseImportInput(importTxt);
+    if (import_ == null) {
+      notify({ ok: false, missatge: "L'import no és vàlid." });
+      return;
+    }
     startTransition(async () => {
       const r = await createAjustMultiAction({
         any,
@@ -477,9 +487,10 @@ export function AjustosManager({
                 <span className={styles.fieldLabel}>Import (€)</span>
                 <input
                   className={styles.input}
-                  placeholder="0,00"
+                  placeholder="0,00 o =a+b"
                   value={importTxt}
                   onChange={(e) => setImportTxt(e.target.value)}
+                  title="Número o fórmula (+ − × ÷), p.ex. =-26120,8-22184,61"
                 />
               </label>
             ) : (
