@@ -276,7 +276,7 @@ export async function getMovimentsGestioDetall(
         concepteNode: m.concepteNode,
         import_: m.importCalculat,
         normaNom:
-          normaNomById.get(m.normaId) ??
+          (m.normaId ? normaNomById.get(m.normaId) : undefined) ??
           (m.liniaNegociDestiId === central.id ? "LN00000 · destí" : "ESTRUCTURA"),
         detallCalcul: m.detallCalcul,
       });
