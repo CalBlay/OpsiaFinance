@@ -14,6 +14,14 @@ type Result = { ok: boolean; missatge: string };
 const OK = (missatge = ""): Result => ({ ok: true, missatge });
 const ERR = (missatge: string): Result => ({ ok: false, missatge });
 
+export type MapeigTraspassInput = {
+  id?: string;
+  text: string;
+  liniaNegociId: string;
+  centreId: string;
+  departamentId: string | null;
+};
+
 async function requireEditor(): Promise<boolean> {
   const session = await auth();
   const role = session?.user?.role;
@@ -25,9 +33,58 @@ function refresh() {
   revalidatePath("/dades/traspass-personal");
 }
 
-function parseDept(raw: string): DepartamentSalarial | null {
-  if (raw === "SALA" || raw === "CUINA") return raw;
-  return null;
+/** Valida LN → centre → departament i desa el mapeig (igual que cost personal). */
+async function desarMapeig(input: MapeigTraspassInput): Promise<Result> {
+  const t = input.text.trim();
+  if (!t) return ERR("El text és obligatori.");
+  if (!input.liniaNegociId) return ERR("Selecciona una línia de negoci.");
+  if (!input.centreId) return ERR("Selecciona un centre.");
+
+  const centre = await db.centre.findUnique({
+    where: { id: input.centreId },
+    select: { id: true, liniaNegociId: true, isActive: true },
+  });
+  if (!centre?.isActive) return ERR("Centre no trobat.");
+  if (centre.liniaNegociId !== input.liniaNegociId) {
+    return ERR("El centre no pertany a la línia seleccionada.");
+  }
+
+  const departamentId = input.departamentId?.trim() || null;
+  let departament: DepartamentSalarial | null = inferDepartamentSalarial(t);
+
+  if (departamentId) {
+    const dept = await db.departament.findUnique({
+      where: { id: departamentId },
+      select: { id: true, centreId: true, nom: true, isActive: true },
+    });
+    if (!dept?.isActive) return ERR("Departament no trobat a l'arbre de dimensions.");
+    if (dept.centreId !== input.centreId) {
+      return ERR("El departament no pertany al centre seleccionat.");
+    }
+    departament = inferDepartamentSalarial(dept.nom) ?? departament;
+  }
+
+  if (!departament) departament = "SALA";
+
+  try {
+    if (input.id) {
+      await db.mapeigTextCentreTreball.update({
+        where: { id: input.id },
+        data: { text: t, centreId: input.centreId, departamentId, departament },
+      });
+      refresh();
+      return OK("Mapeig actualitzat.");
+    }
+    await db.mapeigTextCentreTreball.create({
+      data: { text: t, centreId: input.centreId, departamentId, departament },
+    });
+    refresh();
+    return OK("Mapeig afegit.");
+  } catch {
+    return ERR(
+      input.id ? "No s'ha pogut actualitzar (text duplicat?)." : "Aquest text ja existeix."
+    );
+  }
 }
 
 export async function updateTarifaHoraAction(
@@ -74,49 +131,15 @@ export async function updateTarifaHoraAction(
   );
 }
 
-export async function createMapeigAction(
-  text: string,
-  centreId: string,
-  departament: string
-): Promise<Result> {
+export async function createMapeigAction(input: MapeigTraspassInput): Promise<Result> {
   if (!(await requireEditor())) return ERR("No tens permisos.");
-  const t = text.trim();
-  if (!t) return ERR("El text és obligatori.");
-  if (!centreId) return ERR("Selecciona un centre.");
-  const dept = parseDept(departament) ?? inferDepartamentSalarial(t);
-  if (!dept) return ERR("Indica SALA o CUINA (no s'ha pogut inferir del text).");
-  try {
-    await db.mapeigTextCentreTreball.create({
-      data: { text: t, centreId, departament: dept },
-    });
-    refresh();
-    return OK("Mapeig afegit.");
-  } catch {
-    return ERR("Aquest text ja existeix.");
-  }
+  return desarMapeig(input);
 }
 
-export async function updateMapeigAction(
-  id: string,
-  text: string,
-  centreId: string,
-  departament: string
-): Promise<Result> {
+export async function updateMapeigAction(input: MapeigTraspassInput): Promise<Result> {
   if (!(await requireEditor())) return ERR("No tens permisos.");
-  const t = text.trim();
-  if (!t || !centreId) return ERR("Omple tots els camps.");
-  const dept = parseDept(departament);
-  if (!dept) return ERR("Departament no vàlid.");
-  try {
-    await db.mapeigTextCentreTreball.update({
-      where: { id },
-      data: { text: t, centreId, departament: dept },
-    });
-    refresh();
-    return OK("Mapeig actualitzat.");
-  } catch {
-    return ERR("No s'ha pogut actualitzar (text duplicat?).");
-  }
+  if (!input.id) return ERR("Falta l'identificador.");
+  return desarMapeig(input);
 }
 
 export async function deleteMapeigAction(id: string): Promise<Result> {

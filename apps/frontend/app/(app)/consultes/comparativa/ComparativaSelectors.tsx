@@ -327,6 +327,7 @@ export function ComparativaSelectors({
             disabled={isPending}
             pendingHint={isPending}
             onChange={goVista}
+            opcions={["sap", "directe", "traspassos", "gestio"]}
           />
         ) : null
       }

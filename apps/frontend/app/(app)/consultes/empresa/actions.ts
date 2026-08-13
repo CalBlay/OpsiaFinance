@@ -5,7 +5,7 @@ import {
   type RangMesos,
   aplicarConsolidacioInterEvolucioEmpresa,
   getComparativaEmpresa,
-  getEvolucioMensual,
+  getEvolucioMensualPerVista,
 } from "@/lib/consultes";
 import { sensePivotRows } from "@/lib/consultes-slim";
 import { aplicarBaseGestioPersonalEvolucioEmpresa } from "@/lib/cost-personal-centre/gestio-consultes";
@@ -16,7 +16,6 @@ import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import {
   type VistaCompte,
   parseVistaCompte,
-  vistaInclouAjustos,
   vistaInclouRepartiment,
   vistaInclouTraspassos,
 } from "@/lib/vista-compte";
@@ -28,7 +27,7 @@ async function evolucioPerVista(
   rang: RangMesos,
   grup: GrupEmpresa,
   vista: VistaCompte,
-  evRaw: Awaited<ReturnType<typeof getEvolucioMensual>>
+  evRaw: Awaited<ReturnType<typeof getEvolucioMensualPerVista>>
 ) {
   if (!evRaw) return null;
   if (!vistaInclouTraspassos(vista) && !vistaInclouRepartiment(vista)) return evRaw;
@@ -65,9 +64,7 @@ export async function carregarEmpresaCapaAction(input: {
 
   const [comp, evEmpresaRaw, infoGestio] = await Promise.all([
     getComparativaEmpresa(input.any, input.rang, vista, input.grup),
-    getEvolucioMensual("empresa", null, input.any, input.grup, {
-      inclouAjustos: vistaInclouAjustos(vista),
-    }),
+    getEvolucioMensualPerVista("empresa", null, input.any, input.grup, vista),
     vistaInclouRepartiment(vista)
       ? getInfoGestioConsulta(input.any, input.rang)
       : Promise.resolve(null),
@@ -115,9 +112,7 @@ export async function carregarEmpresaPivotAction(input: {
 
   const [comp, evEmpresaRaw, infoGestio] = await Promise.all([
     getComparativaEmpresa(input.any, input.rang, vista, input.grup),
-    getEvolucioMensual("empresa", null, input.any, input.grup, {
-      inclouAjustos: vistaInclouAjustos(vista),
-    }),
+    getEvolucioMensualPerVista("empresa", null, input.any, input.grup, vista),
     vistaInclouRepartiment(vista)
       ? getInfoGestioConsulta(input.any, input.rang)
       : Promise.resolve(null),

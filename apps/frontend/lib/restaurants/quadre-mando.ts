@@ -1,4 +1,4 @@
-import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
 import { getComparativaRestaurants } from "@/lib/cost-salarial/consultes";
 import { getAnysCostSalarial } from "@/lib/cost-salarial/consultes";
@@ -195,7 +195,13 @@ export async function getQuadreMandoRestaurants(
 ): Promise<QuadreMandoRestaurants> {
   return unstable_cache(
     () => computeQuadreMandoRestaurants(any, mes, nomesMirallFdlc, compte),
-    ["quadre-mando-v2", String(any), String(mes), nomesMirallFdlc ? "1" : "0", compte],
+    consultesCacheKey(
+      "quadre-mando-v2",
+      String(any),
+      String(mes),
+      nomesMirallFdlc ? "1" : "0",
+      compte
+    ),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }

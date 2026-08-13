@@ -19,6 +19,9 @@ export {
 
 type RowAmbValors = { node: number; valors: number[] };
 
+/** Nodes on el total empresa ha de ser invariant (zero-sum entre LN): Compres, Personal, Gestió. */
+export const NODES_INVARIANT_EMPRESA = [11, 17, 30] as const;
+
 const getCentralLnId = cache(async (): Promise<string | null> => {
   const c = await db.liniaNegoci.findUnique({
     where: { codi: CODI_LN_CENTRAL },
@@ -105,7 +108,8 @@ function conceptsFromRows(rows: ConceptePivot[]): ConcepteOrdre[] {
 
 /**
  * Aplica moviments de repartiment confirmats sobre files directes SAP (columnes LN).
- * LN00000 a Gestió: substitueix Directe per l’objectiu destí (no és el mateix que Directe).
+ * LN00000 a Gestió: substitueix Directe per l’objectiu destí (residual zero-sum).
+ * Compres / Personal / Gestió: el total d'empresa no canvia (només es redistribueix LN00000).
  */
 export function aplicarGestioRepartiment(
   _concepts: ConcepteOrdre[],
@@ -131,11 +135,54 @@ export function aplicarGestioRepartiment(
     }
   }
 
+  const centralId = substituir ? [...substituir][0] : undefined;
+  if (centralId) {
+    equilibrarInvariantEmpresa(rows, merged, lnIds, centralId);
+  }
+
   for (const row of merged) {
     row.total = row.valors.reduce((a, b) => a + b, 0);
   }
 
   return recalcularSubtotalsCompte(conceptsFromRows(merged), merged);
+}
+
+/**
+ * Si la presentació (clamp evitaPositius, arrodoniments) desquadra Compres/Personal/Gestió
+ * a nivell empresa, el drift torna a LN00000. Invariant: Traspassos.total = Gestió.total.
+ */
+export function equilibrarInvariantEmpresa(
+  original: ConceptePivot[],
+  merged: ConceptePivot[],
+  lnIds: string[],
+  centralId: string
+): void {
+  const colC = lnIds.indexOf(centralId);
+  if (colC < 0) return;
+  const origByNode = new Map(original.map((r) => [r.node, r]));
+  const nowByNode = new Map(merged.map((r) => [r.node, r]));
+
+  for (const nodeTotal of NODES_INVARIANT_EMPRESA) {
+    const detalls = nodesPresentacioGestio(nodeTotal);
+    let drift = 0;
+    for (const d of detalls) {
+      const o = origByNode.get(d);
+      const n = nowByNode.get(d);
+      const origSum = o ? o.valors.reduce((a, b) => a + b, 0) : 0;
+      const nowSum = n ? n.valors.reduce((a, b) => a + b, 0) : 0;
+      drift += origSum - nowSum;
+    }
+    if (Math.abs(drift) < 0.005) continue;
+    const bases = detalls.map((d) => nowByNode.get(d)?.valors[colC] ?? 0);
+    const parts = partsDeltaDetall(drift, bases, false);
+    for (let i = 0; i < detalls.length; i++) {
+      const detall = detalls[i];
+      if (detall == null) continue;
+      const row = nowByNode.get(detall);
+      if (!row) continue;
+      row.valors[colC] = (row.valors[colC] ?? 0) + (parts[i] ?? 0);
+    }
+  }
 }
 
 /**
@@ -195,9 +242,6 @@ export function aplicarGestioRepartimentLn(
   return recalcularSubtotalsCompte(conceptsFromRows(extended), extended);
 }
 
-/** Nodes on el total empresa ha de ser invariant (zero-sum entre LN). */
-export const NODES_INVARIANT_EMPRESA = [11, 17, 30] as const;
-
 /** Acumula el delta d'un moviment al destí (sense tocar Central). */
 export function aplicarDeltaDesti(
   perLn: Map<string, Map<number, number>>,
@@ -215,7 +259,8 @@ export function aplicarDeltaDesti(
 
 /**
  * Central = residual zero-sum: Σ delta[LN][node] = 0 a nivell empresa.
- * Això garanteix Directe = Gestió en totals d'empresa; només canvia el pes per LN.
+ * Compres / Personal / Gestió: Traspassos i Gestió comparteixen el mateix total;
+ * només canvia el pes per LN (redistribució de LN00000).
  */
 export function balanceZeroSumCentral(
   perLn: Map<string, Map<number, number>>,
@@ -363,6 +408,7 @@ export async function aplicarGestioEvolucioEmpresa(
     }
 
     for (const [node, delta] of perNode) {
+      if (Math.abs(delta) < 0.01) continue;
       aplicarDeltaPresentacioGestio(byNode, node, mesIdx, delta);
     }
   }

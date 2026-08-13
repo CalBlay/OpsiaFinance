@@ -4,6 +4,7 @@ import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { periodesToExportInforme } from "@/lib/export/dades";
+import { MARCA_SOBRANT_PERSONAL } from "@/lib/repartiment/personal-departaments-constants";
 import { RepartimentLlista } from "./RepartimentLlista";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +18,19 @@ export default async function RepartimentLlistaPage() {
     db.period.findMany({
       where: { dadesResultat: { some: {} } },
       orderBy: [{ any: "desc" }, { mes: "desc" }],
-      include: { execucioRepartiment: { select: { id: true, estat: true } } },
+      include: {
+        execucioRepartiment: {
+          select: {
+            id: true,
+            estat: true,
+            moviments: {
+              where: { detallCalcul: { contains: MARCA_SOBRANT_PERSONAL } },
+              select: { id: true },
+              take: 1,
+            },
+          },
+        },
+      },
     }),
   ]);
 
@@ -30,6 +43,7 @@ export default async function RepartimentLlistaPage() {
     any: p.any,
     mes: p.mes,
     estat: (p.execucioRepartiment?.estat as "CONFIRMAT" | "BORRADOR" | null) ?? null,
+    personalReglaAplicada: (p.execucioRepartiment?.moviments.length ?? 0) > 0,
   }));
 
   return (

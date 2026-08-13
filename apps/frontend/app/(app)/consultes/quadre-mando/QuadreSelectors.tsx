@@ -80,6 +80,7 @@ export function QuadreSelectors({
         <ConsultaVistaSelect
           id="quadre-vista"
           value={vista}
+          opcions={["sap", "directe", "traspassos", "gestio"]}
           onChange={(v) => navega(any, mes, v)}
         />
       }

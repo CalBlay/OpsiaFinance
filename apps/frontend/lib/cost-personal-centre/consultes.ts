@@ -1,6 +1,6 @@
 import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
 import type { VistaCompte } from "@/lib/consultes";
-import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import {
@@ -405,7 +405,7 @@ export async function getAnysCostPersonalCentre(): Promise<number[]> {
       const set = new Set([...payroll, ...sap].map((p) => p.any));
       return [...set].sort((a, b) => b - a);
     },
-    ["cost-pers-anys-v1"],
+    consultesCacheKey("cost-pers-anys-v1"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 }
@@ -419,7 +419,14 @@ export async function getInformeCostPersonalLinies(
   const lnKey = (opts?.lnIds ?? []).slice().sort().join(",");
   return unstable_cache(
     () => computeInformeCostPersonalLinies(any, mes, vista, opts),
-    ["cost-pers-linies-v1", String(any), String(mes ?? 0), vista, opts?.basePath ?? "", lnKey],
+    consultesCacheKey(
+      "cost-pers-linies-v1",
+      String(any),
+      String(mes ?? 0),
+      vista,
+      opts?.basePath ?? "",
+      lnKey
+    ),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -585,15 +592,15 @@ export async function getInformeCostPersonalCentres(
   const lnKey = (opts?.lnIds ?? []).slice().sort().join(",");
   return unstable_cache(
     () => computeInformeCostPersonalCentres(liniaNegociId, any, mes, vista, opts),
-    [
+    consultesCacheKey(
       "cost-pers-centres-v1",
       liniaNegociId,
       String(any),
       String(mes ?? 0),
       vista,
       opts?.basePath ?? "",
-      lnKey,
-    ],
+      lnKey
+    ),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -742,7 +749,7 @@ export async function getInformeCostPersonalDepartaments(
   const lnKey = (opts?.lnIds ?? []).slice().sort().join(",");
   return unstable_cache(
     () => computeInformeCostPersonalDepartaments(centreId, any, mes, vista, opts),
-    ["cost-pers-depts-v1", centreId, String(any), String(mes ?? 0), vista, lnKey],
+    consultesCacheKey("cost-pers-depts-v1", centreId, String(any), String(mes ?? 0), vista, lnKey),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }

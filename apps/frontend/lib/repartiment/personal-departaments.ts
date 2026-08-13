@@ -10,6 +10,9 @@ import {
 import {
   CODIS_LN_PERSONAL_COMERCIAL,
   CODIS_LN_PERSONAL_CONFIG,
+  FRACCIO_SOBRANT_IGUALS,
+  FRACCIO_SOBRANT_VENDES,
+  MARCA_SOBRANT_PERSONAL,
 } from "@/lib/repartiment/personal-departaments-constants";
 import type { ModeRepartimentPersonalLn } from "@prisma/client";
 
@@ -97,6 +100,20 @@ export function calcularPesosComercialPersonal(
     result.set(v.lnId, totalDefecte > 0 ? pes / totalDefecte : 1 / vendesPerLn.length);
   }
   return result;
+}
+
+/**
+ * Pes del sobrant per a una LN comercial:
+ * 50% a parts iguals entre 02/03 + 50% pel pes de vendes del mes.
+ */
+export function pesSobrantPersonalComercial(
+  lnId: string,
+  pesosComercial: Map<string, number>,
+  nComercial = CODIS_LN_PERSONAL_COMERCIAL.length
+): number {
+  const pesIgual = nComercial > 0 ? 1 / nComercial : 0;
+  const pesVendes = pesosComercial.get(lnId) ?? 0;
+  return FRACCIO_SOBRANT_IGUALS * pesIgual + FRACCIO_SOBRANT_VENDES * pesVendes;
 }
 
 function configsDeptLn(
@@ -191,7 +208,7 @@ export function calcularAllocacionsPersonalDept(
       for (const codi of CODIS_LN_PERSONAL_COMERCIAL) {
         const lnId = lnIdByCodi.get(codi);
         if (!lnId) continue;
-        const pes = pesosComercial.get(lnId) ?? 0;
+        const pes = pesSobrantPersonalComercial(lnId, pesosComercial);
         if (pes <= 0) continue;
         allocations.push({
           departamentId: dept.departamentId,
@@ -214,7 +231,7 @@ export function calcularAllocacionsPersonalDept(
  *   LN00000  = LN destí amb import fix/% (com 01/04/05/06)
  *   fixes    = LN00001/04/05/06
  *   sobrant  = pool − LN00000 − fixes → LN00002 i LN00003
- *              pel pes vendes02 / (vendes02+vendes03)
+ *              50% a parts iguals + 50% pel pes vendes02 / (vendes02+vendes03)
  *
  * LN00000 genera moviment destí propi (no només residual opac).
  */
@@ -272,13 +289,13 @@ export function calcularMovimentsPersonalDepartaments(
   for (const codi of CODIS_LN_PERSONAL_COMERCIAL) {
     const lnId = lnIdByCodi.get(codi);
     if (!lnId) continue;
-    const pes = pesosComercial.get(lnId) ?? 0;
+    const pes = pesSobrantPersonalComercial(lnId, pesosComercial);
     if (pes <= 0 || sobrantAbs <= 0) continue;
     imputatPerLn.set(lnId, (imputatPerLn.get(lnId) ?? 0) + sobrantAbs * pes);
   }
 
   const moviments: MovimentCalculat[] = [];
-  const reglaInfo = `pool SAP Central ${sapCentralAbs.toFixed(2)} − LN00000 ${retencioAbs.toFixed(2)} − fixes ${sumaFixAltres.toFixed(2)} → sobrant ${sobrantAbs.toFixed(2)} a 02/03`;
+  const reglaInfo = `pool SAP Central ${sapCentralAbs.toFixed(2)} − LN00000 ${retencioAbs.toFixed(2)} − fixes ${sumaFixAltres.toFixed(2)} → sobrant ${sobrantAbs.toFixed(2)} a 02/03 (${MARCA_SOBRANT_PERSONAL})`;
 
   // LN00000 com a LN destí: objectiu = import fix (no residual opac).
   if (centralLnId && retencioAbs > 1e-9) {
@@ -300,7 +317,7 @@ export function calcularMovimentsPersonalDepartaments(
       (codi) => lnIdByCodi.get(codi) === lnId
     );
     const pesInfo = esComercial
-      ? ` · pes vendes ${((pesosComercial.get(lnId) ?? 0) * 100).toFixed(1)}% sobre (LN00002+LN00003)`
+      ? ` · pes mix ${(pesSobrantPersonalComercial(lnId, pesosComercial) * 100).toFixed(1)}% (${MARCA_SOBRANT_PERSONAL} ${((pesosComercial.get(lnId) ?? 0) * 100).toFixed(1)}%)`
       : " · import fix";
 
     moviments.push({

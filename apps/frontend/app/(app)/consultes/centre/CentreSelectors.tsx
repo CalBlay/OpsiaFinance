@@ -46,7 +46,7 @@ export function CentreSelectors({
 
   useEffect(() => {
     if (!lnId || !centreId || onVistaLocal) return;
-    for (const other of ["sap", "directe", "traspassos", "gestio"] as VistaCompte[]) {
+    for (const other of ["sap", "ajustos", "directe", "traspassos", "gestio"] as VistaCompte[]) {
       if (other === vista) continue;
       const params = new URLSearchParams();
       params.set("any", String(any));

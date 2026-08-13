@@ -112,6 +112,59 @@ export async function calcularIConfirmarRepartimentAnyAction(any: number) {
   };
 }
 
+/** Recalcula i reconfirma els mesos ja confirmats d’un exercici (aplica normes noves). */
+export async function recalcularIReconfirmarRepartimentAnyAction(any: number) {
+  const user = await requireEditor();
+  if (!user?.id) return { ok: false, missatge: "Sense permisos." };
+  if (!Number.isFinite(any) || any < 2000 || any > 2100) {
+    return { ok: false, missatge: "Any no vàlid." };
+  }
+
+  const periods = await db.period.findMany({
+    where: { any, dadesResultat: { some: {} } },
+    orderBy: { mes: "asc" },
+    include: { execucioRepartiment: { select: { id: true, estat: true } } },
+  });
+
+  const confirmats = periods.filter((p) => p.execucioRepartiment?.estat === "CONFIRMAT");
+  if (confirmats.length === 0) {
+    return { ok: false, missatge: `${any}: no hi ha mesos confirmats per recalcular.` };
+  }
+
+  let fets = 0;
+  const errors: string[] = [];
+
+  for (const p of confirmats) {
+    try {
+      const exec = await calcularExecucioRepartiment(p.id);
+      if (!exec?.id) {
+        errors.push(`${p.nom}: no s'ha pogut recalcular.`);
+        continue;
+      }
+      await confirmarExecucioRepartiment(exec.id, user.id);
+      fets += 1;
+    } catch (e) {
+      errors.push(`${p.nom}: ${e instanceof Error ? e.message : "error"}`);
+    }
+  }
+
+  revalidateConsultesDades();
+  revalidatePath("/dades/repartiment");
+  revalidatePath("/consultes/empresa");
+
+  const parts = [
+    fets > 0
+      ? `${fets} recalculat${fets === 1 ? "" : "s"} i reconfirmat${fets === 1 ? "" : "s"}`
+      : null,
+    errors.length > 0 ? `${errors.length} error${errors.length === 1 ? "" : "s"}` : null,
+  ].filter(Boolean);
+
+  return {
+    ok: errors.length === 0 && fets > 0,
+    missatge: `${any}: ${parts.join(" · ")}${errors.length ? `. ${errors.slice(0, 3).join(" · ")}` : ""}`,
+  };
+}
+
 export async function updatePesOverrideAction(pesId: string, pesOverride: number | null) {
   const user = await requireEditor();
   if (!user) return { ok: false };

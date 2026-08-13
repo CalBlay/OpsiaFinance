@@ -61,7 +61,7 @@ export function LiniaSelectors({
 
   useEffect(() => {
     if (!lnId) return;
-    for (const other of ["sap", "directe", "traspassos", "gestio"] as VistaCompte[]) {
+    for (const other of ["sap", "ajustos", "directe", "traspassos", "gestio"] as VistaCompte[]) {
       if (other === vista) continue;
       router.prefetch(hrefLinia(lnId, any, rang, other));
     }

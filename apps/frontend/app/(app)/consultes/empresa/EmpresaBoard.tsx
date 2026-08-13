@@ -63,13 +63,26 @@ export function EmpresaBoard({
   }, [vistaInicial]);
 
   useEffect(() => {
+    const recarregarPivot = Object.values(pivotRef.current).some((rows) => !!rows?.length);
     setCapes(capesInicials);
-  }, [capesInicials]);
+    setPivotByVista({});
+    if (!recarregarPivot) return;
+    let cancelled = false;
+    setPivotLoading(true);
+    void carregarEmpresaPivotAction({ any: anyActual, rang, grup, vista }).then((rows) => {
+      if (cancelled) return;
+      setPivotByVista({ [vista]: rows });
+      setPivotLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [capesInicials, anyActual, rang, grup, vista]);
 
   // Prefetch capes que falten (SAP / traspassos / gestió) després del paint.
   useEffect(() => {
     if (!potCarregarCapes) return;
-    const pending = (["sap", "directe", "traspassos", "gestio"] as VistaCompte[]).filter(
+    const pending = (["sap", "ajustos", "directe", "traspassos", "gestio"] as VistaCompte[]).filter(
       (v) => !capes[v]
     );
     if (!pending.length) return;
@@ -87,7 +100,7 @@ export function EmpresaBoard({
     };
   }, [potCarregarCapes, capes, anyActual, rang, grup]);
 
-  const data = capes[vista] ?? capes.directe ?? Object.values(capes).find(Boolean);
+  const data = capes[vista] ?? null;
   const vistesCarregades = (Object.keys(capes) as VistaCompte[]).filter((k) => !!capes[k]);
   const pivotRows = data?.pivotRows.length ? data.pivotRows : (pivotByVista[vista] ?? []);
   const nomEmpresa = etiquetaGrupEmpresa(grup);
@@ -111,9 +124,12 @@ export function EmpresaBoard({
   }, [anyActual, data, grup, rang, vista]);
 
   const onVistaLocal = (next: VistaCompte) => {
-    if (!capes[next]) return false;
     setVista(next);
     replaceVistaQuery(next);
+    if (capes[next]) return true;
+    void carregarEmpresaCapaAction({ any: anyActual, rang, grup, vista: next }).then((data) => {
+      if (data) setCapes((prev) => (prev[next] ? prev : { ...prev, [next]: data }));
+    });
     return true;
   };
 
@@ -181,7 +197,7 @@ export function EmpresaBoard({
             key={pivotScopeKey}
             title={`Compte d'explotació · ${etiquetaVistaCompte(vista)}`}
             caption={data.tableCaption}
-            defaultOpen={unMes}
+            defaultOpen={unMes || vista === "ajustos"}
             onFirstOpen={ensurePivot}
             onOpen={ensurePivot}
             loading={pivotLoading && !pivotRows.length}

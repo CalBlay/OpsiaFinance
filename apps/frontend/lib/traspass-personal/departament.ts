@@ -28,3 +28,17 @@ export function parseDepartamentSalarialLabel(raw: string): DepartamentSalarial 
 export function etiquetaDepartamentSalarial(d: DepartamentSalarial): string {
   return d === "CUINA" ? "Cuina" : "Sala";
 }
+
+/** Etiqueta del dept de l'arbre; si no n'hi ha, Sala/Cuina o «Tot el centre». */
+export function etiquetaDepartamentArbre(
+  dept: { codi?: string | null; nom?: string | null } | null | undefined,
+  fallback?: DepartamentSalarial | null
+): string {
+  const codi = dept?.codi?.trim() ?? "";
+  const nom = dept?.nom?.trim() ?? "";
+  if (codi && nom) return `${codi} · ${nom}`;
+  if (nom) return nom;
+  if (codi) return codi;
+  if (fallback) return etiquetaDepartamentSalarial(fallback);
+  return "Tot el centre";
+}

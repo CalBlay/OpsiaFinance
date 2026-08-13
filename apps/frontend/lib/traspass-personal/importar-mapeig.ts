@@ -5,7 +5,7 @@
  *   A = text (tal com surt a Organizaciones / Proyecto)
  *   B = codi centre (CCR… / CCC…)
  *   C = nom centre (opcional, desambiguar)
- *   D = SALA | CUINA (opcional; si falta s'infereix del text)
+ *   D = SALA | CUINA o codi departament DRO…/DCC… (opcional)
  */
 
 import type { DepartamentSalarial } from "@prisma/client";
@@ -17,6 +17,7 @@ export type FilaMapeigExcel = {
   codiCentre: string;
   nomCentre: string;
   departament: DepartamentSalarial | null;
+  codiDepartament: string | null;
 };
 
 function cell(row: unknown[], i: number): string {
@@ -36,6 +37,12 @@ function esCapçalera(row: unknown[]): boolean {
     b.includes("ccr") ||
     b.includes("centre")
   );
+}
+
+function parseCodiDepartament(raw: string): string | null {
+  const t = raw.trim().toUpperCase();
+  if (/^D[A-Z]{2}\d{3,}$/.test(t)) return t;
+  return null;
 }
 
 export function parseExcelMapeigCentres(buffer: Buffer): { files: FilaMapeigExcel[] } {
@@ -60,12 +67,15 @@ export function parseExcelMapeigCentres(buffer: Buffer): { files: FilaMapeigExce
     if (!text || !codiCentre) continue;
     if (!/^CC[A-Z]\d{5}$/i.test(codiCentre) && !/^LN\d{5}$/i.test(codiCentre)) continue;
 
-    const deptCol = parseDepartamentSalarialLabel(cell(row, 3));
+    const colD = cell(row, 3);
+    const codiDepartament = parseCodiDepartament(colD) ?? parseCodiDepartament(cell(row, 4));
+    const deptCol = parseDepartamentSalarialLabel(colD);
     files.push({
       text,
       codiCentre,
       nomCentre,
       departament: deptCol ?? inferDepartamentSalarial(text),
+      codiDepartament,
     });
   }
 

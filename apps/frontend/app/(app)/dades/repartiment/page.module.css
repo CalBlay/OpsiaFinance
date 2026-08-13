@@ -75,6 +75,28 @@
   cursor: not-allowed;
 }
 
+.bulkBtnDone {
+  appearance: none;
+  border: 1px solid
+    color-mix(in srgb, var(--opsia-green-700, #245956) 28%, var(--opsia-cx-border, #cfd8d6));
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  background: color-mix(in srgb, var(--opsia-green-700, #245956) 18%, #fff);
+  color: var(--opsia-green-700, #245956);
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bulkBtnDone:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--opsia-green-700, #245956) 26%, #fff);
+}
+
+.bulkBtnDone:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .bulkMsg {
   flex: 1 1 100%;
   margin: 0;

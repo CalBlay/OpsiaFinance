@@ -54,9 +54,10 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
       ) : (
         <>
           <section className={styles.card}>
-            <h2 className={styles.cardTitle}>Entre centres · per mes</h2>
+            <h2 className={styles.cardTitle}>Entre centres i departaments · per mes</h2>
             <p className={styles.helpText}>
-              Totals agregats per parell origen → destí i mes (node 13 — sous i salaris).
+              Totals per parell origen → destí (centre i departament) i mes. El compte
+              d&apos;explotació s&apos;aplica per centre; el departament és informatiu.
             </p>
             <div className={styles.tableWrap}>
               <table className={styles.table}>
@@ -64,8 +65,10 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
                   <tr>
                     <th>Mes</th>
                     <th>Origen</th>
+                    <th>Dept. origen</th>
                     <th>LN origen</th>
                     <th>Destí</th>
+                    <th>Dept. destí</th>
                     <th>LN destí</th>
                     <th className={styles.num}>Minuts</th>
                     <th className={styles.num}>Hores</th>
@@ -79,12 +82,14 @@ export function ResumTraspassPanel({ resum }: { resum: ResumTraspassPersonal }) 
                       <td>
                         {r.origenCodi} · {r.origenNom}
                       </td>
+                      <td>{r.origenDept}</td>
                       <td>
                         {r.origenLnCodi} · {r.origenLnNom}
                       </td>
                       <td>
                         {r.destiCodi} · {r.destiNom}
                       </td>
+                      <td>{r.destiDept}</td>
                       <td>
                         {r.destiLnCodi} · {r.destiLnNom}
                       </td>

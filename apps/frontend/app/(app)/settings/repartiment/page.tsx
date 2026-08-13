@@ -85,8 +85,8 @@ export default async function RepartimentSettingsPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>Repartiment</h1>
         <p className={styles.subtitle}>
-          Imports fixos (00/01/04/05/06) des de Central; el sobrant a Empresa i Casaments pel pes de
-          vendes entre les dues.
+          Imports fixos (00/01/04/05/06) des de Central; el sobrant a Empresa i Casaments: 50% a
+          parts iguals i 50% pel pes de vendes entre les dues.
         </p>
         <RepartimentSubNav />
       </header>

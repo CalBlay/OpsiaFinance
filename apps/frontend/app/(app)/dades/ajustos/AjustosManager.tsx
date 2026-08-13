@@ -8,6 +8,7 @@ import { MESOS_LLARGS } from "@/lib/periodes";
 import { NODE_COMPRES_DETALL } from "@/lib/repartiment/nodes";
 import { cn, formatNum } from "@/lib/utils";
 import { Check, Copy, Pencil, Percent, Plus, Trash2, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   type AjustInput,
@@ -87,6 +88,7 @@ export function AjustosManager({
   ajustos: AjustDTO[];
   canEdit: boolean;
 }) {
+  const router = useRouter();
   const [obert, setObert] = useState(false);
   const [feedback, setFeedback] = useState<Result | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -96,6 +98,7 @@ export function AjustosManager({
   const [filtreMes, setFiltreMes] = useState("");
   const [filtreConcepte, setFiltreConcepte] = useState("");
   const [filtreAmbit, setFiltreAmbit] = useState("");
+  const [filtreMotiu, setFiltreMotiu] = useState("");
 
   const [any, setAny] = useState(ARA.getFullYear());
   const [mes, setMes] = useState(ARA.getMonth() + 1);
@@ -153,7 +156,16 @@ export function AjustosManager({
     return [...set].sort((a, b) => a.localeCompare(b, "ca"));
   }, [ajustos]);
 
-  const teFiltres = !!(q || filtreAny || filtreMes || filtreConcepte || filtreAmbit);
+  const motiusUsats = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of ajustos) {
+      const m = a.motiu.trim();
+      if (m) set.add(m);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, "ca"));
+  }, [ajustos]);
+
+  const teFiltres = !!(q || filtreAny || filtreMes || filtreConcepte || filtreAmbit || filtreMotiu);
 
   const filtrats = useMemo(() => {
     const qn = normalitza(q.trim());
@@ -163,13 +175,14 @@ export function AjustosManager({
       if (filtreConcepte && a.concepteResultatId !== filtreConcepte) return false;
       const ambitLabel = a.centre ?? a.liniaNegoci ?? "";
       if (filtreAmbit && ambitLabel !== filtreAmbit) return false;
+      if (filtreMotiu && a.motiu.trim() !== filtreMotiu) return false;
       if (!qn) return true;
       const haystack = normalitza(
         [a.periodNom, ambitLabel, a.concepte, a.motiu, a.autor, formatNum(a.import_, 2)].join(" ")
       );
       return haystack.includes(qn);
     });
-  }, [ajustos, q, filtreAny, filtreMes, filtreConcepte, filtreAmbit]);
+  }, [ajustos, q, filtreAny, filtreMes, filtreConcepte, filtreAmbit, filtreMotiu]);
 
   const totalImport = useMemo(() => filtrats.reduce((s, a) => s + a.import_, 0), [filtrats]);
 
@@ -179,6 +192,7 @@ export function AjustosManager({
     setFiltreMes("");
     setFiltreConcepte("");
     setFiltreAmbit("");
+    setFiltreMotiu("");
   };
 
   const notify = (r: Result) => {
@@ -268,7 +282,10 @@ export function AjustosManager({
     startTransition(async () => {
       const r = editId ? await updateAjustAction(editId, input) : await createAjustAction(input);
       notify(r);
-      if (r.ok) tancar();
+      if (r.ok) {
+        tancar();
+        router.refresh();
+      }
     });
   };
 
@@ -285,7 +302,10 @@ export function AjustosManager({
           motiu: motiu.trim() || undefined,
         });
         notify(r);
-        if (r.ok) tancar();
+        if (r.ok) {
+          tancar();
+          router.refresh();
+        }
       });
       return;
     }
@@ -306,13 +326,20 @@ export function AjustosManager({
         motiu,
       });
       notify(r);
-      if (r.ok) tancar();
+      if (r.ok) {
+        tancar();
+        router.refresh();
+      }
     });
   };
 
   const eliminar = (id: string) => {
     if (!confirm("Eliminar aquest ajust?")) return;
-    startTransition(async () => notify(await deleteAjustAction(id)));
+    startTransition(async () => {
+      const r = await deleteAjustAction(id);
+      notify(r);
+      if (r.ok) router.refresh();
+    });
   };
 
   const editar = (a: AjustDTO) => {
@@ -751,6 +778,14 @@ export function AjustosManager({
                 options: ambitsUsats.map((label) => ({ value: label, label })),
                 allLabel: "Tots els centres / LN",
                 "aria-label": "Filtra per centre o línia",
+              },
+              {
+                id: "motiu",
+                value: filtreMotiu,
+                onChange: setFiltreMotiu,
+                options: motiusUsats.map((label) => ({ value: label, label })),
+                allLabel: "Tots els motius",
+                "aria-label": "Filtra per motiu",
               },
             ]}
           />

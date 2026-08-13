@@ -62,7 +62,10 @@ export async function backfillDepartamentsMapeig(): Promise<number> {
 async function carregarMapeigs(): Promise<MapeigCentre[]> {
   const raw = await db.mapeigTextCentreTreball.findMany({
     where: { isActive: true },
-    include: { centre: { select: { id: true, codi: true, nom: true } } },
+    include: {
+      centre: { select: { id: true, codi: true, nom: true } },
+      departamentArbre: { select: { id: true, codi: true, nom: true } },
+    },
     orderBy: { ordre: "asc" },
   });
 
@@ -72,6 +75,9 @@ async function carregarMapeigs(): Promise<MapeigCentre[]> {
     centreCodi: m.centre.codi,
     centreNom: m.centre.nom,
     departament: m.departament,
+    departamentId: m.departamentId,
+    departamentCodi: m.departamentArbre?.codi ?? null,
+    departamentNom: m.departamentArbre?.nom ?? null,
   }));
 }
 
@@ -143,6 +149,8 @@ export async function calcularExecucioTraspassPersonal(
         centreOrigenId: m.centreOrigenId,
         centreDestiId: m.centreDestiId,
         departament: m.departament,
+        departamentOrigenId: m.departamentOrigenId,
+        departamentDestiId: m.departamentDestiId,
         minuts: m.minuts,
         hores: m.hores,
         tarifaHora: m.tarifaHora,
@@ -297,12 +305,15 @@ export async function getExecucioTraspassPerPeriode(periodId: string) {
       moviments: {
         orderBy: [
           { centreOrigen: { nom: "asc" } },
+          { departamentOrigen: { nom: "asc" } },
           { centreDesti: { nom: "asc" } },
-          { departament: "asc" },
+          { departamentDesti: { nom: "asc" } },
         ],
         include: {
           centreOrigen: { select: { id: true, codi: true, nom: true } },
           centreDesti: { select: { id: true, codi: true, nom: true } },
+          departamentOrigen: { select: { id: true, codi: true, nom: true } },
+          departamentDesti: { select: { id: true, codi: true, nom: true } },
         },
       },
     },
@@ -312,10 +323,10 @@ export async function getExecucioTraspassPerPeriode(periodId: string) {
 async function resoldreCentrePerCodi(
   codi: string,
   nomHint?: string
-): Promise<{ id: string } | null> {
+): Promise<{ id: string; codi: string } | null> {
   const candidats = await db.centre.findMany({
     where: { codi: codi.toUpperCase(), isActive: true },
-    select: { id: true, nom: true },
+    select: { id: true, nom: true, codi: true },
     orderBy: { ordre: "asc" },
   });
   if (!candidats.length) return null;
@@ -329,7 +340,7 @@ async function resoldreCentrePerCodi(
   return candidats[0];
 }
 
-/** Importa o actualitza el mapeig (A=text, B=codi, C=nom, D=SALA|CUINA opcional). */
+/** Importa o actualitza el mapeig (A=text, B=codi, C=nom, D=SALA|CUINA o codi dept). */
 export async function importarMapeigCentresDesDeBuffer(
   buffer: Buffer,
   substituirTot = false
@@ -348,15 +359,32 @@ export async function importarMapeigCentresDesDeBuffer(
 
   for (let i = 0; i < files.length; i++) {
     const f = files[i];
-    if (!f.departament) {
-      errors.push(
-        `Fila ${i + 1}: no s'ha pogut determinar SALA/CUINA per «${f.text}» (col. D o text).`
-      );
-      continue;
-    }
     const centre = await resoldreCentrePerCodi(f.codiCentre, f.nomCentre);
     if (!centre) {
       errors.push(`Fila ${i + 1}: codi «${f.codiCentre}» no trobat a dimensions.`);
+      continue;
+    }
+
+    let departamentId: string | null = null;
+    let departament = f.departament;
+    if (f.codiDepartament) {
+      const dept = await db.departament.findFirst({
+        where: { centreId: centre.id, codi: f.codiDepartament, isActive: true },
+        select: { id: true, nom: true },
+      });
+      if (!dept) {
+        errors.push(
+          `Fila ${i + 1}: departament «${f.codiDepartament}» no trobat al centre ${centre.codi}.`
+        );
+        continue;
+      }
+      departamentId = dept.id;
+      departament = inferDepartamentSalarial(dept.nom) ?? departament;
+    }
+    if (!departament) {
+      errors.push(
+        `Fila ${i + 1}: no s'ha pogut determinar SALA/CUINA per «${f.text}» (col. D o text).`
+      );
       continue;
     }
 
@@ -364,13 +392,15 @@ export async function importarMapeigCentresDesDeBuffer(
       where: { text: f.text },
       update: {
         centreId: centre.id,
-        departament: f.departament,
+        departament,
+        departamentId,
         isActive: true,
       },
       create: {
         text: f.text,
         centreId: centre.id,
-        departament: f.departament,
+        departament,
+        departamentId,
         ordre: i,
       },
     });

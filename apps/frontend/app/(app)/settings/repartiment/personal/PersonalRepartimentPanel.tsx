@@ -154,9 +154,9 @@ export function PersonalRepartimentPanel({
     <div className={styles.stack}>
       <p className={styles.helpText}>
         Pool = personal SAP de Central (font). LN00000/01/04/05/06 són LN destí amb import fix/%
-        (LN00000 no és només el residual). El <strong>sobrant</strong> va a LN00002 i LN00003 segons
-        el pes de vendes sobre (vendes02 + vendes03). Sense vendes → pes per defecte. FDLC no
-        participa.
+        (LN00000 no és només el residual). El <strong>sobrant</strong> va a LN00002 i LN00003: 50% a
+        parts iguals i 50% segons el pes de vendes sobre (vendes02 + vendes03). Sense vendes → pes
+        per defecte a la meitat de vendes. FDLC no participa.
         {refMesLabel
           ? ` Costos de referència (nòmina): ${refMesLabel}.`
           : " Sense dades de nòmina de referència."}

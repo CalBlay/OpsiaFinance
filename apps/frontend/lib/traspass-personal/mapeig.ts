@@ -1,7 +1,7 @@
 /**
  * Mapeig Configuració → Traspassos personal.
  *
- * Una fila de configuració: text → centre + SALA|CUINA.
+ * Una fila de configuració: text → LN → centre (+ departament de l'arbre).
  * Una cel·la Excel es resol així (per ordre):
  *   1) text sencer == text del mapeig
  *   2) part abans de la coma == text del mapeig
@@ -16,6 +16,10 @@ export type MapeigCentre = {
   centreCodi: string;
   centreNom: string;
   departament: DepartamentSalarial;
+  /** Departament de l'arbre (dimensió 3). Null = tot el centre. */
+  departamentId: string | null;
+  departamentCodi: string | null;
+  departamentNom: string | null;
 };
 
 /** Clau comparable: minúscules, sense accents, un sol espai. */
@@ -52,7 +56,12 @@ export function indexarMapeigs(mapeigs: MapeigCentre[]): IndexMapeig {
     if (!text) continue;
     const k = clauMapeig(text);
     const prev = perClau.get(k);
-    if (prev && (prev.centreId !== m.centreId || prev.departament !== m.departament)) {
+    if (
+      prev &&
+      (prev.centreId !== m.centreId ||
+        prev.departament !== m.departament ||
+        (prev.departamentId ?? "") !== (m.departamentId ?? ""))
+    ) {
       avisos.push(
         `Mapeig duplicat «${text}»: ja hi ha «${prev.text}» → ${prev.centreCodi}. Es manté el primer.`
       );

@@ -64,8 +64,12 @@ export default async function ConsultaCentrePage({
       ? await getCompteExplotacioCentreParell(centreId, anyActual)
       : {
           sap: vista === "sap" ? await getCompteExplotacioCentre(centreId, anyActual, "sap") : null,
+          ajustos:
+            vista === "ajustos"
+              ? await getCompteExplotacioCentre(centreId, anyActual, "ajustos")
+              : null,
           directe:
-            vista === "sap"
+            vista === "sap" || vista === "ajustos"
               ? null
               : await getCompteExplotacioCentre(centreId, anyActual, "directe"),
           traspassos: null,
@@ -230,6 +234,14 @@ export default async function ConsultaCentrePage({
       capesInicials={{
         ...(parell?.sap
           ? { sap: { ...parell.sap, concepts: slimConceptsForPaint(parell.sap.concepts) } }
+          : {}),
+        ...(parell?.ajustos
+          ? {
+              ajustos: {
+                ...parell.ajustos,
+                concepts: slimConceptsForPaint(parell.ajustos.concepts),
+              },
+            }
           : {}),
         ...(parell?.directe
           ? {

@@ -29,6 +29,8 @@ export default async function TraspassPersonalDetallPage({
           departament: m.departament as "SALA" | "CUINA",
           centreOrigen: m.centreOrigen,
           centreDesti: m.centreDesti,
+          departamentOrigen: m.departamentOrigen,
+          departamentDesti: m.departamentDesti,
         })),
         alertes: execucioRaw.alertesJson
           ? (JSON.parse(execucioRaw.alertesJson) as {

@@ -11,7 +11,10 @@ import {
 import { Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { calcularIConfirmarRepartimentAnyAction } from "./actions";
+import {
+  calcularIConfirmarRepartimentAnyAction,
+  recalcularIReconfirmarRepartimentAnyAction,
+} from "./actions";
 import styles from "./page.module.css";
 
 export type RepartimentPeriodItem = {
@@ -20,6 +23,7 @@ export type RepartimentPeriodItem = {
   any: number;
   mes: number;
   estat: "CONFIRMAT" | "BORRADOR" | null;
+  personalReglaAplicada?: boolean;
 };
 
 export function RepartimentLlista({
@@ -48,6 +52,18 @@ export function RepartimentLlista({
     () => periods.filter((p) => String(p.any) === anyMassiu && p.estat !== "CONFIRMAT").length,
     [periods, anyMassiu]
   );
+  const confirmatsAny = useMemo(
+    () => periods.filter((p) => String(p.any) === anyMassiu && p.estat === "CONFIRMAT").length,
+    [periods, anyMassiu]
+  );
+  const confirmatsPendentsRegla = useMemo(
+    () =>
+      periods.filter(
+        (p) => String(p.any) === anyMassiu && p.estat === "CONFIRMAT" && !p.personalReglaAplicada
+      ).length,
+    [periods, anyMassiu]
+  );
+  const confirmatsAlDia = confirmatsAny > 0 && confirmatsPendentsRegla === 0;
 
   const filtrats = useMemo(() => {
     return periods.filter((p) => {
@@ -127,6 +143,32 @@ export function RepartimentLlista({
               : pendentsAny > 0
                 ? `Calcular i confirmar ${anyMassiu} (${pendentsAny})`
                 : `Sense pendents a ${anyMassiu || "—"}`}
+          </button>
+          <button
+            type="button"
+            className={confirmatsAlDia ? styles.bulkBtnDone : styles.bulkBtn}
+            disabled={pending || !anyMassiu || confirmatsAny === 0}
+            onClick={() => {
+              const any = Number(anyMassiu);
+              const avís = confirmatsAlDia
+                ? `Els ${confirmatsAny} mesos confirmats de ${any} ja tenen la regla nova de personal.\n\nVols tornar a recalcular-los igualment?`
+                : `Recalcular i reconfirmar els mesos ja confirmats de ${any}?\n\n${confirmatsPendentsRegla} període${confirmatsPendentsRegla === 1 ? "" : "s"} pendent${confirmatsPendentsRegla === 1 ? "" : "s"} de la regla nova (50% iguals + 50% vendes).\nEls esborranys no es toquen.`;
+              if (!window.confirm(avís)) return;
+              setMissatge(null);
+              startTransition(async () => {
+                const r = await recalcularIReconfirmarRepartimentAnyAction(any);
+                setMissatge(r.missatge);
+                router.refresh();
+              });
+            }}
+          >
+            {pending
+              ? "Processant…"
+              : confirmatsAny === 0
+                ? `Sense confirmats a ${anyMassiu || "—"}`
+                : confirmatsAlDia
+                  ? `Confirmats al dia ${anyMassiu} (${confirmatsAny})`
+                  : `Recalcular confirmats ${anyMassiu} (${confirmatsPendentsRegla})`}
           </button>
           {missatge ? <p className={styles.bulkMsg}>{missatge}</p> : null}
         </div>

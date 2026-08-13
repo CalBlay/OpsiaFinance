@@ -85,9 +85,12 @@ model Departament {
   centreId             String
   centre               Centre                  @relation(fields: [centreId], references: [id], onDelete: Cascade)
   rows                 ImportRow[]
-  mapeigsCostPersonal  MapeigCodiCostPersonal[]
-  costsPersonalsCentre CostPersonalCentre[]
-  configPersonalDept   ConfigPersonalDept[]
+  mapeigsCostPersonal       MapeigCodiCostPersonal[]
+  mapeigsTextCentre         MapeigTextCentreTreball[]
+  costsPersonalsCentre      CostPersonalCentre[]
+  configPersonalDept        ConfigPersonalDept[]
+  movimentsTraspassOrigen   MovimentTraspassPersonal[] @relation("TraspassDeptOrigen")
+  movimentsTraspassDesti    MovimentTraspassPersonal[] @relation("TraspassDeptDesti")
 
   @@unique([centreId, codi])
   @@index([centreId])
@@ -393,21 +396,25 @@ model ConfigTraspassPersonal {
   updatedAt  DateTime @updatedAt
 }
 
-/// Mapeig text (Organizaciones o Proyecto) → centre de cost + departament.
+/// Mapeig text (Organizaciones o Proyecto) → centre de cost + departament de l'arbre.
 model MapeigTextCentreTreball {
-  id          String              @id @default(cuid())
-  text        String              @unique
-  centreId    String
-  ordre       Int                 @default(0)
-  isActive    Boolean             @default(true)
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  /// Font de veritat: Sala/Serveis → SALA, Cuina/Cuiner → CUINA.
-  departament DepartamentSalarial @default(SALA)
-  centre      Centre              @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  id               String              @id @default(cuid())
+  text             String              @unique
+  centreId         String
+  ordre            Int                 @default(0)
+  isActive         Boolean             @default(true)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  /// Compat motor traspassos: Sala/Cuina (es pot inferir del nom del dept).
+  departament      DepartamentSalarial @default(SALA)
+  /// Dimensió 3 de l'arbre (DRO… / DCC…). Null = agregat només al centre.
+  departamentId    String?
+  centre           Centre              @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  departamentArbre Departament?        @relation(fields: [departamentId], references: [id], onDelete: SetNull)
 
   @@index([centreId])
   @@index([departament])
+  @@index([departamentId])
 }
 
 /// Execució mensual de traspassos de personal (un per període).
@@ -433,7 +440,7 @@ model ExecucioTraspassPersonal {
   @@index([importacioId])
 }
 
-/// Moviment agregat origen → destí × departament (Sala/Cuina).
+/// Moviment agregat origen (centre × dept) → destí (centre × dept).
 model MovimentTraspassPersonal {
   id             String                   @id @default(cuid())
   execucioId     String
@@ -443,18 +450,26 @@ model MovimentTraspassPersonal {
   tarifaHora     Decimal                  @db.Decimal(18, 2)
   import_        Decimal                  @map("import") @db.Decimal(18, 2)
   concepteNode   Int                      @default(13)
-  /// Departament copiat del mapeig d'origen (font de veritat) en calcular.
+  /// Departament copiat del mapeig d'origen (Sala/Cuina, motor restaurants).
   departament    DepartamentSalarial      @default(SALA)
   /// Minuts agregats (font Excel); hores = minuts / 60.
   minuts         Decimal                  @default(0) @db.Decimal(18, 2)
-  centreDesti    Centre                   @relation("TraspassDesti", fields: [centreDestiId], references: [id], onDelete: Cascade)
-  centreOrigen   Centre                   @relation("TraspassOrigen", fields: [centreOrigenId], references: [id], onDelete: Cascade)
-  execucio       ExecucioTraspassPersonal @relation(fields: [execucioId], references: [id], onDelete: Cascade)
+  /// Departament de l'arbre (mapeig origen). Informatiu; el C.Explotació segueix per centre.
+  departamentOrigenId String?
+  /// Departament de l'arbre (mapeig destí). Informatiu.
+  departamentDestiId  String?
+  centreDesti         Centre                   @relation("TraspassDesti", fields: [centreDestiId], references: [id], onDelete: Cascade)
+  centreOrigen        Centre                   @relation("TraspassOrigen", fields: [centreOrigenId], references: [id], onDelete: Cascade)
+  execucio            ExecucioTraspassPersonal @relation(fields: [execucioId], references: [id], onDelete: Cascade)
+  departamentOrigen   Departament?             @relation("TraspassDeptOrigen", fields: [departamentOrigenId], references: [id], onDelete: SetNull)
+  departamentDesti    Departament?             @relation("TraspassDeptDesti", fields: [departamentDestiId], references: [id], onDelete: SetNull)
 
   @@index([execucioId])
   @@index([centreOrigenId])
   @@index([centreDestiId])
   @@index([departament])
+  @@index([departamentOrigenId])
+  @@index([departamentDestiId])
 }
 
 /// Registre d'un fitxer Excel pujat (operatiu restaurants).

@@ -41,20 +41,12 @@ export function validarZeroSumMoviments(
   centralId: string
 ) {
   const perLn = new Map<string, Map<number, number>>();
-  const nodesAgendaExplicita = new Set<number>();
   for (const m of moviments) {
-    if (m.liniaNegociDestiId === centralId) {
-      // Agenda (LN00000): objectiu explícit des de la norma (ex. gestió %).
-      if (NODES_REPARTIMENT_GESTIO_ACTIUS.includes(m.concepteNode)) {
-        aplicarDeltaDesti(perLn, centralId, m.concepteNode, m.importCalculat);
-        nodesAgendaExplicita.add(m.concepteNode);
-      }
-      continue;
-    }
+    // LN00000 no aporta delta propi: és el residual de redistribuir el seu cost.
+    if (m.liniaNegociDestiId === centralId) continue;
     aplicarDeltaDesti(perLn, m.liniaNegociDestiId, m.concepteNode, m.importCalculat);
   }
-  const nodesResidual = NODES_INVARIANT_EMPRESA.filter((n) => !nodesAgendaExplicita.has(n));
-  if (nodesResidual.length) balanceZeroSumCentral(perLn, centralId, nodesResidual);
+  balanceZeroSumCentral(perLn, centralId, NODES_INVARIANT_EMPRESA);
   return validarZeroSumDeltas(perLn);
 }
 
@@ -134,33 +126,16 @@ function deltasDesDeDirecte(
   const moviments = movimentsDeltaDesDeDirecte(centralId, directe, deps, personalDept, execucio);
 
   const perLn = new Map<string, Map<number, number>>();
-  const nodesAgendaExplicita = new Set<number>();
   for (const m of moviments) {
-    if (m.liniaNegociDestiId === centralId) {
-      // Agenda: retenció explícita (Valor% de Configuració), no residual zero-sum.
-      if (NODES_REPARTIMENT_GESTIO_ACTIUS.includes(m.concepteNode)) {
-        aplicarDeltaDesti(perLn, centralId, m.concepteNode, m.importCalculat);
-        nodesAgendaExplicita.add(m.concepteNode);
-      }
-      continue;
-    }
+    // Retenció LN00000: ja s'ha restat del pool en calcular les altres LN.
+    // El delta de Central és sempre −Σ altres (Compres / Personal / Gestió invariants).
+    if (m.liniaNegociDestiId === centralId) continue;
     aplicarDeltaDesti(perLn, m.liniaNegociDestiId, m.concepteNode, m.importCalculat);
   }
 
   for (const o of execucio?.moviments ?? []) {
     if (o.importOverride == null) continue;
-    if (o.liniaNegociDestiId === centralId) {
-      if (NODES_REPARTIMENT_GESTIO_ACTIUS.includes(o.concepteNode)) {
-        let perNode = perLn.get(centralId);
-        if (!perNode) {
-          perNode = new Map();
-          perLn.set(centralId, perNode);
-        }
-        perNode.set(o.concepteNode, Number(o.importOverride));
-        nodesAgendaExplicita.add(o.concepteNode);
-      }
-      continue;
-    }
+    if (o.liniaNegociDestiId === centralId) continue;
     let perNode = perLn.get(o.liniaNegociDestiId);
     if (!perNode) {
       perNode = new Map();
@@ -169,8 +144,7 @@ function deltasDesDeDirecte(
     perNode.set(o.concepteNode, Number(o.importOverride));
   }
 
-  const nodesResidual = NODES_INVARIANT_EMPRESA.filter((n) => !nodesAgendaExplicita.has(n));
-  if (nodesResidual.length) balanceZeroSumCentral(perLn, centralId, nodesResidual);
+  balanceZeroSumCentral(perLn, centralId, NODES_INVARIANT_EMPRESA);
   return perLn;
 }
 
@@ -268,6 +242,7 @@ export async function getMovimentsGestioDetall(
 
     for (const m of moviments) {
       if (m.concepteNode !== concepteNode) continue;
+      if (m.liniaNegociDestiId === central.id) continue;
       if (lnFilter && !lnFilter.has(m.liniaNegociDestiId)) continue;
       if (Math.abs(m.importCalculat) < 0.005) continue;
       out.push({
@@ -275,18 +250,12 @@ export async function getMovimentsGestioDetall(
         liniaNegociDestiId: m.liniaNegociDestiId,
         concepteNode: m.concepteNode,
         import_: m.importCalculat,
-        normaNom:
-          (m.normaId ? normaNomById.get(m.normaId) : undefined) ??
-          (m.liniaNegociDestiId === central.id ? "LN00000 · destí" : "ESTRUCTURA"),
+        normaNom: (m.normaId ? normaNomById.get(m.normaId) : undefined) ?? "ESTRUCTURA",
         detallCalcul: m.detallCalcul,
       });
     }
 
-    // Si LN00000 no té moviment destí explícit, mostrar residual zero-sum.
-    const teCentralExplicita = out.some(
-      (o) => o.periodId === period.id && o.liniaNegociDestiId === central.id
-    );
-    if ((!lnFilter || lnFilter.has(central.id)) && !teCentralExplicita) {
+    if (!lnFilter || lnFilter.has(central.id)) {
       const perLn = deltasDesDeDirecte(central.id, directe, deps, personalDept, exec);
       const residual = perLn.get(central.id)?.get(concepteNode) ?? 0;
       if (Math.abs(residual) >= 0.005) {
@@ -296,7 +265,8 @@ export async function getMovimentsGestioDetall(
           concepteNode,
           import_: residual,
           normaNom: "Residual LN00000 (zero-sum)",
-          detallCalcul: "Equilibri empresa: −Σ imputacions a les altres LN",
+          detallCalcul:
+            "Redistribució: −Σ imputacions a les altres LN (el total d'empresa no canvia)",
         });
       }
     }
@@ -461,8 +431,9 @@ export async function confirmarExecucioRepartiment(execucioId: string, userId: s
 
 /**
  * Mapa node → delta gestió per LN (només execucions confirmades).
- * Es recalcula en viu (imputació, no substitució) amb Central residual zero-sum
- * → Directe i Gestió tenen el mateix total empresa; només canvia el pes per LN.
+ * Es recalcula en viu (imputació). LN00000 és residual zero-sum:
+ * Compres / Personal / Gestió tenen el mateix total empresa que Traspassos;
+ * només canvia el pes per LN.
  *
  * Carrega normes/grups/dades/execucions en batch (no N recàlculs amb 2× P&L cadascun).
  * Cache per petició (clau = periodIds ordenats).

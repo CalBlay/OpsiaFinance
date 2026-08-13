@@ -12,38 +12,144 @@ import {
 } from "./actions";
 import styles from "./page.module.css";
 
-type CentreOpt = { id: string; codi: string; nom: string };
-type Dept = "SALA" | "CUINA";
-type Mapeig = { id: string; text: string; departament: Dept; centre: CentreOpt };
+type DeptOpt = { id: string; codi: string; nom: string };
+type CentreOpt = { id: string; codi: string; nom: string; departaments: DeptOpt[] };
+type LnOpt = { id: string; codi: string; nom: string; centres: CentreOpt[] };
 
-function labelDept(d: Dept) {
-  return d === "CUINA" ? "Cuina" : "Sala";
+type Mapeig = {
+  id: string;
+  text: string;
+  departament: "SALA" | "CUINA";
+  centre: {
+    id: string;
+    codi: string;
+    nom: string;
+    liniaNegociId: string;
+    liniaNegoci: { id: string; codi: string; nom: string };
+  };
+  departamentArbre: { id: string; codi: string; nom: string } | null;
+};
+
+type DestForm = {
+  text: string;
+  lnId: string;
+  centreId: string;
+  departamentId: string;
+};
+
+function etiquetaLn(ln: { codi: string; nom: string }) {
+  return `${ln.codi} · ${ln.nom}`;
+}
+
+function etiquetaCentre(c: { codi: string; nom: string }) {
+  return `${c.codi} · ${c.nom}`;
+}
+
+function etiquetaDept(d: { codi: string; nom: string }) {
+  return `${d.codi} · ${d.nom}`;
+}
+
+function DestSelectors({
+  arbre,
+  value,
+  onChange,
+  disabled,
+  ids,
+}: {
+  arbre: LnOpt[];
+  value: Pick<DestForm, "lnId" | "centreId" | "departamentId">;
+  onChange: (next: Pick<DestForm, "lnId" | "centreId" | "departamentId">) => void;
+  disabled?: boolean;
+  ids: { ln: string; centre: string; dept: string };
+}) {
+  const ln = arbre.find((l) => l.id === value.lnId) ?? null;
+  const centres = ln?.centres ?? [];
+  const centre = centres.find((c) => c.id === value.centreId) ?? null;
+  const depts = centre?.departaments ?? [];
+
+  return (
+    <>
+      <select
+        id={ids.ln}
+        className={styles.select}
+        value={value.lnId}
+        disabled={disabled}
+        onChange={(e) => onChange({ lnId: e.target.value, centreId: "", departamentId: "" })}
+      >
+        <option value="">Línia…</option>
+        {arbre.map((l) => (
+          <option key={l.id} value={l.id}>
+            {etiquetaLn(l)}
+          </option>
+        ))}
+      </select>
+      <select
+        id={ids.centre}
+        className={styles.select}
+        value={value.centreId}
+        disabled={disabled || !value.lnId}
+        onChange={(e) => onChange({ ...value, centreId: e.target.value, departamentId: "" })}
+      >
+        <option value="">{value.lnId ? "Centre…" : "Tria LN…"}</option>
+        {centres.map((c) => (
+          <option key={c.id} value={c.id}>
+            {etiquetaCentre(c)}
+          </option>
+        ))}
+      </select>
+      <select
+        id={ids.dept}
+        className={styles.select}
+        value={value.departamentId}
+        disabled={disabled || !value.centreId}
+        onChange={(e) => onChange({ ...value, departamentId: e.target.value })}
+      >
+        <option value="">
+          {!value.centreId
+            ? "Tria centre…"
+            : depts.length
+              ? "Tot el centre (opcional)"
+              : "Sense departaments"}
+        </option>
+        {depts.map((d) => (
+          <option key={d.id} value={d.id}>
+            {etiquetaDept(d)}
+          </option>
+        ))}
+      </select>
+    </>
+  );
 }
 
 export function TraspassPersonalSettingsPanel({
   tarifaHora,
   mapeigs,
-  centres,
+  arbre,
   canEdit,
 }: {
   tarifaHora: number;
   mapeigs: Mapeig[];
-  centres: CentreOpt[];
+  arbre: LnOpt[];
   canEdit: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; missatge: string } | null>(null);
   const [tarifaTxt, setTarifaTxt] = useState(Number(tarifaHora).toFixed(2).replace(".", ","));
   const [editId, setEditId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
-  const [editCentreId, setEditCentreId] = useState("");
-  const [editDept, setEditDept] = useState<Dept>("SALA");
-  const [newRow, setNewRow] = useState<{ text: string; centreId: string; departament: Dept }>({
+  const [editForm, setEditForm] = useState<DestForm>({
     text: "",
+    lnId: "",
     centreId: "",
-    departament: "SALA",
+    departamentId: "",
+  });
+  const [newRow, setNewRow] = useState<DestForm>({
+    text: "",
+    lnId: "",
+    centreId: "",
+    departamentId: "",
   });
   const [substituirTot, setSubstituirTot] = useState(false);
+  const [importNom, setImportNom] = useState<string | null>(null);
   const importRef = useRef<HTMLInputElement>(null);
 
   const notify = (r: { ok: boolean; missatge: string }) => {
@@ -63,15 +169,11 @@ export function TraspassPersonalSettingsPanel({
     startTransition(async () => {
       const r = await importarMapeigExcelAction(fd);
       notify(r);
-      if (r.ok && importRef.current) importRef.current.value = "";
+      if (r.ok) {
+        if (importRef.current) importRef.current.value = "";
+        setImportNom(null);
+      }
     });
-  };
-
-  const startEdit = (row: Mapeig) => {
-    setEditId(row.id);
-    setEditText(row.text);
-    setEditCentreId(row.centre.id);
-    setEditDept(row.departament);
   };
 
   return (
@@ -130,13 +232,29 @@ export function TraspassPersonalSettingsPanel({
 
       {canEdit && (
         <section className={styles.card}>
-          <h2 className={styles.cardTitle}>Importar mapeig des d&apos;Excel</h2>
+          <h2 className={styles.cardTitle}>Importar mapeig des d&apos;Excel (manual)</h2>
           <p className={styles.helpText}>
-            Format: A = text, B = codi centre, C = nom (opcional), D = SALA|CUINA (opcional; si
-            falta s&apos;infereix del text). El mateix mapeig serveix per origen i destí.
+            Format: A = text, B = codi centre Opsia, C = nom (opcional), D = SALA|CUINA o codi
+            departament (opcional). Per LN → centre → departament de l&apos;arbre, usa la taula de
+            sota.
           </p>
-          <div className={styles.inlineForm}>
-            <input ref={importRef} type="file" accept=".xlsx,.xls" className={styles.fileInput} />
+          <div className={styles.fileRow}>
+            <input
+              ref={importRef}
+              type="file"
+              accept=".xlsx,.xls"
+              className={styles.fileInputHidden}
+              onChange={(e) => setImportNom(e.target.files?.[0]?.name ?? null)}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={pending}
+              onClick={() => importRef.current?.click()}
+            >
+              <Upload size={14} /> Triar fitxer Excel…
+            </Button>
+            <span className={styles.fileName}>{importNom ?? "Cap fitxer seleccionat"}</span>
             <label className={styles.checkLabel}>
               <input
                 type="checkbox"
@@ -145,7 +263,7 @@ export function TraspassPersonalSettingsPanel({
               />
               Substituir tot
             </label>
-            <Button size="sm" disabled={pending} onClick={importarExcel}>
+            <Button size="sm" disabled={pending || !importNom} onClick={importarExcel}>
               <Upload size={14} /> Importar
             </Button>
           </div>
@@ -153,15 +271,18 @@ export function TraspassPersonalSettingsPanel({
       )}
 
       <section className={styles.card}>
-        <h2 className={styles.cardTitle}>Mapeig text → centre + departament</h2>
+        <h2 className={styles.cardTitle}>Mapeig text → LN · centre · departament</h2>
         <p className={styles.helpText}>
-          Coincideix el text sencer o la part abans de la coma (p. ex. mapeig «Orígens cuina» resol
-          «Orígens cuina, Responsable…»). El departament ve del mapeig d&apos;origen.
+          Tria la línia, després el centre i (si cal) el departament de l&apos;arbre. Coincideix el
+          text sencer o la part abans de la coma (p. ex. mapeig «Orígens cuina» resol «Orígens
+          cuina, Responsable…»). El departament és opcional: si el deixes buit, s&apos;agrega al
+          centre sencer.
         </p>
         <table className={styles.table}>
           <thead>
             <tr>
               <th>Text</th>
+              <th>Línia</th>
               <th>Centre</th>
               <th>Departament</th>
               {canEdit && <th />}
@@ -174,53 +295,47 @@ export function TraspassPersonalSettingsPanel({
                   <td>
                     <input
                       className={styles.input}
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
+                      value={editForm.text}
+                      onChange={(e) => setEditForm({ ...editForm, text: e.target.value })}
                     />
                   </td>
-                  <td>
-                    <select
-                      className={styles.select}
-                      value={editCentreId}
-                      onChange={(e) => setEditCentreId(e.target.value)}
-                    >
-                      {centres.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.codi} · {c.nom}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td>
-                    <select
-                      className={styles.select}
-                      value={editDept}
-                      onChange={(e) => setEditDept(e.target.value as Dept)}
-                    >
-                      <option value="SALA">Sala</option>
-                      <option value="CUINA">Cuina</option>
-                    </select>
+                  <td colSpan={3}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                      <DestSelectors
+                        arbre={arbre}
+                        value={editForm}
+                        onChange={(next) => setEditForm({ ...editForm, ...next })}
+                        disabled={pending}
+                        ids={{
+                          ln: `edit-ln-${row.id}`,
+                          centre: `edit-centre-${row.id}`,
+                          dept: `edit-dept-${row.id}`,
+                        }}
+                      />
+                    </div>
                   </td>
                   <td className={styles.rowActions}>
                     <button
                       type="button"
+                      title="Desar"
+                      disabled={pending}
                       onClick={() =>
                         startTransition(async () => {
-                          const r = await updateMapeigAction(
-                            row.id,
-                            editText,
-                            editCentreId,
-                            editDept
-                          );
+                          const r = await updateMapeigAction({
+                            id: row.id,
+                            text: editForm.text,
+                            liniaNegociId: editForm.lnId,
+                            centreId: editForm.centreId,
+                            departamentId: editForm.departamentId || null,
+                          });
                           notify(r);
                           if (r.ok) setEditId(null);
                         })
                       }
-                      disabled={pending}
                     >
                       <Check size={16} />
                     </button>
-                    <button type="button" onClick={() => setEditId(null)} disabled={pending}>
+                    <button type="button" title="Cancel·lar" onClick={() => setEditId(null)}>
                       <X size={16} />
                     </button>
                   </td>
@@ -228,23 +343,42 @@ export function TraspassPersonalSettingsPanel({
               ) : (
                 <tr key={row.id}>
                   <td>{row.text}</td>
+                  <td>{etiquetaLn(row.centre.liniaNegoci)}</td>
+                  <td>{etiquetaCentre(row.centre)}</td>
                   <td>
-                    {row.centre.codi} · {row.centre.nom}
+                    {row.departamentArbre
+                      ? etiquetaDept(row.departamentArbre)
+                      : "— (tot el centre)"}
                   </td>
-                  <td>{labelDept(row.departament)}</td>
                   {canEdit && (
                     <td className={styles.rowActions}>
-                      <button type="button" onClick={() => startEdit(row)} disabled={pending}>
-                        <Pencil size={16} />
+                      <button
+                        type="button"
+                        title="Editar"
+                        onClick={() => {
+                          setEditId(row.id);
+                          setEditForm({
+                            text: row.text,
+                            lnId: row.centre.liniaNegociId,
+                            centreId: row.centre.id,
+                            departamentId: row.departamentArbre?.id ?? "",
+                          });
+                        }}
+                      >
+                        <Pencil size={15} />
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          startTransition(async () => notify(await deleteMapeigAction(row.id)))
-                        }
+                        title="Eliminar"
                         disabled={pending}
+                        onClick={() =>
+                          startTransition(async () => {
+                            if (!confirm(`Eliminar mapeig «${row.text}»?`)) return;
+                            notify(await deleteMapeigAction(row.id));
+                          })
+                        }
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       </button>
                     </td>
                   )}
@@ -261,29 +395,16 @@ export function TraspassPersonalSettingsPanel({
                     onChange={(e) => setNewRow({ ...newRow, text: e.target.value })}
                   />
                 </td>
-                <td>
-                  <select
-                    className={styles.select}
-                    value={newRow.centreId}
-                    onChange={(e) => setNewRow({ ...newRow, centreId: e.target.value })}
-                  >
-                    <option value="">Selecciona centre…</option>
-                    {centres.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.codi} · {c.nom}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    className={styles.select}
-                    value={newRow.departament}
-                    onChange={(e) => setNewRow({ ...newRow, departament: e.target.value as Dept })}
-                  >
-                    <option value="SALA">Sala</option>
-                    <option value="CUINA">Cuina</option>
-                  </select>
+                <td colSpan={3}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+                    <DestSelectors
+                      arbre={arbre}
+                      value={newRow}
+                      onChange={(next) => setNewRow({ ...newRow, ...next })}
+                      disabled={pending}
+                      ids={{ ln: "new-ln", centre: "new-centre", dept: "new-dept" }}
+                    />
+                  </div>
                 </td>
                 <td>
                   <Button
@@ -291,13 +412,16 @@ export function TraspassPersonalSettingsPanel({
                     disabled={pending || !newRow.text || !newRow.centreId}
                     onClick={() =>
                       startTransition(async () => {
-                        const r = await createMapeigAction(
-                          newRow.text,
-                          newRow.centreId,
-                          newRow.departament
-                        );
+                        const r = await createMapeigAction({
+                          text: newRow.text,
+                          liniaNegociId: newRow.lnId,
+                          centreId: newRow.centreId,
+                          departamentId: newRow.departamentId || null,
+                        });
                         notify(r);
-                        if (r.ok) setNewRow({ text: "", centreId: "", departament: "SALA" });
+                        if (r.ok) {
+                          setNewRow({ text: "", lnId: "", centreId: "", departamentId: "" });
+                        }
                       })
                     }
                   >
@@ -308,6 +432,12 @@ export function TraspassPersonalSettingsPanel({
             )}
           </tbody>
         </table>
+        {!mapeigs.length && (
+          <p className={styles.muted} style={{ marginTop: "0.75rem" }}>
+            Encara no hi ha mapeigs. Afegeix files amb LN → centre → departament, o importa un
+            Excel.
+          </p>
+        )}
       </section>
 
       {feedback && (

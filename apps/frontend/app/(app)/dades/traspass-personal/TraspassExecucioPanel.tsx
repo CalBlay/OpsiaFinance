@@ -5,6 +5,7 @@ import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { Button } from "@/components/ui/Button";
 import { traspassMovimentsToExportInforme } from "@/lib/export/dades";
+import { etiquetaDepartamentArbre } from "@/lib/traspass-personal/departament";
 import { formatNum } from "@/lib/utils";
 import { Check, Pencil, Trash2, X } from "lucide-react";
 import Link from "next/link";
@@ -18,6 +19,8 @@ import {
 } from "./actions";
 import styles from "./page.module.css";
 
+type DeptInfo = { id: string; codi: string; nom: string } | null;
+
 type Moviment = {
   id: string;
   minuts: number;
@@ -27,6 +30,8 @@ type Moviment = {
   departament: "SALA" | "CUINA";
   centreOrigen: { codi: string; nom: string };
   centreDesti: { codi: string; nom: string };
+  departamentOrigen?: DeptInfo;
+  departamentDesti?: DeptInfo;
 };
 
 type Alerta = {
@@ -89,13 +94,28 @@ export function TraspassExecucioPanel({
       .map(([value, label]) => ({ value, label }));
   }, [moviments]);
 
+  const deptOpts = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of moviments) {
+      const origen = etiquetaDepartamentArbre(m.departamentOrigen, m.departament);
+      const desti = etiquetaDepartamentArbre(m.departamentDesti);
+      map.set(origen, origen);
+      map.set(desti, desti);
+    }
+    return [...map.entries()]
+      .sort((a, b) => a[1].localeCompare(b[1], "ca"))
+      .map(([value, label]) => ({ value, label }));
+  }, [moviments]);
+
   const movimentsFiltrats = useMemo(() => {
     return moviments.filter((m) => {
-      if (filtreDept && m.departament !== filtreDept) return false;
+      const deptOrigen = etiquetaDepartamentArbre(m.departamentOrigen, m.departament);
+      const deptDesti = etiquetaDepartamentArbre(m.departamentDesti);
+      if (filtreDept && deptOrigen !== filtreDept && deptDesti !== filtreDept) return false;
       if (filtreOrigen && m.centreOrigen.codi !== filtreOrigen) return false;
       if (filtreDesti && m.centreDesti.codi !== filtreDesti) return false;
       return coincideixCerca(
-        `${m.centreOrigen.codi} ${m.centreOrigen.nom} ${m.centreDesti.codi} ${m.centreDesti.nom} ${m.departament}`,
+        `${m.centreOrigen.codi} ${m.centreOrigen.nom} ${deptOrigen} ${m.centreDesti.codi} ${m.centreDesti.nom} ${deptDesti}`,
         query
       );
     });
@@ -222,8 +242,10 @@ export function TraspassExecucioPanel({
             {feedback && <p className={styles.helpText}>{feedback}</p>}
             {canEdit && execucio.estat === "CONFIRMAT" && (
               <p className={styles.helpText}>
-                Confirmat: a Consultes → Cost salarial els imports de destí sumen a la partida
-                «Traspassos (hores destí)». Per editar, fes «Tornar a esborrany».
+                Confirmat: al compte d&apos;explotació el traspass s&apos;aplica per centre (un
+                moviment intern de departament es cancel·la). El detall per departament és
+                informatiu. A Consultes → Cost salarial els imports de destí sumen a «Traspassos
+                (hores destí)». Per editar, fes «Tornar a esborrany».
               </p>
             )}
             {canEdit && execucio.estat === "BORRADOR" && (
@@ -234,7 +256,7 @@ export function TraspassExecucioPanel({
               </p>
             )}
             {execucio.moviments.length === 0 ? (
-              <p className={styles.muted}>Cap traspass entre centres diferents.</p>
+              <p className={styles.muted}>Cap traspass entre centres o departaments diferents.</p>
             ) : (
               <>
                 <DadesFilterBar
@@ -248,10 +270,7 @@ export function TraspassExecucioPanel({
                       onChange: setFiltreDept,
                       allLabel: "Tots els departaments",
                       "aria-label": "Filtrar per departament",
-                      options: [
-                        { value: "SALA", label: "Sala" },
-                        { value: "CUINA", label: "Cuina" },
-                      ],
+                      options: deptOpts,
                     },
                     {
                       id: "origen",
@@ -283,8 +302,9 @@ export function TraspassExecucioPanel({
                     <thead>
                       <tr>
                         <th>Origen</th>
+                        <th>Dept. origen</th>
                         <th>Destí</th>
-                        <th>Dept.</th>
+                        <th>Dept. destí</th>
                         <th className={styles.num}>Minuts</th>
                         <th className={styles.num}>Hores</th>
                         <th className={styles.num}>Tarifa</th>
@@ -298,10 +318,11 @@ export function TraspassExecucioPanel({
                           <td>
                             {m.centreOrigen.codi} · {m.centreOrigen.nom}
                           </td>
+                          <td>{etiquetaDepartamentArbre(m.departamentOrigen, m.departament)}</td>
                           <td>
                             {m.centreDesti.codi} · {m.centreDesti.nom}
                           </td>
-                          <td>{m.departament === "CUINA" ? "Cuina" : "Sala"}</td>
+                          <td>{etiquetaDepartamentArbre(m.departamentDesti)}</td>
                           {editId === m.id ? (
                             <>
                               <td className={styles.num}>

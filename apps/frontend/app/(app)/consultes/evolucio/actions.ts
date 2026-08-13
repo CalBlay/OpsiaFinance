@@ -5,7 +5,7 @@ import {
   type ConceptePivot,
   type EvolucioMensual,
   aplicarConsolidacioInterEvolucioEmpresa,
-  getEvolucioMensual,
+  getEvolucioMensualPerVista,
 } from "@/lib/consultes";
 import { slimConceptsForPaint } from "@/lib/consultes-slim";
 import {
@@ -22,7 +22,6 @@ import { type InfoGestioConsulta, getInfoGestioConsulta } from "@/lib/repartimen
 import {
   type VistaCompte,
   parseVistaCompte,
-  vistaInclouAjustos,
   vistaInclouRepartiment,
   vistaInclouTraspassos,
 } from "@/lib/vista-compte";
@@ -37,9 +36,13 @@ async function evolucioAmbVista(input: {
   const vista = parseVistaCompte(input.vista, {
     permetCapesGestio: grupPermetVistaGestio(input.grup),
   });
-  const evRaw = await getEvolucioMensual(input.scope, input.lnId, input.any, input.grup, {
-    inclouAjustos: vistaInclouAjustos(vista),
-  });
+  const evRaw = await getEvolucioMensualPerVista(
+    input.scope,
+    input.lnId,
+    input.any,
+    input.grup,
+    vista
+  );
   if (!evRaw) return null;
 
   if (!vistaInclouTraspassos(vista) && !vistaInclouRepartiment(vista)) return evRaw;
@@ -109,4 +112,17 @@ export async function carregarEvolucioPivotAction(input: {
   });
   const ev = await evolucioAmbVista({ ...input, vista });
   return ev?.concepts ?? [];
+}
+
+/** Capa SAP / Ajustos / Directe / … en diferit (KPIs slim). */
+export async function carregarEvolucioCapaAction(input: {
+  scope: AmbitEvolucio;
+  lnId: string | null;
+  any: number;
+  grup: GrupEmpresa;
+  vista: VistaCompte;
+}): Promise<EvolucioMensual | null> {
+  if (input.scope === "linia" && !input.lnId) return null;
+  const ev = await evolucioAmbVista(input);
+  return ev ? { ...ev, concepts: slimConceptsForPaint(ev.concepts) } : null;
 }

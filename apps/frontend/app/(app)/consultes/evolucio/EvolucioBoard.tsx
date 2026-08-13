@@ -23,12 +23,16 @@ import { OPSIA_CHART } from "@/lib/opsia-colors";
 import { MESOS_CURTS } from "@/lib/periodes";
 import type { InfoGestioConsulta } from "@/lib/repartiment/service";
 import type { VistaCompte } from "@/lib/vista-compte";
-import { etiquetaVistaCompte, vistaInclouTraspassos } from "@/lib/vista-compte";
+import { etiquetaVistaCompte } from "@/lib/vista-compte";
 import { replaceVistaQuery } from "@/lib/vista-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { EvolucioSelectors } from "./EvolucioSelectors";
-import { carregarEvolucioGestioAction, carregarEvolucioPivotAction } from "./actions";
+import {
+  carregarEvolucioCapaAction,
+  carregarEvolucioGestioAction,
+  carregarEvolucioPivotAction,
+} from "./actions";
 
 type LnOpt = { id: string; codi: string; nom: string };
 
@@ -78,23 +82,53 @@ export function EvolucioBoard({
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
   const [gestio, setGestio] = useState<EvolucioMensual | null>(gestioInicial);
   const [infoGestio, setInfoGestio] = useState<InfoGestioConsulta | null>(infoGestioInicial);
+  const [capes, setCapes] = useState<Partial<Record<VistaCompte, EvolucioMensual>>>(() => ({
+    ...(directe ? { [vistaInicial]: directe } : {}),
+    ...(gestioInicial ? { gestio: gestioInicial, traspassos: gestioInicial } : {}),
+  }));
+  const [capaLoading, setCapaLoading] = useState(false);
   const pivotScopeKey = `${scope}:${lnId ?? ""}:${anyActual}:${grup}`;
-  const [pivotScope, setPivotScope] = useState(pivotScopeKey);
-  const [pivotByVista, setPivotByVista] = useState<Partial<Record<VistaCompte, ConceptePivot[]>>>(
-    {}
-  );
+  /** Cache lligada a l'àmbit: evita mostrar files de la LN anterior mentre React aplica el clear. */
+  const [pivotCache, setPivotCache] = useState<{
+    key: string;
+    byVista: Partial<Record<VistaCompte, ConceptePivot[]>>;
+  }>({ key: pivotScopeKey, byVista: {} });
   const [pivotLoading, setPivotLoading] = useState(false);
-  const pivotRef = useRef(pivotByVista);
-  pivotRef.current = pivotByVista;
+  const pivotLoadGen = useRef(0);
+  /** Si el compte ja s'havia obert, en canviar de LN el tornem a obrir i recarreguem. */
+  const detallObertRef = useRef(false);
 
-  if (pivotScope !== pivotScopeKey) {
-    setPivotScope(pivotScopeKey);
-    setPivotByVista({});
-  }
+  const pivotByVista = pivotCache.key === pivotScopeKey ? pivotCache.byVista : {};
+  const pivotRef = useRef({ key: pivotScopeKey, byVista: pivotByVista });
+  pivotRef.current = { key: pivotScopeKey, byVista: pivotByVista };
 
   useEffect(() => {
     setVista(vistaInicial);
-  }, [vistaInicial]);
+    setCapes({
+      ...(directe ? { [vistaInicial]: directe } : {}),
+      ...(gestioInicial ? { gestio: gestioInicial, traspassos: gestioInicial } : {}),
+    });
+    const recarregarPivot = Object.values(pivotRef.current.byVista).some((rows) => !!rows?.length);
+    const scopeKey = `${scope}:${lnId ?? ""}:${anyActual}:${grup}`;
+    setPivotCache({ key: scopeKey, byVista: {} });
+    if (!recarregarPivot) return;
+    let cancelled = false;
+    setPivotLoading(true);
+    void carregarEvolucioPivotAction({
+      scope,
+      lnId,
+      any: anyActual,
+      grup,
+      vista: vistaInicial,
+    }).then((rows) => {
+      if (cancelled) return;
+      setPivotCache({ key: scopeKey, byVista: { [vistaInicial]: rows } });
+      setPivotLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [vistaInicial, directe, gestioInicial, scope, lnId, anyActual, grup]);
 
   useEffect(() => {
     setGestio(gestioInicial);
@@ -111,6 +145,7 @@ export function EvolucioBoard({
     carregarEvolucioGestioAction({ scope, lnId, any: anyActual, grup }).then((data) => {
       if (cancelled || !data) return;
       setGestio(data.gestio);
+      setCapes((prev) => ({ ...prev, gestio: data.gestio, traspassos: data.gestio }));
       setInfoGestio(data.infoGestio);
     });
     return () => {
@@ -118,10 +153,10 @@ export function EvolucioBoard({
     };
   }, [potCarregarGestio, gestio, scope, lnId, anyActual, grup]);
 
-  const ev = vistaInclouTraspassos(vista) && gestio ? gestio : directe;
+  const ev = capes[vista] ?? null;
   const pivotRows = pivotByVista[vista] ?? null;
   const rowsTaula = pivotRows ?? [];
-  const canEdit = isAdmin && vista === "directe" && scope === "linia";
+  const canEdit = isAdmin && vista === "directe" && scope === "linia" && !!lnId;
   const vistaLabel = etiquetaVistaCompte(vista);
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
   const kpis = useMemo(() => buildKpis(ev, scope), [ev, scope]);
@@ -147,7 +182,9 @@ export function EvolucioBoard({
   }, [ev]);
 
   const ensurePivot = useCallback(async () => {
-    if (pivotRef.current[vista]?.length) return;
+    const scopeKey = `${scope}:${lnId ?? ""}:${anyActual}:${grup}`;
+    if (pivotRef.current.key === scopeKey && pivotRef.current.byVista[vista]?.length) return;
+    const gen = ++pivotLoadGen.current;
     setPivotLoading(true);
     try {
       const rows = await carregarEvolucioPivotAction({
@@ -157,22 +194,35 @@ export function EvolucioBoard({
         grup,
         vista,
       });
-      setPivotByVista((prev) => ({ ...prev, [vista]: rows }));
+      if (gen !== pivotLoadGen.current) return;
+      setPivotCache((prev) => {
+        if (prev.key !== scopeKey) return { key: scopeKey, byVista: { [vista]: rows } };
+        return { key: scopeKey, byVista: { ...prev.byVista, [vista]: rows } };
+      });
     } finally {
-      setPivotLoading(false);
+      if (gen === pivotLoadGen.current) setPivotLoading(false);
     }
   }, [anyActual, grup, lnId, scope, vista]);
 
-  const onVistaLocal =
-    potGestio && gestio
-      ? (next: VistaCompte) => {
-          // Només toggle local Directe ↔ Gestió (mateixa capa carregada).
-          if (next !== "directe" && next !== "gestio") return false;
-          setVista(next);
-          replaceVistaQuery(next);
-          return true;
-        }
-      : undefined;
+  const openPivot = useCallback(() => {
+    detallObertRef.current = true;
+    return ensurePivot();
+  }, [ensurePivot]);
+
+  const onVistaLocal = (next: VistaCompte) => {
+    if ((next === "traspassos" || next === "gestio") && !potGestio) return false;
+    setVista(next);
+    replaceVistaQuery(next);
+    if (capes[next]) return true;
+    setCapaLoading(true);
+    void carregarEvolucioCapaAction({ scope, lnId, any: anyActual, grup, vista: next }).then(
+      (data) => {
+        setCapaLoading(false);
+        if (data) setCapes((prev) => ({ ...prev, [next]: data }));
+      }
+    );
+    return true;
+  };
 
   const necessitaLn = scope === "linia" && !lnId;
   const exportRows = pivotRows ?? [];
@@ -222,6 +272,11 @@ export function EvolucioBoard({
           <h3>Selecciona una línia de negoci</h3>
           <p>Tria la línia que vols analitzar mes a mes, o canvia l&apos;àmbit a Empresa.</p>
         </div>
+      ) : !ev && capaLoading ? (
+        <div className={styles.prompt}>
+          <h3>Carregant…</h3>
+          <p>Preparant la vista {vistaLabel}.</p>
+        </div>
       ) : ev?.buit ? (
         <div className={styles.prompt}>
           <h3>Sense dades per {anyActual}</h3>
@@ -238,8 +293,10 @@ export function EvolucioBoard({
           </div>
 
           <DetallCompteCollapsible
-            onFirstOpen={ensurePivot}
-            onOpen={ensurePivot}
+            key={`${pivotScopeKey}:${vista}`}
+            defaultOpen={detallObertRef.current || vista === "ajustos"}
+            onFirstOpen={openPivot}
+            onOpen={openPivot}
             loading={pivotLoading && !pivotRows?.length}
           >
             <PivotTableDrilldown

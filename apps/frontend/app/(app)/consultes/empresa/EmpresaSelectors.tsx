@@ -7,11 +7,14 @@ import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { type GrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { type RangMesos, rangToQuery } from "@/lib/periodes";
-import { VISTA_COMPTE_CADENA, type VistaCompte, parseVistaCompte } from "@/lib/vista-compte";
+import {
+  VISTA_COMPTE_CADENA,
+  VISTA_COMPTE_SENSE_GESTIO,
+  type VistaCompte,
+  parseVistaCompte,
+} from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-
-const VISTA_SAP_DIRECTE: VistaCompte[] = ["sap", "directe"];
 
 export function EmpresaSelectors({
   anys,
@@ -35,7 +38,7 @@ export function EmpresaSelectors({
   const yearSelectId = "empresa-year";
   const viewSelectId = "empresa-view";
   const mostraCapesGestio = grupPermetVistaGestio(grup);
-  const opcions = mostraCapesGestio ? VISTA_COMPTE_CADENA : VISTA_SAP_DIRECTE;
+  const opcions = mostraCapesGestio ? VISTA_COMPTE_CADENA : VISTA_COMPTE_SENSE_GESTIO;
 
   const [localAny, setLocalAny] = useState(any);
   const [localRang, setLocalRang] = useState(rang);

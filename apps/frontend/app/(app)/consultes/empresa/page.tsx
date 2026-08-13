@@ -7,6 +7,7 @@ import {
   getComparativaEmpresaParell,
   getEvolucioMensual,
   parseRangMesosFromSearchParams,
+  restarConceptesPivot,
 } from "@/lib/consultes";
 import { sensePivotRows } from "@/lib/consultes-slim";
 import { aplicarBaseGestioPersonalEvolucioEmpresa } from "@/lib/cost-personal-centre/gestio-consultes";
@@ -54,13 +55,20 @@ export default async function ConsultaEmpresaPage({
 
   const [evEmpresaRaw, evEmpresaSap, infoGestio] = await Promise.all([
     getEvolucioMensual("empresa", null, anyActual, grup, { inclouAjustos: true }),
-    vista === "sap" || carregaCapesEager
+    vista === "sap" || vista === "ajustos" || carregaCapesEager
       ? getEvolucioMensual("empresa", null, anyActual, grup, { inclouAjustos: false })
       : Promise.resolve(null),
     vistaInclouRepartiment(vista) ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
   async function evPerVista(v: VistaCompte) {
+    if (v === "ajustos") {
+      if (!evEmpresaRaw || !evEmpresaSap) return evEmpresaRaw;
+      return {
+        ...evEmpresaRaw,
+        concepts: restarConceptesPivot(evEmpresaRaw.concepts, evEmpresaSap.concepts),
+      };
+    }
     const base = v === "sap" ? (evEmpresaSap ?? evEmpresaRaw) : evEmpresaRaw;
     if (!base) return null;
     if (!vistaInclouTraspassos(v) && !vistaInclouRepartiment(v)) return base;
@@ -112,6 +120,15 @@ export default async function ConsultaEmpresaPage({
       evPerVista("gestio"),
     ]);
     capes.sap = build("sap", parell.sap, evSap, null);
+    capes.ajustos = build(
+      "ajustos",
+      {
+        ...parell.directe,
+        concepts: restarConceptesPivot(parell.directe.concepts, parell.sap.concepts),
+      },
+      await evPerVista("ajustos"),
+      null
+    );
     capes.directe = build("directe", parell.directe, evDirecte, null);
     if (parell.traspassos) {
       capes.traspassos = build("traspassos", parell.traspassos, evTraspassos, null);

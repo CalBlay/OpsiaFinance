@@ -1,7 +1,7 @@
 import { esSubtotalPresentacio, recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import { construirParellsInterEmpresaLn } from "@/lib/consolidacio/parells";
 import { aplicarConsolidacio } from "@/lib/consolidacio/service";
-import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { etiquetaCentre, etiquetaLiniaNegoci, ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { db } from "@/lib/db";
 import { FDLC_LN_CODI } from "@/lib/fdlc/constants";
@@ -42,6 +42,7 @@ import {
   vistaInclouAjustos,
   vistaInclouRepartiment,
   vistaInclouTraspassos,
+  vistaNomesAjustos,
 } from "@/lib/vista-compte";
 import type { Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
@@ -64,6 +65,7 @@ export {
   vistaInclouAjustos,
   vistaInclouRepartiment,
   vistaInclouTraspassos,
+  vistaNomesAjustos,
 } from "@/lib/vista-compte";
 
 async function consolidarSiEmpresaAsync(
@@ -143,7 +145,7 @@ export const getAnysAmbDades = cache(async (): Promise<number[]> => {
       });
       return periods.map((p) => p.any);
     },
-    ["consultes-anys-amb-dades"],
+    consultesCacheKey("consultes-anys-amb-dades"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 });
@@ -192,7 +194,7 @@ export const getDarrerPeriodAmbDades = cache(
         });
         return dada?.period ?? null;
       },
-      ["consultes-darrer-period", grup],
+      consultesCacheKey("consultes-darrer-period", grup),
       { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
     )()
 );
@@ -220,7 +222,7 @@ export const getArbreSeleccio = cache(async () => {
         }))
       );
     },
-    ["consultes-arbre-seleccio"],
+    consultesCacheKey("consultes-arbre-seleccio"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 });
@@ -310,7 +312,7 @@ const getCompteExplotacioCentreBase = cache(
   async (centreId: string, any: number, inclouAjustos: boolean): Promise<CompteExplotacioCentre> =>
     unstable_cache(
       () => computeCompteExplotacioCentreBase(centreId, any, inclouAjustos),
-      ["consultes-centre-base", centreId, String(any), inclouAjustos ? "1" : "0"],
+      consultesCacheKey("consultes-centre-base", centreId, String(any), inclouAjustos ? "1" : "0"),
       { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
     )()
 );
@@ -336,6 +338,13 @@ export async function getCompteExplotacioCentre(
   any: number,
   vista: VistaCompte = "directe"
 ): Promise<CompteExplotacioCentre> {
+  if (vistaNomesAjustos(vista)) {
+    const [sap, directe] = await Promise.all([
+      getCompteExplotacioCentreBase(centreId, any, false),
+      getCompteExplotacioCentreBase(centreId, any, true),
+    ]);
+    return { ...directe, concepts: restarConceptesPivot(directe.concepts, sap.concepts) };
+  }
   const base = await getCompteExplotacioCentreBase(centreId, any, vistaInclouAjustos(vista));
   // Al centre, Gestió = Directe + traspassos (sense repartiment a columnes mes).
   if (!vistaInclouTraspassos(vista)) return base;
@@ -348,6 +357,7 @@ export async function getCompteExplotacioCentreParell(
   any: number
 ): Promise<{
   sap: CompteExplotacioCentre;
+  ajustos: CompteExplotacioCentre;
   directe: CompteExplotacioCentre;
   traspassos: CompteExplotacioCentre;
   gestio: CompteExplotacioCentre;
@@ -359,6 +369,7 @@ export async function getCompteExplotacioCentreParell(
   const ambTraspass = await aplicarTraspassosCentre(centreId, any, directe);
   return {
     sap,
+    ajustos: { ...directe, concepts: restarConceptesPivot(directe.concepts, sap.concepts) },
     directe,
     traspassos: ambTraspass,
     gestio: ambTraspass,
@@ -375,9 +386,23 @@ export async function getComparativaLn(
   rang: RangMesos,
   vista: VistaCompte = "directe"
 ): Promise<ComparativaLn> {
+  if (vistaNomesAjustos(vista)) {
+    const [sap, directe] = await Promise.all([
+      getComparativaLn(liniaNegociId, any, rang, "sap"),
+      getComparativaLn(liniaNegociId, any, rang, "directe"),
+    ]);
+    return { ...directe, concepts: restarConceptesPivot(directe.concepts, sap.concepts) };
+  }
   return unstable_cache(
     () => computeComparativaLn(liniaNegociId, any, rang, vista),
-    ["consultes-cmp-ln-v1", liniaNegociId, String(any), String(rang.des), String(rang.fins), vista],
+    consultesCacheKey(
+      "consultes-cmp-ln-v1",
+      liniaNegociId,
+      String(any),
+      String(rang.des),
+      String(rang.fins),
+      vista
+    ),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -541,7 +566,7 @@ const getConceptsActius = cache(async () => {
         orderBy: { ordre: "asc" },
         select: { id: true, node: true, descripcio: true, esSubtotal: true },
       }),
-    ["consultes-concepts-actius"],
+    consultesCacheKey("consultes-concepts-actius"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 });
@@ -686,6 +711,19 @@ function cloneConceptePivot(rows: ConceptePivot[]): ConceptePivot[] {
   return rows.map((r) => ({ ...r, valors: [...r.valors] }));
 }
 
+/** Directe − SAP: mateixa estructura del compte, només la capa d’ajustos. */
+export function restarConceptesPivot(
+  directe: ConceptePivot[],
+  sap: ConceptePivot[]
+): ConceptePivot[] {
+  const byNode = new Map(sap.map((r) => [r.node, r]));
+  return directe.map((r) => {
+    const altre = byNode.get(r.node);
+    const valors = r.valors.map((v, i) => v - (altre?.valors[i] ?? 0));
+    return { ...r, valors, total: valors.reduce((s, x) => s + x, 0) };
+  });
+}
+
 async function aplicarConsolidacioTotalsLn(
   conceptRows: ConceptePivot[],
   grup: GrupEmpresa,
@@ -735,6 +773,7 @@ async function aplicarConsolidacioTotalsLn(
  * Base SAP[+ajustos] (sense capa Gestió).
  * - Cache per petició (React cache): les capes reutilitzen l'agregació.
  * - Cache cross-request (`unstable_cache`): canviar de pestanya no torna a escanejar la BD.
+ *   Es buida de cop en mutar dades (`revalidateConsultesDades` canvia l'epoch de la clau).
  * - Any complet: comparteix `carregarDadesEmpresaPerAny` amb Evolució.
  * - Rang parcial (p.ex. Inici = 1 mes): només carrega aquell període.
  */
@@ -813,14 +852,14 @@ const getComparativaEmpresaBase = cache(
   ): Promise<ComparativaEmpresa & { conceptDefs: ConcepteBase[] }> =>
     unstable_cache(
       () => computeComparativaEmpresaBase(any, des, fins, grup, inclouAjustos),
-      [
+      consultesCacheKey(
         "consultes-cmp-empresa-base-v3",
         String(any),
         String(des),
         String(fins),
         grup,
-        inclouAjustos ? "1" : "0",
-      ],
+        inclouAjustos ? "1" : "0"
+      ),
       { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
     )()
 );
@@ -905,6 +944,14 @@ export async function getComparativaEmpresa(
   const potGestio = grupPermetVistaGestio(grup);
   const vistaEfectiva =
     potGestio || !vistaRequereixGestioSafe(vista) ? vista : ("directe" as VistaCompte);
+
+  if (vistaNomesAjustos(vistaEfectiva)) {
+    const [sap, directe] = await Promise.all([
+      getComparativaEmpresa(any, rang, "sap", grup),
+      getComparativaEmpresa(any, rang, "directe", grup),
+    ]);
+    return { ...directe, concepts: restarConceptesPivot(directe.concepts, sap.concepts) };
+  }
 
   const base = await getComparativaEmpresaBase(
     any,
@@ -1068,6 +1115,26 @@ export async function getEvolucioMensual(
   return getEvolucioMensualEmpresa(any, grup, inclouAjustos);
 }
 
+/** Evolució mensual segons la vista del C.Explotació (inclou capa només-ajustos). */
+export async function getEvolucioMensualPerVista(
+  scope: AmbitEvolucio,
+  liniaNegociId: string | null,
+  any: number,
+  grup: GrupEmpresa,
+  vista: VistaCompte
+): Promise<EvolucioMensual> {
+  if (vistaNomesAjustos(vista)) {
+    const [directe, sap] = await Promise.all([
+      getEvolucioMensual(scope, liniaNegociId, any, grup, { inclouAjustos: true }),
+      getEvolucioMensual(scope, liniaNegociId, any, grup, { inclouAjustos: false }),
+    ]);
+    return { ...directe, concepts: restarConceptesPivot(directe.concepts, sap.concepts) };
+  }
+  return getEvolucioMensual(scope, liniaNegociId, any, grup, {
+    inclouAjustos: vistaInclouAjustos(vista),
+  });
+}
+
 /**
  * Aplica normes inter-empresa (lloguer, factures IC) sobre una evolució ja amb capa Gestió.
  * Respecta imports mensuals (1–12). Només té efecte amb grup Consolidat.
@@ -1170,7 +1237,12 @@ const getEvolucioMensualEmpresa = cache(
           buit: dades.length === 0 && ajustosUse.length === 0,
         };
       },
-      ["consultes-evolucio-empresa-v3", String(any), grup, inclouAjustos ? "1" : "0"],
+      consultesCacheKey(
+        "consultes-evolucio-empresa-v3",
+        String(any),
+        grup,
+        inclouAjustos ? "1" : "0"
+      ),
       { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
     )()
 );
@@ -1221,7 +1293,12 @@ const getEvolucioMensualLn = cache(
           buit: dades.length === 0 && ajustosAll.length === 0,
         };
       },
-      ["consultes-evolucio-ln-v2", liniaNegociId, String(any), inclouAjustos ? "1" : "0"],
+      consultesCacheKey(
+        "consultes-evolucio-ln-v2",
+        liniaNegociId,
+        String(any),
+        inclouAjustos ? "1" : "0"
+      ),
       { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
     )()
 );
@@ -1553,7 +1630,7 @@ export async function getComparativaMensualEntreAnys(
         periodeDesc: `Comparació mensual · ${anysFinals.join(" vs ")}`,
       };
     },
-    ["consultes-cmp-mensual-anys", scope, id ?? "", anysKey, grup, vistaEfectiva],
+    consultesCacheKey("consultes-cmp-mensual-anys", scope, id ?? "", anysKey, grup, vistaEfectiva),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -1719,7 +1796,7 @@ export async function getComparativaTemporal(
         periodeDesc: "Acumulat anual per exercici",
       };
     },
-    cacheKey,
+    consultesCacheKey(...cacheKey),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -1872,17 +1949,19 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
       });
 
   const items: DetallCellaItem[] = [
-    ...dades.map((d) => ({
-      origen: "dada" as const,
-      import_: Number(d.import_),
-      centreCodi: d.centre?.codi ?? null,
-      centreNom: d.centre?.nom ?? null,
-      liniaCodi: d.liniaNegoci?.codi ?? null,
-      liniaNom: d.liniaNegoci?.nom ?? null,
-      mes: d.period.mes,
-      any: d.period.any,
-      motiu: null,
-    })),
+    ...(vistaNomesAjustos(vistaEfectiva)
+      ? []
+      : dades.map((d) => ({
+          origen: "dada" as const,
+          import_: Number(d.import_),
+          centreCodi: d.centre?.codi ?? null,
+          centreNom: d.centre?.nom ?? null,
+          liniaCodi: d.liniaNegoci?.codi ?? null,
+          liniaNom: d.liniaNegoci?.nom ?? null,
+          mes: d.period.mes,
+          any: d.period.any,
+          motiu: null,
+        }))),
     ...ajustos.map((a) => ({
       origen: "ajust" as const,
       import_: Number(a.import_),
@@ -2076,7 +2155,9 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     }
   }
 
-  const totalDades = dades.reduce((s, d) => s + Number(d.import_), 0);
+  const totalDades = vistaNomesAjustos(vistaEfectiva)
+    ? 0
+    : dades.reduce((s, d) => s + Number(d.import_), 0);
   const totalAjustos = ajustos.reduce((s, a) => s + Number(a.import_), 0);
 
   let totalTraspass = 0;

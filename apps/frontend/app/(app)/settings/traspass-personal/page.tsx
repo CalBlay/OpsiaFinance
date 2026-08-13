@@ -13,15 +13,44 @@ export default async function TraspassPersonalSettingsPage() {
 
   const tarifaHora = await ensureConfigTraspassPersonal();
 
-  const [mapeigs, centres] = await Promise.all([
+  const [mapeigs, arbre] = await Promise.all([
     db.mapeigTextCentreTreball.findMany({
       orderBy: { text: "asc" },
-      include: { centre: { select: { id: true, codi: true, nom: true } } },
+      include: {
+        centre: {
+          select: {
+            id: true,
+            codi: true,
+            nom: true,
+            liniaNegociId: true,
+            liniaNegoci: { select: { id: true, codi: true, nom: true } },
+          },
+        },
+        departamentArbre: { select: { id: true, codi: true, nom: true } },
+      },
     }),
-    db.centre.findMany({
+    db.liniaNegoci.findMany({
       where: { isActive: true },
-      orderBy: [{ liniaNegoci: { ordre: "asc" } }, { codi: "asc" }],
-      select: { id: true, codi: true, nom: true },
+      orderBy: { ordre: "asc" },
+      select: {
+        id: true,
+        codi: true,
+        nom: true,
+        centres: {
+          where: { isActive: true },
+          orderBy: { ordre: "asc" },
+          select: {
+            id: true,
+            codi: true,
+            nom: true,
+            departaments: {
+              where: { isActive: true },
+              orderBy: { ordre: "asc" },
+              select: { id: true, codi: true, nom: true },
+            },
+          },
+        },
+      },
     }),
   ]);
 
@@ -30,9 +59,8 @@ export default async function TraspassPersonalSettingsPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>Traspassos de personal</h1>
         <p className={styles.subtitle}>
-          Tarifa hora i mapeig text → centre + departament (Sala/Cuina). Cada text ha de coincidir
-          amb Organizaciones o Proyecto (text sencer o part abans de la coma). Importa l&apos;excel
-          o edita manualment.
+          Tarifa hora i mapeig text → LN → centre → departament (arbre de dimensions). Cada text ha
+          de coincidir amb Organizaciones o Proyecto (text sencer o part abans de la coma).
         </p>
       </header>
       <TraspassPersonalSettingsPanel
@@ -44,8 +72,9 @@ export default async function TraspassPersonalSettingsPage() {
             text: m.text,
             departament: m.departament as "SALA" | "CUINA",
             centre: m.centre,
+            departamentArbre: m.departamentArbre,
           }))}
-        centres={centres}
+        arbre={arbre}
         canEdit={canEdit}
       />
     </div>

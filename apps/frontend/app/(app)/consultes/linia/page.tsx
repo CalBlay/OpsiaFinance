@@ -17,6 +17,7 @@ import {
   getArbreSeleccio,
   getComparativaEmpresa,
   getEvolucioMensual,
+  getEvolucioMensualPerVista,
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
@@ -125,7 +126,7 @@ export default async function ConsultaLiniaPage({
   if (!lnId) {
     const [comp, evEmpresa] = await Promise.all([
       getComparativaEmpresa(anyActual, rang, vista, grup),
-      getEvolucioMensual("empresa", null, anyActual, grup),
+      getEvolucioMensualPerVista("empresa", null, anyActual, grup, vista),
     ]);
 
     const findRow = (node: number) => comp.concepts.find((c) => c.node === node);
@@ -249,7 +250,7 @@ export default async function ConsultaLiniaPage({
 
   // Detall d'una línia concreta.
   const [evRaw, infoGestio] = await Promise.all([
-    getEvolucioMensual("linia", lnId, anyActual),
+    getEvolucioMensualPerVista("linia", lnId, anyActual, grup, vista),
     vistaInclouRepartiment(vista) ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
@@ -410,7 +411,8 @@ export default async function ConsultaLiniaPage({
    * Personal SC:
    * - Pool = TOTAL COST SALARIAL visible de Central (13–16).
    * - Assignacions explícites per departament a 00/01/04/05/06.
-   * - Sobrant a 02/03 segons vendes mensuals (o pes configurat sense vendes).
+   * - Sobrant a 02/03: 50% a parts iguals + 50% segons vendes mensuals
+   *   (o pes configurat sense vendes).
    */
   if (ev && vistaInclouRepartiment(vista)) {
     const [lnsPersonal, configPersonal] = await Promise.all([

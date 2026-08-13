@@ -92,12 +92,25 @@ export function CentreBoard({
   }, [vistaInicial]);
 
   useEffect(() => {
+    const recarregarPivot = Object.values(pivotRef.current).some((rows) => !!rows?.length);
     setCapes(capesInicials);
-  }, [capesInicials]);
+    setPivotByVista({});
+    if (!recarregarPivot || !centreId) return;
+    let cancelled = false;
+    setPivotLoading(true);
+    void carregarCentrePivotAction(centreId, anyActual, vista).then((rows) => {
+      if (cancelled) return;
+      setPivotByVista({ [vista]: rows });
+      setPivotLoading(false);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [capesInicials, centreId, anyActual, vista]);
 
   useEffect(() => {
     if (!potCarregarCapes || !centreId) return;
-    const pending = (["sap", "directe", "traspassos", "gestio"] as VistaCompte[]).filter(
+    const pending = (["sap", "ajustos", "directe", "traspassos", "gestio"] as VistaCompte[]).filter(
       (v) => !capes[v]
     );
     if (!pending.length) return;

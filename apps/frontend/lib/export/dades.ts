@@ -1,5 +1,6 @@
 import type { CarregaFitxerLlistaItem } from "@/lib/carrega-fitxer";
 import type { ImportCercaItem } from "@/lib/import-search";
+import { etiquetaDepartamentArbre } from "@/lib/traspass-personal/departament";
 import type { ResumTraspassPersonal } from "@/lib/traspass-personal/resum";
 import { slugFilename } from "./filename";
 import type { ExportColumn, ExportInforme, ExportRow } from "./types";
@@ -288,12 +289,15 @@ export function traspassMovimentsToExportInforme(
     departament?: "SALA" | "CUINA";
     centreOrigen: { codi: string; nom: string };
     centreDesti: { codi: string; nom: string };
+    departamentOrigen?: { codi: string; nom: string } | null;
+    departamentDesti?: { codi: string; nom: string } | null;
   }[],
   opts: { periodNom: string; estat?: string; nomFitxer?: string | null }
 ): ExportInforme {
   const columns: ExportColumn[] = [
+    { key: "deptOrigen", label: "Dept. origen" },
     { key: "desti", label: "Destí" },
-    { key: "dept", label: "Departament" },
+    { key: "deptDesti", label: "Dept. destí" },
     { key: "minuts", label: "Minuts" },
     { key: "hores", label: "Hores" },
     { key: "tarifa", label: "Tarifa €" },
@@ -303,8 +307,9 @@ export function traspassMovimentsToExportInforme(
   const rows: ExportRow[] = moviments.map((m) => ({
     descripcio: `${m.centreOrigen.codi} · ${m.centreOrigen.nom}`,
     valors: [
+      etiquetaDepartamentArbre(m.departamentOrigen, m.departament),
       `${m.centreDesti.codi} · ${m.centreDesti.nom}`,
-      m.departament === "CUINA" ? "Cuina" : "Sala",
+      etiquetaDepartamentArbre(m.departamentDesti),
       m.minuts ?? Math.round(m.hores * 60 * 100) / 100,
       m.hores,
       m.tarifaHora,
@@ -335,8 +340,10 @@ export function traspassResumToExportInforme(resum: ResumTraspassPersonal): Expo
   const columns: ExportColumn[] = [
     { key: "mes", label: "Mes" },
     { key: "origen", label: "Origen" },
+    { key: "origenDept", label: "Dept. origen" },
     { key: "origenLn", label: "LN origen" },
     { key: "desti", label: "Destí" },
+    { key: "destiDept", label: "Dept. destí" },
     { key: "destiLn", label: "LN destí" },
     { key: "minuts", label: "Minuts" },
     { key: "hores", label: "Hores" },
@@ -348,8 +355,10 @@ export function traspassResumToExportInforme(resum: ResumTraspassPersonal): Expo
     valors: [
       f.mes,
       `${f.origenCodi} · ${f.origenNom}`,
+      f.origenDept,
       `${f.origenLnCodi} · ${f.origenLnNom}`,
       `${f.destiCodi} · ${f.destiNom}`,
+      f.destiDept,
       `${f.destiLnCodi} · ${f.destiLnNom}`,
       f.minuts,
       f.hores,

@@ -2,10 +2,12 @@
  * Motor de càlcul de traspassos.
  *
  * Per cada fila Excel:
- *   Organizaciones → mapeig → centre origen + dept (SALA/CUINA)
- *   Proyecto       → mapeig → centre destí
+ *   Organizaciones → mapeig → centre origen + dept (arbre i/o SALA/CUINA)
+ *   Proyecto       → mapeig → centre destí + dept
  *   Minutos        → quantitat
- * Després agrega: origen × destí × dept.
+ * Després agrega: origen (centre×dept) × destí (centre×dept).
+ * El C.Explotació s'aplica per centre; el dept és informatiu (i permet
+ * veure traspassos interns del mateix centre entre departaments).
  */
 
 import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
@@ -36,6 +38,12 @@ export type MovimentTraspassCalculat = {
   destiCodi: string;
   destiNom: string;
   departament: DepartamentSalarial;
+  departamentOrigenId: string | null;
+  departamentDestiId: string | null;
+  origenDeptCodi: string | null;
+  origenDeptNom: string | null;
+  destiDeptCodi: string | null;
+  destiDeptNom: string | null;
   minuts: number;
   hores: number;
   tarifaHora: number;
@@ -56,6 +64,14 @@ export type ResultatMotorTraspass = {
   filesProcessades: number;
   filesIgnoradesMateixCentre: number;
 };
+
+function clauDept(m: MapeigCentre): string {
+  return m.departamentId ?? "";
+}
+
+function mateixDestiTraspass(origen: MapeigCentre, desti: MapeigCentre): boolean {
+  return origen.centreId === desti.centreId && clauDept(origen) === clauDept(desti);
+}
 
 export function calcularTraspassosPersonal(
   files: FilaHoresTreball[],
@@ -100,13 +116,13 @@ export function calcularTraspassosPersonal(
       });
       continue;
     }
-    if (origen.centreId === desti.centreId) {
+    if (mateixDestiTraspass(origen, desti)) {
       filesIgnoradesMateixCentre++;
       continue;
     }
 
     const departament = origen.departament;
-    const key = `${origen.centreId}|${desti.centreId}|${departament}`;
+    const key = `${origen.centreId}|${clauDept(origen)}|${desti.centreId}|${clauDept(desti)}`;
     const ex = {
       filaExcel: f.filaExcel,
       organizaciones: f.organizaciones,
@@ -141,6 +157,12 @@ export function calcularTraspassosPersonal(
       destiCodi: a.desti.centreCodi,
       destiNom: a.desti.centreNom,
       departament: a.departament,
+      departamentOrigenId: a.origen.departamentId,
+      departamentDestiId: a.desti.departamentId,
+      origenDeptCodi: a.origen.departamentCodi,
+      origenDeptNom: a.origen.departamentNom,
+      destiDeptCodi: a.desti.departamentCodi,
+      destiDeptNom: a.desti.departamentNom,
       minuts,
       hores,
       tarifaHora,
@@ -154,7 +176,9 @@ export function calcularTraspassosPersonal(
   moviments.sort(
     (a, b) =>
       a.origenNom.localeCompare(b.origenNom, "ca") ||
+      (a.origenDeptNom ?? "").localeCompare(b.origenDeptNom ?? "", "ca") ||
       a.destiNom.localeCompare(b.destiNom, "ca") ||
+      (a.destiDeptNom ?? "").localeCompare(b.destiDeptNom ?? "", "ca") ||
       a.departament.localeCompare(b.departament)
   );
 

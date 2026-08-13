@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { etiquetaDepartamentArbre } from "@/lib/traspass-personal/departament";
 
 export type ResumTraspassCentreFila = {
   mes: number;
@@ -7,10 +8,12 @@ export type ResumTraspassCentreFila = {
   origenNom: string;
   origenLnCodi: string;
   origenLnNom: string;
+  origenDept: string;
   destiCodi: string;
   destiNom: string;
   destiLnCodi: string;
   destiLnNom: string;
+  destiDept: string;
   minuts: number;
   hores: number;
   import_: number;
@@ -70,6 +73,8 @@ export async function getResumTraspassPersonal(any: number): Promise<ResumTraspa
             liniaNegoci: { select: { codi: true, nom: true } },
           },
         },
+        departamentOrigen: { select: { codi: true, nom: true } },
+        departamentDesti: { select: { codi: true, nom: true } },
       },
       orderBy: [
         { execucio: { period: { mes: "asc" } } },
@@ -86,10 +91,12 @@ export async function getResumTraspassPersonal(any: number): Promise<ResumTraspa
     origenNom: m.centreOrigen.nom,
     origenLnCodi: m.centreOrigen.liniaNegoci.codi,
     origenLnNom: m.centreOrigen.liniaNegoci.nom,
+    origenDept: etiquetaDepartamentArbre(m.departamentOrigen, m.departament),
     destiCodi: m.centreDesti.codi,
     destiNom: m.centreDesti.nom,
     destiLnCodi: m.centreDesti.liniaNegoci.codi,
     destiLnNom: m.centreDesti.liniaNegoci.nom,
+    destiDept: etiquetaDepartamentArbre(m.departamentDesti),
     minuts: Number(m.minuts),
     hores: Number(m.hores),
     import_: Number(m.import_),

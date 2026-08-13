@@ -1,4 +1,4 @@
-import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { esCentreAdministracio, etiquetaGrafic } from "@/lib/consultes-grafics";
 import { normalitzaNomRestaurant } from "@/lib/cost-salarial/import";
@@ -227,7 +227,7 @@ export async function getAnysVendesRestaurants(): Promise<number[]> {
       });
       return periods.map((p) => p.any);
     },
-    ["vendes-anys-v1"],
+    consultesCacheKey("vendes-anys-v1"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 }
@@ -257,7 +257,7 @@ export async function getCentresRestaurantsVendes(
           }))
       );
     },
-    ["vendes-centres-v1", nomesMirallFdlc ? "1" : "0"],
+    consultesCacheKey("vendes-centres-v1", nomesMirallFdlc ? "1" : "0"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 }
@@ -270,13 +270,13 @@ export async function getComparativaVendes(
 ): Promise<ComparativaVendes> {
   return unstable_cache(
     () => computeComparativaVendes(any, mes, nomesMirallFdlc, opts),
-    [
+    consultesCacheKey(
       "vendes-cmp-v1",
       String(any),
       String(mes),
       nomesMirallFdlc ? "1" : "0",
-      opts?.totalsOnly ? "t" : "f",
-    ],
+      opts?.totalsOnly ? "t" : "f"
+    ),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -843,7 +843,13 @@ export async function getInformeVendesRestaurant(
 ): Promise<InformeVendesRestaurant> {
   return unstable_cache(
     () => computeInformeVendesRestaurant(centreId, any, mes, opts),
-    ["vendes-inf-v1", centreId, String(any), String(mes), opts?.totalsOnly ? "t" : "f"],
+    consultesCacheKey(
+      "vendes-inf-v1",
+      centreId,
+      String(any),
+      String(mes),
+      opts?.totalsOnly ? "t" : "f"
+    ),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }

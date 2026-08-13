@@ -5,7 +5,11 @@ import { ConsultaVistaSelect } from "@/components/consultes/ConsultaVistaSelect"
 import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
-import type { VistaCompte } from "@/lib/vista-compte";
+import {
+  VISTA_COMPTE_CADENA,
+  VISTA_COMPTE_SENSE_GESTIO,
+  type VistaCompte,
+} from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -154,15 +158,14 @@ export function EvolucioSelectors({
         ) : null
       }
       vista={
-        mostraVistaGestio ? (
-          <ConsultaVistaSelect
-            id={viewSelectId}
-            value={localVista}
-            disabled={isPending && !onVistaLocal}
-            pendingHint={isPending && !onVistaLocal}
-            onChange={goVista}
-          />
-        ) : null
+        <ConsultaVistaSelect
+          id={viewSelectId}
+          value={localVista}
+          opcions={mostraVistaGestio ? VISTA_COMPTE_CADENA : VISTA_COMPTE_SENSE_GESTIO}
+          disabled={isPending && !onVistaLocal}
+          pendingHint={isPending && !onVistaLocal}
+          onChange={goVista}
+        />
       }
     />
   );

@@ -4,7 +4,7 @@ import {
   aplicarConsolidacioInterEvolucioEmpresa,
   getAnysAmbDades,
   getArbreSeleccio,
-  getEvolucioMensual,
+  getEvolucioMensualPerVista,
 } from "@/lib/consultes";
 import { slimConceptsForPaint } from "@/lib/consultes-slim";
 import {
@@ -25,7 +25,6 @@ import {
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import {
   parseVistaCompte,
-  vistaInclouAjustos,
   vistaInclouRepartiment,
   vistaInclouTraspassos,
 } from "@/lib/vista-compte";
@@ -68,9 +67,7 @@ export default async function EvolucioPage({
   const [evRaw, infoGestio] = necessitaLn
     ? [null, null]
     : await Promise.all([
-        getEvolucioMensual(scope, lnId, anyActual, grup, {
-          inclouAjustos: vistaInclouAjustos(vista),
-        }),
+        getEvolucioMensualPerVista(scope, lnId, anyActual, grup, vista),
         carregaGestioEager ? getInfoGestioConsulta(anyActual, rangAny) : Promise.resolve(null),
       ]);
 

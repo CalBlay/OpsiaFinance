@@ -1,4 +1,4 @@
-import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { type CompteCostSalarial, vistaUsaForaCentreTraspass } from "@/lib/cost-salarial/compte";
@@ -223,7 +223,7 @@ export async function getAnysCostSalarial(): Promise<number[]> {
       });
       return periods.map((p) => p.any);
     },
-    ["cost-sal-anys-v1"],
+    consultesCacheKey("cost-sal-anys-v1"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 }
@@ -250,7 +250,7 @@ export async function getCentresRestaurants(nomesMirallFdlc = false) {
           }))
       );
     },
-    ["cost-sal-centres-v1", nomesMirallFdlc ? "1" : "0"],
+    consultesCacheKey("cost-sal-centres-v1", nomesMirallFdlc ? "1" : "0"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
 }
@@ -263,7 +263,7 @@ export async function getInformeRestaurant(
 ): Promise<InformeRestaurant> {
   return unstable_cache(
     () => computeInformeRestaurant(centreId, any, mes, compte),
-    ["cost-sal-inf-v1", centreId, String(any), String(mes ?? 0), compte],
+    consultesCacheKey("cost-sal-inf-v1", centreId, String(any), String(mes ?? 0), compte),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -364,7 +364,7 @@ export async function getComparativaRestaurants(
 ): Promise<ComparativaRestaurants> {
   return unstable_cache(
     () => computeComparativaRestaurants(any, mes, compte),
-    ["cost-sal-cmp-v1", String(any), String(mes ?? 0), compte],
+    consultesCacheKey("cost-sal-cmp-v1", String(any), String(mes ?? 0), compte),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
