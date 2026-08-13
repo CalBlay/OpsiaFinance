@@ -8,6 +8,6 @@ export function replaceSearchParam(key: string, value: string | null): void {
 }
 
 /** Actualitza ?vista= a l'URL sense disparar navegació RSC. */
-export function replaceVistaQuery(vista: "directe" | "gestio"): void {
-  replaceSearchParam("vista", vista);
+export function replaceVistaQuery(vista: string): void {
+  replaceSearchParam("vista", vista === "directe" ? null : vista);
 }

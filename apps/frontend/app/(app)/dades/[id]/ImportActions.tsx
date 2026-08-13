@@ -15,6 +15,38 @@ interface ImportActionsProps {
   rutaStorage: string | null;
 }
 
+export function ProcessarExcelButton({
+  importId,
+  disabled,
+}: {
+  importId: string;
+  disabled?: boolean;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  function handleProcessar() {
+    setFeedback(null);
+    startTransition(async () => {
+      const res = await processarExcelAction(importId);
+      setFeedback({ ok: res.ok, msg: res.missatge });
+    });
+  }
+
+  return (
+    <div className="flex flex-col items-start gap-2">
+      <Button onClick={handleProcessar} disabled={disabled || isPending}>
+        {isPending ? "Processant…" : "Processar Excel"}
+      </Button>
+      {feedback ? (
+        <p className={`text-sm ${feedback.ok ? "text-green-700" : "text-destructive"}`}>
+          {feedback.msg}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function ImportActions({ importId, estat, rutaStorage }: ImportActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -64,20 +96,21 @@ export function ImportActions({ importId, estat, rutaStorage }: ImportActionsPro
     });
   }
 
-  const potProcessar = rutaStorage && estat === "PENDENT";
-  const potActualitzar = rutaStorage && ESTATS_ACTUALITZABLES.includes(estat);
+  const potProcessar = estat === "PENDENT";
+  const potActualitzar = !!rutaStorage && ESTATS_ACTUALITZABLES.includes(estat);
   const potConfirmar = estat === "CLASSIFICAT" || estat === "REVISAT";
   const potArxivar = estat !== "CONFIRMAT" && estat !== "ARXIVAT";
+  const botoProcessar = potProcessar ? (
+    <Button onClick={handleProcessar} disabled={isPending}>
+      {isPending ? "Processant…" : "Processar Excel"}
+    </Button>
+  ) : null;
 
   return (
     <>
       <div className="flex flex-col items-end gap-2">
         <div className="flex items-center gap-2">
-          {potProcessar && (
-            <Button onClick={handleProcessar} disabled={isPending}>
-              {isPending ? "Processant…" : "Processar Excel"}
-            </Button>
-          )}
+          {botoProcessar}
           {potActualitzar && (
             <Button variant="outline" onClick={handleActualitzar} disabled={isPending}>
               <RefreshCw size={14} className={isPending ? "animate-spin" : undefined} />
@@ -104,7 +137,19 @@ export function ImportActions({ importId, estat, rutaStorage }: ImportActionsPro
       </div>
 
       {confirmDelete && (
-        <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setConfirmDelete(false)} />
+        <div
+          role="button"
+          tabIndex={0}
+          className="fixed inset-0 bg-black/20 z-40"
+          aria-label="Cancel·lar eliminació"
+          onClick={() => setConfirmDelete(false)}
+          onKeyDown={(e) => {
+            if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setConfirmDelete(false);
+            }
+          }}
+        />
       )}
       <FloatingDeleteButton
         onClick={handleEliminar}

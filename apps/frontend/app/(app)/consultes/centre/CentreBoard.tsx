@@ -15,13 +15,14 @@ import { NODE_EBITDA, NODE_INGRESSOS, buildKpisInforme } from "@/lib/kpi-definit
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import { MESOS_CURTS } from "@/lib/periodes";
 import type { VistaCompte } from "@/lib/vista-compte";
+import { etiquetaVistaCompte } from "@/lib/vista-compte";
 import { replaceVistaQuery } from "@/lib/vista-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { CentreLnChooser, CentreResumPresentacio } from "../presenters-dynamic";
 import type { FilaResumCentre, MesCostCentre } from "./CentreResumPresentacio";
 import { CentreSelectors } from "./CentreSelectors";
-import { carregarCentreGestioAction, carregarCentrePivotAction } from "./actions";
+import { carregarCentreCapaAction, carregarCentrePivotAction } from "./actions";
 
 type LnOpt = {
   id: string;
@@ -53,9 +54,8 @@ export function CentreBoard({
   anyActual,
   vistaInicial,
   isAdmin,
-  directe,
-  gestio: gestioInicial,
-  potCarregarGestio = false,
+  capesInicials,
+  potCarregarCapes = false,
   resum = null,
   lnChooser = null,
 }: {
@@ -66,14 +66,13 @@ export function CentreBoard({
   anyActual: number;
   vistaInicial: VistaCompte;
   isAdmin: boolean;
-  directe: CompteExplotacioCentre | null;
-  gestio: CompteExplotacioCentre | null;
-  potCarregarGestio?: boolean;
+  capesInicials: Partial<Record<VistaCompte, CompteExplotacioCentre>>;
+  potCarregarCapes?: boolean;
   resum?: ResumCentre | null;
   lnChooser?: { id: string; name: string; nCentres: number; href: string }[] | null;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
-  const [gestio, setGestio] = useState<CompteExplotacioCentre | null>(gestioInicial);
+  const [capes, setCapes] = useState(capesInicials);
   const pivotScopeKey = `${centreId ?? ""}:${anyActual}`;
   const [pivotScope, setPivotScope] = useState(pivotScopeKey);
   const [pivotByVista, setPivotByVista] = useState<Partial<Record<VistaCompte, ConceptePivot[]>>>(
@@ -93,26 +92,36 @@ export function CentreBoard({
   }, [vistaInicial]);
 
   useEffect(() => {
-    setGestio(gestioInicial);
-  }, [gestioInicial]);
+    setCapes(capesInicials);
+  }, [capesInicials]);
 
   useEffect(() => {
-    if (!potCarregarGestio || !centreId || gestio) return;
+    if (!potCarregarCapes || !centreId) return;
+    const pending = (["sap", "directe", "traspassos", "gestio"] as VistaCompte[]).filter(
+      (v) => !capes[v]
+    );
+    if (!pending.length) return;
     let cancelled = false;
-    carregarCentreGestioAction(centreId, anyActual).then((data) => {
-      if (!cancelled && data) setGestio(data);
-    });
+    void Promise.all(
+      pending.map(async (v) => {
+        const data = await carregarCentreCapaAction(centreId, anyActual, v);
+        if (!cancelled && data) {
+          setCapes((prev) => (prev[v] ? prev : { ...prev, [v]: data }));
+        }
+      })
+    );
     return () => {
       cancelled = true;
     };
-  }, [potCarregarGestio, centreId, anyActual, gestio]);
+  }, [potCarregarCapes, centreId, anyActual, capes]);
 
-  const compte = vista === "gestio" && gestio ? gestio : directe;
+  const compte = capes[vista] ?? capes.directe ?? null;
+  const vistesCarregades = (Object.keys(capes) as VistaCompte[]).filter((k) => !!capes[k]);
   const canEdit = isAdmin && vista === "directe";
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
   const periodeLabel = `Acumulat ${anyActual}`;
   const pivotRows = pivotByVista[vista] ?? null;
-  const vistaLabel = vista === "gestio" ? "Gestió" : "Directe";
+  const vistaLabel = etiquetaVistaCompte(vista);
 
   const kpis = useMemo(() => {
     if (!compte) return [];
@@ -150,18 +159,17 @@ export function CentreBoard({
     }
   }, [anyActual, centreId, vista]);
 
-  const onVistaLocal =
-    centreId && gestio
-      ? (next: VistaCompte) => {
-          setVista(next);
-          replaceVistaQuery(next);
-        }
-      : undefined;
+  const onVistaLocal = (next: VistaCompte) => {
+    if (!capes[next]) return false;
+    setVista(next);
+    replaceVistaQuery(next);
+    return true;
+  };
 
   const exportRows = pivotRows ?? [];
 
   const subtitle = compte?.centre
-    ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom}${vista === "gestio" ? " · gestió (traspassos personal)" : " · directe SAP"}`
+    ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom} · ${etiquetaVistaCompte(vista).toLowerCase()}`
     : lnId && !centreId && resum
       ? `Costos i intensitat per centre · ${resum.lnNom} · ${periodeLabel} · ${vistaLabel}`
       : !lnId
@@ -182,6 +190,7 @@ export function CentreBoard({
               centreId={centreId}
               any={anyActual}
               vista={vista}
+              vistesCarregades={vistesCarregades}
               onVistaLocal={onVistaLocal}
             />
             {centreId ? (
@@ -194,7 +203,7 @@ export function CentreBoard({
                   title="Compte d'explotació · per centre"
                   subtitle={
                     compte?.centre
-                      ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom} · ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
+                      ? `${etiquetaCentre(compte.centre)} — ${compte.centre.liniaNegoci.nom} · ${periodeLabel} · ${vistaLabel}`
                       : periodeLabel
                   }
                   columns={columns}
@@ -256,6 +265,7 @@ export function CentreBoard({
 
           <DetallCompteCollapsible
             onFirstOpen={ensurePivot}
+            onOpen={ensurePivot}
             loading={pivotLoading && !pivotRows?.length}
           >
             <PivotTableDrilldown

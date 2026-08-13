@@ -23,6 +23,7 @@ import { OPSIA_CHART } from "@/lib/opsia-colors";
 import { MESOS_CURTS } from "@/lib/periodes";
 import type { InfoGestioConsulta } from "@/lib/repartiment/service";
 import type { VistaCompte } from "@/lib/vista-compte";
+import { etiquetaVistaCompte, vistaInclouTraspassos } from "@/lib/vista-compte";
 import { replaceVistaQuery } from "@/lib/vista-url";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
@@ -117,11 +118,11 @@ export function EvolucioBoard({
     };
   }, [potCarregarGestio, gestio, scope, lnId, anyActual, grup]);
 
-  const ev = vista === "gestio" && gestio ? gestio : directe;
+  const ev = vistaInclouTraspassos(vista) && gestio ? gestio : directe;
   const pivotRows = pivotByVista[vista] ?? null;
   const rowsTaula = pivotRows ?? [];
   const canEdit = isAdmin && vista === "directe" && scope === "linia";
-  const vistaLabel = vista === "gestio" ? "compte de gestió" : "directe SAP";
+  const vistaLabel = etiquetaVistaCompte(vista);
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
   const kpis = useMemo(() => buildKpis(ev, scope), [ev, scope]);
   const periodeLabel = `Acumulat ${anyActual}`;
@@ -165,8 +166,11 @@ export function EvolucioBoard({
   const onVistaLocal =
     potGestio && gestio
       ? (next: VistaCompte) => {
+          // Només toggle local Directe ↔ Gestió (mateixa capa carregada).
+          if (next !== "directe" && next !== "gestio") return false;
           setVista(next);
           replaceVistaQuery(next);
+          return true;
         }
       : undefined;
 
@@ -235,6 +239,7 @@ export function EvolucioBoard({
 
           <DetallCompteCollapsible
             onFirstOpen={ensurePivot}
+            onOpen={ensurePivot}
             loading={pivotLoading && !pivotRows?.length}
           >
             <PivotTableDrilldown

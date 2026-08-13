@@ -142,6 +142,7 @@ export function CostPersonalSelectors({
         <ConsultaVistaSelect
           id="cp-vista"
           value={vista}
+          opcions={["directe", "gestio"]}
           onChange={(v) => go(lnId, centreId, any, mes, v)}
         />
       }

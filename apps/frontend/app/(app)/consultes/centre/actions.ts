@@ -7,17 +7,23 @@
 
 import { type ConceptePivot, getCompteExplotacioCentre } from "@/lib/consultes";
 import { slimConceptsForPaint } from "@/lib/consultes-slim";
-import type { VistaCompte } from "@/lib/vista-compte";
+import { type VistaCompte, parseVistaCompte } from "@/lib/vista-compte";
 import { type AjustarImportConsultaInput, ajustarImportConsultaAction } from "../actions";
 
 export async function ajustarImportCentreAction(input: AjustarImportConsultaInput) {
   return ajustarImportConsultaAction(input);
 }
 
-/** Capa Gestió del centre en diferit (KPIs slim; pivot en obrir el compte). */
-export async function carregarCentreGestioAction(centreId: string, any: number) {
-  const full = await getCompteExplotacioCentre(centreId, any, "gestio");
+/** Capa concreta del centre en diferit (KPIs slim; pivot en obrir el compte). */
+export async function carregarCentreCapaAction(centreId: string, any: number, vista: VistaCompte) {
+  const v = parseVistaCompte(vista);
+  const full = await getCompteExplotacioCentre(centreId, any, v);
   return { ...full, concepts: slimConceptsForPaint(full.concepts) };
+}
+
+/** @deprecated Usa carregarCentreCapaAction(..., "gestio"). */
+export async function carregarCentreGestioAction(centreId: string, any: number) {
+  return carregarCentreCapaAction(centreId, any, "gestio");
 }
 
 /** Compte detallat complet del centre en diferit. */
@@ -26,10 +32,6 @@ export async function carregarCentrePivotAction(
   any: number,
   vista: VistaCompte
 ): Promise<ConceptePivot[]> {
-  const compte = await getCompteExplotacioCentre(
-    centreId,
-    any,
-    vista === "gestio" ? "gestio" : "directe"
-  );
+  const compte = await getCompteExplotacioCentre(centreId, any, parseVistaCompte(vista));
   return compte.concepts;
 }

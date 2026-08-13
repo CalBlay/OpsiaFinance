@@ -21,7 +21,7 @@ function hrefLinia(ln: string, any: number, rang: RangMesos, vista: VistaCompte)
   const qs = new URLSearchParams();
   if (ln) qs.set("ln", ln);
   qs.set("any", String(any));
-  qs.set("vista", vista);
+  if (vista !== "directe") qs.set("vista", vista);
   const rangQ = rangToQuery(rang); // &des=&fins=
   return `/consultes/linia?${qs.toString()}${rangQ}`;
 }
@@ -61,8 +61,10 @@ export function LiniaSelectors({
 
   useEffect(() => {
     if (!lnId) return;
-    const other: VistaCompte = vista === "gestio" ? "directe" : "gestio";
-    router.prefetch(hrefLinia(lnId, any, rang, other));
+    for (const other of ["sap", "directe", "traspassos", "gestio"] as VistaCompte[]) {
+      if (other === vista) continue;
+      router.prefetch(hrefLinia(lnId, any, rang, other));
+    }
   }, [router, lnId, any, rang, vista]);
 
   const go = (nextLn: string, nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {

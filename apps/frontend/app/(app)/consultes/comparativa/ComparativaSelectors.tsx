@@ -87,7 +87,7 @@ export function ComparativaSelectors({
       if (mesos.length) p.set("mesos", mesos.join(","));
     }
     const vistaEfectiva = mostraVistaGestio ? (overrides.vista ?? localVista) : "directe";
-    if (vistaEfectiva === "gestio") p.set("vista", "gestio");
+    if (vistaEfectiva !== "directe") p.set("vista", vistaEfectiva);
     return `/consultes/comparativa?${p.toString()}`;
   };
 

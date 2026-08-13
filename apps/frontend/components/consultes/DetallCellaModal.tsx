@@ -24,7 +24,7 @@ export interface DetallCellaContext {
   centreId?: string;
   liniaNegociId?: string;
   lnIdsGrup?: string[];
-  vista?: "directe" | "gestio";
+  vista?: import("@/lib/vista-compte").VistaCompte;
   /** Àmbit d'empresa (calblay / fdlc / consolidat). */
   grup?: GrupEmpresa;
   columnLabel?: string;
@@ -58,7 +58,7 @@ export function DetallCellaModal({
     canEdit &&
     !!mesEditable &&
     (!!context.centreId || !!context.liniaNegociId) &&
-    context.vista !== "gestio";
+    context.vista === "directe";
 
   useEffect(() => {
     const params: DetallCellaParams = {

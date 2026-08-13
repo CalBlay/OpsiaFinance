@@ -1,15 +1,17 @@
 import type { InfoGestioConsulta } from "@/lib/repartiment/info-gestio";
+import type { VistaCompte } from "@/lib/vista-compte";
+import { vistaInclouRepartiment } from "@/lib/vista-compte";
 import Link from "next/link";
 import styles from "./GestioAvis.module.css";
 
 export function GestioAvis({
-  vista,
+  vista = "gestio",
   info,
 }: {
-  vista: "directe" | "gestio";
+  vista?: VistaCompte;
   info: InfoGestioConsulta | null;
 }) {
-  if (vista !== "gestio" || !info) return null;
+  if (!vistaInclouRepartiment(vista) || !info) return null;
 
   if (info.enReconstruccio) {
     return (

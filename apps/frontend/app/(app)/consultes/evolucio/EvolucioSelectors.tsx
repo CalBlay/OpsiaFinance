@@ -34,7 +34,7 @@ export function EvolucioSelectors({
   vista: VistaCompte;
   nomesEmpresa?: boolean;
   mostraVistaGestio?: boolean;
-  onVistaLocal?: (vista: VistaCompte) => void;
+  onVistaLocal?: (vista: VistaCompte) => boolean | undefined;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -55,23 +55,16 @@ export function EvolucioSelectors({
     setLocalVista(vista);
   }, [scope, lnId, any, vista]);
 
-  useEffect(() => {
-    if (!mostraVistaGestio || onVistaLocal) return;
-    const other: VistaCompte = vista === "gestio" ? "directe" : "gestio";
-    const lnPart = scope === "linia" && lnId ? `&ln=${lnId}` : "";
-    const scopePart = nomesEmpresa ? "empresa" : scope;
-    router.prefetch(`/consultes/evolucio?scope=${scopePart}${lnPart}&any=${any}&vista=${other}`);
-  }, [router, mostraVistaGestio, onVistaLocal, vista, scope, lnId, any, nomesEmpresa]);
-
   const goServer = (nextScope: string, nextLn: string, nextAny: number, nextVista: VistaCompte) => {
     setLocalScope(nextScope as "empresa" | "linia");
     setLocalLn(nextLn);
     setLocalAny(nextAny);
     setLocalVista(nextVista);
 
+    const vistaQ = nextVista === "directe" ? "" : `&vista=${nextVista}`;
     if (nextScope === "linia" && !nextLn) {
       startTransition(() => {
-        router.replace(`/consultes/evolucio?scope=linia&any=${nextAny}&vista=${nextVista}`, {
+        router.replace(`/consultes/evolucio?scope=linia&any=${nextAny}${vistaQ}`, {
           scroll: false,
         });
       });
@@ -79,18 +72,17 @@ export function EvolucioSelectors({
     }
     const lnPart = nextScope === "linia" ? `&ln=${nextLn}` : "";
     startTransition(() => {
-      router.replace(
-        `/consultes/evolucio?scope=${nextScope}${lnPart}&any=${nextAny}&vista=${nextVista}`,
-        { scroll: false }
-      );
+      router.replace(`/consultes/evolucio?scope=${nextScope}${lnPart}&any=${nextAny}${vistaQ}`, {
+        scroll: false,
+      });
     });
   };
 
   const goVista = (nextVista: VistaCompte) => {
     setLocalVista(nextVista);
     if (onVistaLocal) {
-      onVistaLocal(nextVista);
-      return;
+      const ok = onVistaLocal(nextVista);
+      if (ok !== false) return;
     }
     goServer(localScope, localLn, localAny, nextVista);
   };

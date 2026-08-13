@@ -7,9 +7,11 @@ import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { type GrupEmpresa, grupPermetVistaGestio } from "@/lib/grups-empresa";
 import { type RangMesos, rangToQuery } from "@/lib/periodes";
-import type { VistaCompte } from "@/lib/vista-compte";
+import { VISTA_COMPTE_CADENA, type VistaCompte, parseVistaCompte } from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
+
+const VISTA_SAP_DIRECTE: VistaCompte[] = ["sap", "directe"];
 
 export function EmpresaSelectors({
   anys,
@@ -17,6 +19,7 @@ export function EmpresaSelectors({
   rang,
   vista,
   grup,
+  vistesCarregades,
   onVistaLocal,
 }: {
   anys: number[];
@@ -24,13 +27,15 @@ export function EmpresaSelectors({
   rang: RangMesos;
   vista: VistaCompte;
   grup: GrupEmpresa;
-  onVistaLocal?: (vista: VistaCompte) => void;
+  vistesCarregades?: VistaCompte[];
+  onVistaLocal?: (vista: VistaCompte) => boolean | undefined;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const yearSelectId = "empresa-year";
   const viewSelectId = "empresa-view";
-  const mostraVistaGestio = grupPermetVistaGestio(grup);
+  const mostraCapesGestio = grupPermetVistaGestio(grup);
+  const opcions = mostraCapesGestio ? VISTA_COMPTE_CADENA : VISTA_SAP_DIRECTE;
 
   const [localAny, setLocalAny] = useState(any);
   const [localRang, setLocalRang] = useState(rang);
@@ -43,24 +48,25 @@ export function EmpresaSelectors({
   }, [any, rang, vista]);
 
   const goServer = (nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
-    const vistaEfectiva = mostraVistaGestio ? nextVista : "directe";
+    const vistaEfectiva = parseVistaCompte(nextVista, { permetCapesGestio: mostraCapesGestio });
     setLocalAny(nextAny);
     setLocalRang(nextRang);
     setLocalVista(vistaEfectiva);
     startTransition(() => {
-      router.replace(
-        `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}&vista=${vistaEfectiva}`,
-        { scroll: false }
-      );
+      const q =
+        vistaEfectiva === "directe"
+          ? `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}`
+          : `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}&vista=${vistaEfectiva}`;
+      router.replace(q, { scroll: false });
     });
   };
 
   const goVista = (nextVista: VistaCompte) => {
-    const vistaEfectiva = mostraVistaGestio ? nextVista : "directe";
+    const vistaEfectiva = parseVistaCompte(nextVista, { permetCapesGestio: mostraCapesGestio });
     setLocalVista(vistaEfectiva);
-    if (onVistaLocal) {
-      onVistaLocal(vistaEfectiva);
-      return;
+    if (vistesCarregades?.includes(vistaEfectiva) && onVistaLocal) {
+      const ok = onVistaLocal(vistaEfectiva);
+      if (ok !== false) return;
     }
     goServer(localAny, localRang, vistaEfectiva);
   };
@@ -98,15 +104,14 @@ export function EmpresaSelectors({
         </>
       }
       vista={
-        mostraVistaGestio ? (
-          <ConsultaVistaSelect
-            id={viewSelectId}
-            value={localVista}
-            disabled={isPending && !onVistaLocal}
-            pendingHint={isPending && !onVistaLocal}
-            onChange={goVista}
-          />
-        ) : null
+        <ConsultaVistaSelect
+          id={viewSelectId}
+          value={localVista}
+          opcions={opcions}
+          disabled={isPending && !onVistaLocal}
+          pendingHint={isPending && !onVistaLocal}
+          onChange={goVista}
+        />
       }
     />
   );

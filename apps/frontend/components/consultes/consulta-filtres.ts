@@ -20,9 +20,11 @@ export const FILTRE = {
 
 export type FiltreKey = keyof typeof FILTRE;
 
-/** Opcions corporatives de Vista (sempre iguals). */
+/** Opcions corporatives de Vista (cadena C.Explotació). */
 export const VISTA_OPCIONS = {
+  sap: "SAP",
   directe: "Directe",
+  traspassos: "+ Traspassos",
   gestio: "Gestió",
 } as const;
 

@@ -13,6 +13,7 @@ import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { NODE_COMPRES, NODE_COST_SALARIAL, NODE_EBITDA, NODE_VENDES } from "@/lib/kpi-definitions";
 import { MESOS_CURTS } from "@/lib/periodes";
+import { parseVistaCompte, vistaInclouTraspassos } from "@/lib/vista-compte";
 import { CentreBoard } from "./CentreBoard";
 import type { FilaResumCentre, MesCostCentre } from "./CentreResumPresentacio";
 
@@ -33,7 +34,7 @@ export default async function ConsultaCentrePage({
   ]);
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
-  const vista = sp.vista === "gestio" ? "gestio" : "directe";
+  const vista = parseVistaCompte(sp.vista);
   const arbre = liniesPerConsultaDetall(arbreRaw, grup);
   let lnId = sp.ln ?? null;
   let centreId = sp.centre ?? null;
@@ -57,12 +58,17 @@ export default async function ConsultaCentrePage({
     if (ln && !ln.centres.some((c) => c.id === centreId)) centreId = null;
   }
 
-  // Directe primer; Gestió només eager si ja s'ha demanat a la URL.
+  // Directe/SAP primer; capes amb traspassos eager si ja s'han demanat a la URL.
   const parell = centreId
-    ? vista === "gestio"
+    ? vistaInclouTraspassos(vista)
       ? await getCompteExplotacioCentreParell(centreId, anyActual)
       : {
-          directe: await getCompteExplotacioCentre(centreId, anyActual, "directe"),
+          sap: vista === "sap" ? await getCompteExplotacioCentre(centreId, anyActual, "sap") : null,
+          directe:
+            vista === "sap"
+              ? null
+              : await getCompteExplotacioCentre(centreId, anyActual, "directe"),
+          traspassos: null,
           gestio: null,
         }
     : null;
@@ -89,7 +95,13 @@ export default async function ConsultaCentrePage({
     const rangAny = { des: 1, fins: 12 };
 
     const [informe, cmp] = await Promise.all([
-      getInformeCostPersonalCentres(lnId, anyActual, null, vista, { lnIds }),
+      getInformeCostPersonalCentres(
+        lnId,
+        anyActual,
+        null,
+        vistaInclouTraspassos(vista) ? "gestio" : "directe",
+        { lnIds }
+      ),
       getComparativaLn(lnId, anyActual, rangAny, vista),
     ]);
 
@@ -215,17 +227,36 @@ export default async function ConsultaCentrePage({
       anyActual={anyActual}
       vistaInicial={vista}
       isAdmin={session?.user?.role === "ADMIN"}
-      directe={
-        parell?.directe
-          ? { ...parell.directe, concepts: slimConceptsForPaint(parell.directe.concepts) }
-          : null
-      }
-      gestio={
-        parell?.gestio
-          ? { ...parell.gestio, concepts: slimConceptsForPaint(parell.gestio.concepts) }
-          : null
-      }
-      potCarregarGestio={!!centreId && vista === "directe"}
+      capesInicials={{
+        ...(parell?.sap
+          ? { sap: { ...parell.sap, concepts: slimConceptsForPaint(parell.sap.concepts) } }
+          : {}),
+        ...(parell?.directe
+          ? {
+              directe: {
+                ...parell.directe,
+                concepts: slimConceptsForPaint(parell.directe.concepts),
+              },
+            }
+          : {}),
+        ...(parell?.traspassos
+          ? {
+              traspassos: {
+                ...parell.traspassos,
+                concepts: slimConceptsForPaint(parell.traspassos.concepts),
+              },
+            }
+          : {}),
+        ...(parell?.gestio
+          ? {
+              gestio: {
+                ...parell.gestio,
+                concepts: slimConceptsForPaint(parell.gestio.concepts),
+              },
+            }
+          : {}),
+      }}
+      potCarregarCapes={!!centreId && !vistaInclouTraspassos(vista)}
       resum={resum}
       lnChooser={lnChooser}
     />

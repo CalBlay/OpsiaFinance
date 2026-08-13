@@ -24,6 +24,7 @@ import {
 } from "@/lib/periodes";
 import type { InfoGestioConsulta } from "@/lib/repartiment/info-gestio";
 import type { VistaCompte } from "@/lib/vista-compte";
+import { etiquetaVistaCompte, vistaInclouRepartiment } from "@/lib/vista-compte";
 import type { EmpresaVistaData } from "./empresa-vista-data";
 
 export type { EmpresaVistaData } from "./empresa-vista-data";
@@ -148,9 +149,7 @@ export function buildEmpresaVistaData(opts: {
     grup === "fdlc"
       ? `Compte d'explotació FDLC — ${periodeLabel}`
       : grup === "consolidat"
-        ? vista === "gestio"
-          ? `Consolidat · Gestió — ${periodeLabel}`
-          : `Consolidat · Directe — ${periodeLabel}`
+        ? `Consolidat · ${etiquetaVistaCompte(vista)} — ${periodeLabel}`
         : `Empresa — ${periodeLabel}`;
 
   const chartTitle =
@@ -164,12 +163,8 @@ export function buildEmpresaVistaData(opts: {
     grup === "fdlc"
       ? `Empresa FDLC — ${periodePresentacio}`
       : grup === "consolidat"
-        ? vista === "gestio"
-          ? `Cal Blay + FDLC · Gestió — ${periodePresentacio}`
-          : `Cal Blay + FDLC · Directe — ${periodePresentacio}`
-        : vista === "gestio"
-          ? `Gestió — ${periodePresentacio}`
-          : `Directe — ${periodePresentacio}`;
+        ? `Cal Blay + FDLC · ${etiquetaVistaCompte(vista)} — ${periodePresentacio}`
+        : `${etiquetaVistaCompte(vista)} — ${periodePresentacio}`;
 
   const mesIni = rang.des - 1;
   const mesFi = rang.fins;
@@ -209,8 +204,8 @@ export function buildEmpresaVistaData(opts: {
     },
     buit: comp.buit,
     canEdit,
-    exportSubtitle: `${periodePresentacio} · ${vista === "gestio" ? "Gestió" : "Directe"}`,
-    infoGestio: vista === "gestio" ? infoGestio : null,
+    exportSubtitle: `${periodePresentacio} · ${etiquetaVistaCompte(vista)}`,
+    infoGestio: vistaInclouRepartiment(vista) ? infoGestio : null,
   };
 }
 

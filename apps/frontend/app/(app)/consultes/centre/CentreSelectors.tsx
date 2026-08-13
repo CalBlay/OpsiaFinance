@@ -23,6 +23,7 @@ export function CentreSelectors({
   centreId,
   any,
   vista,
+  vistesCarregades,
   onVistaLocal,
 }: {
   arbre: LnOpt[];
@@ -31,7 +32,8 @@ export function CentreSelectors({
   centreId: string | null;
   any: number;
   vista: VistaCompte;
-  onVistaLocal?: (vista: VistaCompte) => void;
+  vistesCarregades?: VistaCompte[];
+  onVistaLocal?: (vista: VistaCompte) => boolean | undefined;
 }) {
   const router = useRouter();
   const lnSelectId = "centre-select-ln";
@@ -44,13 +46,15 @@ export function CentreSelectors({
 
   useEffect(() => {
     if (!lnId || !centreId || onVistaLocal) return;
-    const other = vista === "gestio" ? "directe" : "gestio";
-    const params = new URLSearchParams();
-    params.set("any", String(any));
-    params.set("vista", other);
-    params.set("ln", lnId);
-    params.set("centre", centreId);
-    router.prefetch(`/consultes/centre?${params}`);
+    for (const other of ["sap", "directe", "traspassos", "gestio"] as VistaCompte[]) {
+      if (other === vista) continue;
+      const params = new URLSearchParams();
+      params.set("any", String(any));
+      params.set("vista", other);
+      params.set("ln", lnId);
+      params.set("centre", centreId);
+      router.prefetch(`/consultes/centre?${params}`);
+    }
   }, [router, lnId, centreId, any, vista, onVistaLocal]);
 
   const go = (
@@ -61,10 +65,18 @@ export function CentreSelectors({
   ) => {
     const params = new URLSearchParams();
     params.set("any", String(nextAny));
-    params.set("vista", nextVista);
+    if (nextVista !== "directe") params.set("vista", nextVista);
     if (nextLn) params.set("ln", nextLn);
     if (nextCentre) params.set("centre", nextCentre);
     router.push(`/consultes/centre?${params}`);
+  };
+
+  const goVista = (nextVista: VistaCompte) => {
+    if (vistesCarregades?.includes(nextVista) && onVistaLocal) {
+      const ok = onVistaLocal(nextVista);
+      if (ok !== false) return;
+    }
+    go(lnId, centreId, any, nextVista);
   };
 
   return (
@@ -130,19 +142,7 @@ export function CentreSelectors({
           </div>
         </>
       }
-      vista={
-        <ConsultaVistaSelect
-          id={vistaSelectId}
-          value={vista}
-          onChange={(next) => {
-            if (onVistaLocal) {
-              onVistaLocal(next);
-              return;
-            }
-            go(lnId, centreId, any, next);
-          }}
-        />
-      }
+      vista={<ConsultaVistaSelect id={vistaSelectId} value={vista} onChange={goVista} />}
     />
   );
 }

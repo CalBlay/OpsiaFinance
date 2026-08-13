@@ -26,7 +26,7 @@ export interface DrilldownConfig {
   colMap: DrilldownColumnMap;
   /** Llista d'IDs de LN del grup (Cal Blay o FDLC). Exclou LN d'altres grups al drill-down. */
   lnIdsGrup?: string[];
-  vista?: "directe" | "gestio";
+  vista?: import("@/lib/vista-compte").VistaCompte;
   /** Àmbit d'empresa (calblay / fdlc / consolidat). */
   grup?: GrupEmpresa;
 }

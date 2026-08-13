@@ -11,13 +11,14 @@ import { slugFilename } from "@/lib/export/filename";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
 import { etiquetaGrupEmpresa } from "@/lib/grups-empresa";
 import type { RangMesos } from "@/lib/periodes";
-import { etiquetaRangMesos } from "@/lib/periodes";
+import { esUnMes, etiquetaRangMesos } from "@/lib/periodes";
 import type { VistaCompte } from "@/lib/vista-compte";
+import { etiquetaVistaCompte, vistaInclouRepartiment } from "@/lib/vista-compte";
 import { replaceVistaQuery } from "@/lib/vista-url";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ajustarImportConsultaAction } from "../actions";
 import { EmpresaSelectors } from "./EmpresaSelectors";
-import { carregarEmpresaGestioAction, carregarEmpresaPivotAction } from "./actions";
+import { carregarEmpresaCapaAction, carregarEmpresaPivotAction } from "./actions";
 import type { EmpresaVistaData } from "./empresa-vista-data";
 
 function etiquetaTitolEmpresa(grup: GrupEmpresa): string {
@@ -30,21 +31,19 @@ export function EmpresaBoard({
   rang,
   grup,
   vistaInicial,
-  directe,
-  gestio: gestioInicial,
-  potCarregarGestio = false,
+  capesInicials,
+  potCarregarCapes = false,
 }: {
   anys: number[];
   anyActual: number;
   rang: RangMesos;
   grup: GrupEmpresa;
   vistaInicial: VistaCompte;
-  directe: EmpresaVistaData;
-  gestio: EmpresaVistaData | null;
-  potCarregarGestio?: boolean;
+  capesInicials: Partial<Record<VistaCompte, EmpresaVistaData>>;
+  potCarregarCapes?: boolean;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
-  const [gestio, setGestio] = useState<EmpresaVistaData | null>(gestioInicial);
+  const [capes, setCapes] = useState(capesInicials);
   const pivotScopeKey = `${anyActual}:${rang.des}-${rang.fins}:${grup}`;
   const [pivotScope, setPivotScope] = useState(pivotScopeKey);
   const [pivotByVista, setPivotByVista] = useState<
@@ -64,28 +63,39 @@ export function EmpresaBoard({
   }, [vistaInicial]);
 
   useEffect(() => {
-    setGestio(gestioInicial);
-  }, [gestioInicial]);
+    setCapes(capesInicials);
+  }, [capesInicials]);
 
-  // Prefetch Gestió en background després del primer paint Directe.
+  // Prefetch capes que falten (SAP / traspassos / gestió) després del paint.
   useEffect(() => {
-    if (!potCarregarGestio || gestio) return;
+    if (!potCarregarCapes) return;
+    const pending = (["sap", "directe", "traspassos", "gestio"] as VistaCompte[]).filter(
+      (v) => !capes[v]
+    );
+    if (!pending.length) return;
     let cancelled = false;
-    carregarEmpresaGestioAction({ any: anyActual, rang, grup }).then((data) => {
-      if (!cancelled && data) setGestio(data);
-    });
+    void Promise.all(
+      pending.map(async (v) => {
+        const data = await carregarEmpresaCapaAction({ any: anyActual, rang, grup, vista: v });
+        if (!cancelled && data) {
+          setCapes((prev) => (prev[v] ? prev : { ...prev, [v]: data }));
+        }
+      })
+    );
     return () => {
       cancelled = true;
     };
-  }, [potCarregarGestio, gestio, anyActual, rang, grup]);
+  }, [potCarregarCapes, capes, anyActual, rang, grup]);
 
-  const data = vista === "gestio" && gestio ? gestio : directe;
-  const pivotRows = data.pivotRows.length ? data.pivotRows : (pivotByVista[vista] ?? []);
+  const data = capes[vista] ?? capes.directe ?? Object.values(capes).find(Boolean);
+  const vistesCarregades = (Object.keys(capes) as VistaCompte[]).filter((k) => !!capes[k]);
+  const pivotRows = data?.pivotRows.length ? data.pivotRows : (pivotByVista[vista] ?? []);
   const nomEmpresa = etiquetaGrupEmpresa(grup);
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
+  const unMes = esUnMes(rang);
 
   const ensurePivot = useCallback(async () => {
-    if (data.pivotRows.length || pivotRef.current[vista]?.length) return;
+    if (!data || data.pivotRows.length || pivotRef.current[vista]?.length) return;
     setPivotLoading(true);
     try {
       const rows = await carregarEmpresaPivotAction({
@@ -98,14 +108,22 @@ export function EmpresaBoard({
     } finally {
       setPivotLoading(false);
     }
-  }, [anyActual, data.pivotRows.length, grup, rang, vista]);
+  }, [anyActual, data, grup, rang, vista]);
 
-  const onVistaLocal = gestio
-    ? (next: VistaCompte) => {
-        setVista(next);
-        replaceVistaQuery(next);
-      }
-    : undefined;
+  const onVistaLocal = (next: VistaCompte) => {
+    if (!capes[next]) return false;
+    setVista(next);
+    replaceVistaQuery(next);
+    return true;
+  };
+
+  if (!data) {
+    return (
+      <div className={styles.page}>
+        <ConsultaHeader title={etiquetaTitolEmpresa(grup)} subtitle="Carregant…" />
+      </div>
+    );
+  }
 
   return (
     <div className={styles.page}>
@@ -120,6 +138,7 @@ export function EmpresaBoard({
               rang={rang}
               vista={vista}
               grup={grup}
+              vistesCarregades={vistesCarregades}
               onVistaLocal={onVistaLocal}
             />
             <span onPointerEnter={() => void ensurePivot()}>
@@ -146,41 +165,51 @@ export function EmpresaBoard({
           </p>
         </div>
       ) : (
-        <div key={data.vista}>
-          <GestioAvis vista={data.vista} info={data.infoGestio} />
-          {data.mensual && data.perLn ? (
-            <PresentacioComite
-              titol={
-                data.vista === "gestio"
-                  ? "Com va el grup (gestió · costos repartits)"
-                  : "Com va el grup (directe)"
-              }
-              periode={data.periodePresentacio}
-              kpis={data.kpisComite}
-              mensual={data.mensual}
-              perLn={data.perLn}
-            />
+        <div key={`${pivotScopeKey}:${data.vista}`}>
+          {vistaInclouRepartiment(vista) && data.infoGestio ? (
+            <GestioAvis vista={vista} info={data.infoGestio} />
           ) : null}
+          <PresentacioComite
+            periode={data.periodePresentacio}
+            kpis={data.kpisComite}
+            mensual={data.mensual}
+            perLn={data.perLn}
+          />
 
           <DetallCompteCollapsible
+            key={pivotScopeKey}
+            title={`Compte d'explotació · ${etiquetaVistaCompte(vista)}`}
             caption={data.tableCaption}
-            defaultOpen={false}
+            defaultOpen={unMes}
             onFirstOpen={ensurePivot}
+            onOpen={ensurePivot}
             loading={pivotLoading && !pivotRows.length}
           >
             <PivotTableDrilldown
               columns={data.columns}
               rows={pivotRows}
               totalLabel={data.totalLabel}
-              firstColLabel="Concepte"
               canEdit={data.canEdit}
-              editConfig={data.canEdit ? { onSave: ajustarImportConsultaAction } : undefined}
+              editConfig={
+                data.canEdit
+                  ? {
+                      onSave: async (input) => {
+                        const r = await ajustarImportConsultaAction({
+                          ...input,
+                          any: anyActual,
+                          mes: unMes ? rang.des : input.mes,
+                        });
+                        return { ok: r.ok, error: r.ok ? undefined : r.error };
+                      },
+                    }
+                  : undefined
+              }
               drilldown={{
                 any: anyActual,
-                colMap: data.drilldownColMap,
-                lnIdsGrup: data.lnIdsGrup,
-                vista: data.vista,
+                vista,
                 grup,
+                lnIdsGrup: data.lnIdsGrup,
+                colMap: data.drilldownColMap,
               }}
             />
           </DetallCompteCollapsible>

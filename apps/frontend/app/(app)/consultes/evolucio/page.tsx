@@ -1,13 +1,16 @@
 import { auth } from "@/lib/auth";
 import {
   type AmbitEvolucio,
-  type VistaCompte,
   aplicarConsolidacioInterEvolucioEmpresa,
   getAnysAmbDades,
   getArbreSeleccio,
   getEvolucioMensual,
 } from "@/lib/consultes";
 import { slimConceptsForPaint } from "@/lib/consultes-slim";
+import {
+  aplicarBaseGestioPersonalEvolucioEmpresa,
+  aplicarBaseGestioPersonalEvolucioLn,
+} from "@/lib/cost-personal-centre/gestio-consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import {
   filtraLiniesPerGrup,
@@ -20,6 +23,12 @@ import {
   aplicarVistaGestioEvolucioLn,
 } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
+import {
+  parseVistaCompte,
+  vistaInclouAjustos,
+  vistaInclouRepartiment,
+  vistaInclouTraspassos,
+} from "@/lib/vista-compte";
 import { EvolucioBoard } from "./EvolucioBoard";
 
 export const dynamic = "force-dynamic";
@@ -42,9 +51,9 @@ export default async function EvolucioPage({
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
   const lnId = sp.ln ?? null;
   const potGestio = grupPermetVistaGestio(grup);
-  const vista: VistaCompte = potGestio && sp.vista === "gestio" ? "gestio" : "directe";
-  // Si l'usuari arriba en Directe, no bloquegem el paint amb la capa Gestió.
-  const carregaGestioEager = potGestio && vista === "gestio";
+  const vista = parseVistaCompte(sp.vista, { permetCapesGestio: potGestio });
+  // Capes amb traspassos/repartiment: carrega eager la capa demanada.
+  const carregaGestioEager = potGestio && vistaInclouTraspassos(vista);
   const linies = liniesPerConsultaDetall(
     arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
     grup
@@ -59,26 +68,38 @@ export default async function EvolucioPage({
   const [evRaw, infoGestio] = necessitaLn
     ? [null, null]
     : await Promise.all([
-        getEvolucioMensual(scope, lnId, anyActual, grup),
+        getEvolucioMensual(scope, lnId, anyActual, grup, {
+          inclouAjustos: vistaInclouAjustos(vista),
+        }),
         carregaGestioEager ? getInfoGestioConsulta(anyActual, rangAny) : Promise.resolve(null),
       ]);
 
   let gestio = null;
   if (evRaw && carregaGestioEager) {
     if (scope === "linia" && lnId) {
-      gestio = {
-        ...evRaw,
-        concepts: await aplicarVistaGestioEvolucioLn(lnId, anyActual, evRaw.concepts),
-      };
+      let concepts = evRaw.concepts;
+      if (vistaInclouTraspassos(vista)) {
+        concepts = await aplicarBaseGestioPersonalEvolucioLn(lnId, anyActual, concepts);
+      }
+      if (vistaInclouRepartiment(vista)) {
+        concepts = await aplicarVistaGestioEvolucioLn(lnId, anyActual, concepts);
+      }
+      gestio = { ...evRaw, concepts };
     } else if (scope === "empresa") {
-      let conceptsGestio = await aplicarVistaGestioEvolucioEmpresa(anyActual, evRaw.concepts);
-      if (grupAplicaConsolidacioInter(grup)) {
-        conceptsGestio = await aplicarConsolidacioInterEvolucioEmpresa(
-          anyActual,
-          grup,
-          conceptsGestio,
-          { desMes: 1, finsMes: 12 }
-        );
+      let conceptsGestio = evRaw.concepts;
+      if (vistaInclouTraspassos(vista)) {
+        conceptsGestio = await aplicarBaseGestioPersonalEvolucioEmpresa(anyActual, conceptsGestio);
+      }
+      if (vistaInclouRepartiment(vista)) {
+        conceptsGestio = await aplicarVistaGestioEvolucioEmpresa(anyActual, conceptsGestio);
+        if (grupAplicaConsolidacioInter(grup)) {
+          conceptsGestio = await aplicarConsolidacioInterEvolucioEmpresa(
+            anyActual,
+            grup,
+            conceptsGestio,
+            { desMes: 1, finsMes: 12 }
+          );
+        }
       }
       gestio = {
         ...evRaw,
@@ -104,7 +125,7 @@ export default async function EvolucioPage({
       directe={evRaw ? { ...evRaw, concepts: slimConceptsForPaint(evRaw.concepts) } : null}
       gestio={gestio ? { ...gestio, concepts: slimConceptsForPaint(gestio.concepts) } : null}
       infoGestio={infoGestio}
-      potCarregarGestio={potGestio && !carregaGestioEager && !!evRaw}
+      potCarregarGestio={potGestio && vista === "directe" && !!evRaw}
     />
   );
 }

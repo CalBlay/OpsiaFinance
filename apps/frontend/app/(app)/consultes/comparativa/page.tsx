@@ -40,7 +40,7 @@ import {
   NODE_EBITDA,
   NODE_VENDES,
 } from "@/lib/kpi-definitions";
-import type { VistaCompte } from "@/lib/vista-compte";
+import { parseVistaCompte } from "@/lib/vista-compte";
 import {
   ComparativaDetallLazy,
   ComparativaExportLazy,
@@ -88,7 +88,7 @@ export default async function ComparativaPage({
   const anys = anysTots.slice(0, MAX_ANYS_COMPARATIVA);
   const arbre = liniesPerConsultaDetall(arbreRaw, grup);
   const potGestio = grupPermetVistaGestio(grup);
-  const vista: VistaCompte = potGestio && sp.vista === "gestio" ? "gestio" : "directe";
+  const vista = parseVistaCompte(sp.vista, { permetCapesGestio: potGestio });
 
   const scope: AmbitTemporal =
     sp.scope === "linia" ? "linia" : sp.scope === "centre" ? "centre" : "empresa";

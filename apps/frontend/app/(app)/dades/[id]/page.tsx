@@ -10,7 +10,7 @@ import type { EstatImport } from "@/types";
 import { Calendar, FileText, Tag, User } from "lucide-react";
 import { notFound } from "next/navigation";
 import { type DadaRow, DadesEditables } from "./DadesEditables";
-import { ImportActions } from "./ImportActions";
+import { ImportActions, ProcessarExcelButton } from "./ImportActions";
 import { LiniaNegociEditor } from "./LiniaNegociEditor";
 import styles from "./page.module.css";
 
@@ -202,10 +202,24 @@ export default async function ImportDetailPage({
         </h2>
 
         {imp.dades.length === 0 ? (
-          <p className={styles.noRows}>
-            Encara no hi ha dades processades. Clica «Processar Excel» per llegir el compte de
-            resultats i carregar-lo al model financer.
-          </p>
+          <div className={styles.noRows}>
+            <p>
+              Encara no hi ha dades processades. Clica «Processar Excel» per llegir el compte de
+              resultats i carregar-lo al model financer.
+            </p>
+            {isEditor ? (
+              <div style={{ marginTop: "1rem" }}>
+                {imp.rutaStorage ? (
+                  <ProcessarExcelButton importId={imp.id} />
+                ) : (
+                  <p className={styles.noData}>
+                    El fitxer Excel no és al servidor (no s&apos;ha pogut desar en pujar-lo). Torna
+                    a pujar-lo des d&apos;Importacions i després processa&apos;l.
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
         ) : (
           <>
             {isEditor && (

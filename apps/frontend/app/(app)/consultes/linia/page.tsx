@@ -12,7 +12,6 @@ import { auth } from "@/lib/auth";
 import { recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import {
   MESOS_CURTS,
-  type VistaCompte,
   etiquetaRangMesos,
   getAnysAmbDades,
   getArbreSeleccio,
@@ -54,6 +53,7 @@ import {
   carregarCostPersonalDeptSc,
 } from "@/lib/repartiment/personal-departaments-data";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
+import { etiquetaVistaCompte, parseVistaCompte, vistaInclouRepartiment } from "@/lib/vista-compte";
 import { ajustarImportConsultaAction } from "../actions";
 import { LiniaResumPresentacio } from "../presenters-dynamic";
 import { LiniaCentresLazy } from "./LiniaCentresLazy";
@@ -109,7 +109,7 @@ export default async function ConsultaLiniaPage({
   const rang = parseRangMesosFromSearchParams(sp);
 
   const lnId = sp.ln ?? null;
-  const vista: VistaCompte = sp.vista === "gestio" ? "gestio" : "directe";
+  const vista = parseVistaCompte(sp.vista);
   const canEdit = session?.user?.role === "ADMIN" && vista === "directe";
 
   const linies = liniesPerConsultaDetall(
@@ -119,7 +119,7 @@ export default async function ConsultaLiniaPage({
 
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
   const periodeLlarga = etiquetaRangMesosLlarga(rang, anyActual);
-  const vistaLabel = vista === "gestio" ? "Gestió" : "Directe";
+  const vistaLabel = etiquetaVistaCompte(vista);
 
   // Resum multi-LN quan no n'hi ha cap de seleccionada.
   if (!lnId) {
@@ -250,7 +250,7 @@ export default async function ConsultaLiniaPage({
   // Detall d'una línia concreta.
   const [evRaw, infoGestio] = await Promise.all([
     getEvolucioMensual("linia", lnId, anyActual),
-    vista === "gestio" ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
+    vistaInclouRepartiment(vista) ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
   const ev = evRaw;
@@ -272,7 +272,7 @@ export default async function ConsultaLiniaPage({
   let esAgenda = false;
   let esAgendaCompres = false;
   let codiLnPersonal: string | null = null;
-  if (ev && vista === "gestio") {
+  if (ev && vistaInclouRepartiment(vista)) {
     const [central, normesGestio] = await Promise.all([
       db.liniaNegoci.findUnique({
         where: { codi: CODI_LN_CENTRAL },
@@ -314,7 +314,7 @@ export default async function ConsultaLiniaPage({
    * 2. Aquestes quantitats es resten de TOTAL COMPRES Central (7 + 8).
    * 3. El restant es distribueix a 02 i 03 segons el pes de vendes mensual.
    */
-  if (ev && vista === "gestio") {
+  if (ev && vistaInclouRepartiment(vista)) {
     const lnsCompres = await db.liniaNegoci.findMany({
       where: { codi: { in: ["LN00000", "LN00002", "LN00003", "LN00004", "LN00005", "LN00006"] } },
       select: { id: true, codi: true },
@@ -412,7 +412,7 @@ export default async function ConsultaLiniaPage({
    * - Assignacions explícites per departament a 00/01/04/05/06.
    * - Sobrant a 02/03 segons vendes mensuals (o pes configurat sense vendes).
    */
-  if (ev && vista === "gestio") {
+  if (ev && vistaInclouRepartiment(vista)) {
     const [lnsPersonal, configPersonal] = await Promise.all([
       db.liniaNegoci.findMany({
         where: {
@@ -539,7 +539,7 @@ export default async function ConsultaLiniaPage({
 
   /** Traspàs específic: Administració Restaurants (LN00001) → Green Vita (LN00006). */
   if (
-    vista === "gestio" &&
+    vistaInclouRepartiment(vista) &&
     personalKpiMensual &&
     (codiLnPersonal === CODI_LN_RESTAURANTS || codiLnPersonal === CODI_LN_GREEN_VITA)
   ) {
@@ -608,7 +608,11 @@ export default async function ConsultaLiniaPage({
   // Mateix càlcul que el KPI, aplicat als detalls de Compres (7–8), Personal
   // (13–16) i Gestió (18–29) perquè els totals i l'EBITDA quadrin amb Gestió.
   let conceptsTaula = ev?.concepts ?? [];
-  if (ev && vista === "gestio" && (gestioKpiMensual || compresKpiMensual || personalKpiMensual)) {
+  if (
+    ev &&
+    vistaInclouRepartiment(vista) &&
+    (gestioKpiMensual || compresKpiMensual || personalKpiMensual)
+  ) {
     const rowsGestio = ev.concepts.map((row) => ({ ...row, valors: [...row.valors] }));
     const byNode = new Map(rowsGestio.map((row) => [row.node, row]));
     if (gestioKpiMensual) {
@@ -677,7 +681,7 @@ export default async function ConsultaLiniaPage({
     <div className={styles.page}>
       <ConsultaHeader
         title="Compte d'explotació · per línia de negoci"
-        subtitle={`${ev?.titol ?? lnEtiqueta} — total de la línia · ${periodeLabel}${vista === "gestio" ? " · gestió" : " · directe SAP"}`}
+        subtitle={`${ev?.titol ?? lnEtiqueta} — total de la línia · ${periodeLabel} · ${vistaLabel.toLowerCase()}`}
         actions={
           <>
             <LiniaSelectors
@@ -694,11 +698,7 @@ export default async function ConsultaLiniaPage({
                 `compte-linia-${ev?.titol ?? (lnEtiqueta || "linia")}-${periodeLabel}`
               )}
               title="Compte d'explotació · per línia de negoci"
-              subtitle={
-                ev
-                  ? `${ev.titol} — ${periodeLabel} · ${vista === "gestio" ? "Gestió" : "Directe"}`
-                  : periodeLabel
-              }
+              subtitle={ev ? `${ev.titol} — ${periodeLabel} · ${vistaLabel}` : periodeLabel}
               columns={columnsMes}
               rows={rowsMes}
               totalLabel="Període"
