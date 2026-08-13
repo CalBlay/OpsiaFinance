@@ -116,7 +116,11 @@ export function aplicarGestioRepartiment(
   rows: ConceptePivot[],
   lnIds: string[],
   deltaByLnNode: Map<string, Map<number, number>>,
-  opts?: { substituirLnIds?: ReadonlySet<string> }
+  opts?: {
+    substituirLnIds?: ReadonlySet<string>;
+    /** Totals d'empresa a preservar (Directe). Per defecte, les files d'entrada. */
+    invariantOriginal?: ConceptePivot[];
+  }
 ): ConceptePivot[] {
   const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
   const byNode = new Map(merged.map((r) => [r.node, r]));
@@ -137,7 +141,7 @@ export function aplicarGestioRepartiment(
 
   const centralId = substituir ? [...substituir][0] : undefined;
   if (centralId) {
-    equilibrarInvariantEmpresa(rows, merged, lnIds, centralId);
+    equilibrarInvariantEmpresa(opts?.invariantOriginal ?? rows, merged, lnIds, centralId);
   }
 
   for (const row of merged) {
@@ -409,6 +413,9 @@ export async function aplicarGestioEvolucioEmpresa(
 
     for (const [node, delta] of perNode) {
       if (Math.abs(delta) < 0.01) continue;
+      // Compres / Personal / Gestió són zero-sum entre LN: un romanent aquí
+      // desquadraria l'EBITDA d'empresa (Directe ≠ Gestió).
+      if ((NODES_INVARIANT_EMPRESA as readonly number[]).includes(node)) continue;
       aplicarDeltaPresentacioGestio(byNode, node, mesIdx, delta);
     }
   }

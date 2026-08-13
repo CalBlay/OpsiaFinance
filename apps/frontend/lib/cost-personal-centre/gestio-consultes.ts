@@ -233,48 +233,15 @@ export async function aplicarBaseGestioPersonalEvolucioLn(
 }
 
 /**
- * Evolució mensual empresa Gestió: personal = suma de tots els centres (base Gestió).
+ * Evolució mensual empresa: els traspassos entre centres es cancel·len.
+ * Reconstruir el personal des dels centres trenca l'invariant (es perd personal
+ * sense centre i es barregen grups): el total ha de coincidir amb Directe.
  */
 export async function aplicarBaseGestioPersonalEvolucioEmpresa(
-  any: number,
+  _any: number,
   rows: ConceptePivot[]
 ): Promise<ConceptePivot[]> {
-  const base = await carregarBaseGestioPersonal({ any });
-  if (!base.size) return rows;
-
-  const perMes = new Map<number, ImportsPersonalGestio>();
-  for (const centreMes of base.values()) {
-    for (const [mes, cel] of centreMes) {
-      let acc = perMes.get(mes);
-      if (!acc) {
-        acc = emptyImports();
-        perMes.set(mes, acc);
-      }
-      acc.importBrut += cel.imports.importBrut;
-      acc.indemnitzacions += cel.imports.indemnitzacions;
-      acc.totalSegSocial += cel.imports.totalSegSocial;
-      acc.altresDespesesSocials += cel.imports.altresDespesesSocials;
-      acc.costPersonal += cel.imports.costPersonal;
-    }
-  }
-
-  const merged = rows.map((r) => ({ ...r, valors: [...r.valors] }));
-  const byNode = new Map(merged.map((r) => [r.node, r]));
-  const sous = byNode.get(NODE_SOUS_SALARIS);
-  const indem = byNode.get(NODE_INDEMNITZACIONS);
-  const ss = byNode.get(NODE_SEGURETAT_SOCIAL);
-  const altres = byNode.get(NODE_ALTRES_DESPESES_SOCIALS);
-
-  for (const [mes, imp] of perMes) {
-    const idx = mes - 1;
-    if (idx < 0 || idx > 11) continue;
-    if (sous) sous.valors[idx] = imp.importBrut;
-    if (indem) indem.valors[idx] = imp.indemnitzacions;
-    if (ss) ss.valors[idx] = imp.totalSegSocial;
-    if (altres) altres.valors[idx] = imp.altresDespesesSocials;
-  }
-
-  return recalcular(merged);
+  return rows;
 }
 
 export { esNodePersonalCompte };

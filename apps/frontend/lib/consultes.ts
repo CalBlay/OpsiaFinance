@@ -907,6 +907,7 @@ async function aplicarGestioComparativaEmpresa(
     });
     conceptRows = aplicarGestioRepartiment(base.conceptDefs, conceptRows, lnIds, deltaRepartiment, {
       substituirLnIds: central ? new Set([central.id]) : undefined,
+      invariantOriginal: base.concepts,
     });
   }
 
