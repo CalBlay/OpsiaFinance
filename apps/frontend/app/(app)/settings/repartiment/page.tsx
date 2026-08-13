@@ -85,8 +85,8 @@ export default async function RepartimentSettingsPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>Repartiment</h1>
         <p className={styles.subtitle}>
-          Imports fixos (00/01/04/05/06) des de Central; el sobrant a Empresa i Casaments: 50% a
-          parts iguals i 50% pel pes de vendes entre les dues.
+          Imports fixos o percentatges (00/01/04/05/06) des de Central; el sobrant va a Empresa i
+          Casaments: una part a parts iguals i la resta pel pes de vendes (valors editables).
         </p>
         <RepartimentSubNav />
       </header>
@@ -100,6 +100,7 @@ export default async function RepartimentSettingsPage() {
           codi: l.codi,
           pesDefecte: pesDefecteMap.get(l.id) ?? 0.5,
         }))}
+        fraccioSobrantIguals={config.fraccioSobrantIguals}
         refMesLabel={latestPeriod?.nom ?? null}
         canEdit={canEdit}
       />

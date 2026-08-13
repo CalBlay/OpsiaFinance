@@ -6,6 +6,7 @@ import {
   CODI_LN_GREEN_VITA,
   CODI_LN_RESTAURANTS,
   type CostSapAdminRestaurants,
+  NOMS_NORMA_ADMIN_REST_GREEN_VITA,
   NOM_NORMA_ADMIN_REST_GREEN_VITA,
   PERCENT_DEFECTE_ADMIN_REST_GREEN_VITA,
 } from "@/lib/repartiment/personal-admin-restaurants";
@@ -107,10 +108,18 @@ export async function ensureNormaAdminRestGreenVita(): Promise<void> {
   if (!lnGv || !lnRest) return;
 
   const existent = await db.normaRepartiment.findFirst({
-    where: { nom: NOM_NORMA_ADMIN_REST_GREEN_VITA },
-    select: { id: true },
+    where: { nom: { in: [...NOMS_NORMA_ADMIN_REST_GREEN_VITA] } },
+    select: { id: true, nom: true },
   });
-  if (existent) return;
+  if (existent) {
+    if (existent.nom !== NOM_NORMA_ADMIN_REST_GREEN_VITA) {
+      await db.normaRepartiment.update({
+        where: { id: existent.id },
+        data: { nom: NOM_NORMA_ADMIN_REST_GREEN_VITA },
+      });
+    }
+    return;
+  }
 
   await db.normaRepartiment.create({
     data: {

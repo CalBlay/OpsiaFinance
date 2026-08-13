@@ -389,6 +389,14 @@ model PesDefectePersonalComercial {
   liniaNegoci   LiniaNegoci @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
 }
 
+/// Configuració global del sobrant de personal SC (LN00002 / LN00003).
+model ConfigRepartimentPersonal {
+  id                   String   @id @default("default")
+  /// Fracció del sobrant a parts iguals entre LN comercials (0–1). La resta va per pes de vendes.
+  fraccioSobrantIguals Decimal  @default(0.5) @db.Decimal(9, 6)
+  updatedAt            DateTime @updatedAt
+}
+
 /// Configuració global del mòdul (singleton).
 model ConfigTraspassPersonal {
   id         String   @id @default("default")

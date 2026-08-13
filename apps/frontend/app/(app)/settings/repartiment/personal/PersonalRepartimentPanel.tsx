@@ -6,7 +6,11 @@ import type { ModeRepartimentPersonalLn } from "@prisma/client";
 import Link from "next/link";
 import { Fragment, useMemo, useState, useTransition } from "react";
 import styles from "../page.module.css";
-import { saveConfigPersonalLnCompletaAction, updatePesDefecteComercialAction } from "./actions";
+import {
+  saveConfigPersonalLnCompletaAction,
+  updateFraccioSobrantIgualsAction,
+  updatePesDefecteComercialAction,
+} from "./actions";
 
 type LnConfig = {
   id: string;
@@ -52,6 +56,7 @@ export function PersonalRepartimentPanel({
   departaments,
   assignacions,
   pesDefecte,
+  fraccioSobrantIguals,
   refMesLabel,
   canEdit,
 }: {
@@ -60,12 +65,20 @@ export function PersonalRepartimentPanel({
   departaments: DeptRow[];
   assignacions: DeptAssign[];
   pesDefecte: PesDefecte[];
+  fraccioSobrantIguals: number;
   refMesLabel: string | null;
   canEdit: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [modalLnId, setModalLnId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
+
+  const [fraccioIgualsPct, setFraccioIgualsPct] = useState(
+    String((fraccioSobrantIguals * 100).toFixed(1))
+  );
+  const partVendesPct = (
+    100 - Math.min(100, Math.max(0, parseNum(fraccioIgualsPct) ?? fraccioSobrantIguals * 100))
+  ).toFixed(1);
 
   const lnConfig = lnsConfig.find((l) => l.id === modalLnId) ?? null;
 
@@ -153,10 +166,10 @@ export function PersonalRepartimentPanel({
   return (
     <div className={styles.stack}>
       <p className={styles.helpText}>
-        Pool = personal SAP de Central (font). LN00000/01/04/05/06 són LN destí amb import fix/%
-        (LN00000 no és només el residual). El <strong>sobrant</strong> va a LN00002 i LN00003: 50% a
-        parts iguals i 50% segons el pes de vendes sobre (vendes02 + vendes03). Sense vendes → pes
-        per defecte a la meitat de vendes. FDLC no participa.
+        Pool = personal SAP de Central (font). LN00000/01/04/05/06 són LN destí amb import fix o
+        percentatge (LN00000 no és només el residual). El <strong>sobrant</strong> va a LN00002 i
+        LN00003: una part a parts iguals i la resta pel pes de vendes sobre (vendes02 + vendes03).
+        Sense vendes → pesos per defecte. FDLC no participa. Tots els valors són editables.
         {refMesLabel
           ? ` Costos de referència (nòmina): ${refMesLabel}.`
           : " Sense dades de nòmina de referència."}
@@ -180,7 +193,42 @@ export function PersonalRepartimentPanel({
       </div>
 
       <div className={styles.card}>
-        <h2 className={styles.cardTitle}>Pesos per defecte (LN00002 / LN00003)</h2>
+        <h2 className={styles.cardTitle}>Sobrant LN00002 / LN00003</h2>
+        <p className={styles.helpText}>
+          Del sobrant, una part es reparteix a parts iguals i la resta pel pes de vendes del mes.
+          Sense vendes s&apos;usen els pesos per defecte.
+        </p>
+        <div className={styles.actions} style={{ flexWrap: "wrap" }}>
+          <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <span>Part a parts iguals</span>
+            <input
+              className={styles.inlineInput}
+              type="text"
+              value={fraccioIgualsPct}
+              disabled={!canEdit || pending}
+              onChange={(e) => setFraccioIgualsPct(e.target.value)}
+              onBlur={(e) => {
+                const v = parseNum(e.target.value);
+                if (v == null) {
+                  setFraccioIgualsPct(String((fraccioSobrantIguals * 100).toFixed(1)));
+                  return;
+                }
+                const pct = Math.min(100, Math.max(0, v));
+                setFraccioIgualsPct(String(pct));
+                startTransition(async () => {
+                  await updateFraccioSobrantIgualsAction(pct / 100);
+                });
+              }}
+            />
+            <span>%</span>
+          </label>
+          <span className={styles.helpText} style={{ margin: 0 }}>
+            Pel pes de vendes: {partVendesPct}%
+          </span>
+        </div>
+        <h3 className={styles.cardTitle} style={{ marginTop: "1.25rem", fontSize: "1rem" }}>
+          Pesos per defecte (sense vendes)
+        </h3>
         <div className={styles.actions} style={{ flexWrap: "wrap" }}>
           {pesDefecte.map((p) => (
             <label
@@ -274,7 +322,7 @@ export function PersonalRepartimentPanel({
                             })}
                             {lnsComercial.map((ln) => (
                               <td key={ln.id} className={styles.cellMuted}>
-                                {remainderPct > 0 ? `${remainderPct.toFixed(1)}% × vendes` : "—"}
+                                {remainderPct > 0 ? `${remainderPct.toFixed(1)}% auto` : "—"}
                               </td>
                             ))}
                             <td

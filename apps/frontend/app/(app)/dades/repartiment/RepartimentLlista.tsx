@@ -151,8 +151,8 @@ export function RepartimentLlista({
             onClick={() => {
               const any = Number(anyMassiu);
               const avís = confirmatsAlDia
-                ? `Els ${confirmatsAny} mesos confirmats de ${any} ja tenen la regla nova de personal.\n\nVols tornar a recalcular-los igualment?`
-                : `Recalcular i reconfirmar els mesos ja confirmats de ${any}?\n\n${confirmatsPendentsRegla} període${confirmatsPendentsRegla === 1 ? "" : "s"} pendent${confirmatsPendentsRegla === 1 ? "" : "s"} de la regla nova (50% iguals + 50% vendes).\nEls esborranys no es toquen.`;
+                ? `Els ${confirmatsAny} mesos confirmats de ${any} ja tenen la configuració actual del sobrant de personal.\n\nVols tornar a recalcular-los igualment?`
+                : `Has canviat la configuració del sobrant de personal (parts iguals / pes de vendes).\n\nRecalcular i reconfirmar ${confirmatsPendentsRegla} període${confirmatsPendentsRegla === 1 ? "" : "s"} confirmat${confirmatsPendentsRegla === 1 ? "" : "s"} de ${any}?\nEls esborranys no es toquen.`;
               if (!window.confirm(avís)) return;
               setMissatge(null);
               startTransition(async () => {

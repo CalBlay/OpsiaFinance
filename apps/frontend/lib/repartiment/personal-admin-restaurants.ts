@@ -1,6 +1,7 @@
 /**
- * Norma: 25% del personal SAP (sous + SS) del centre d'Administració de restaurants (LN00001)
- * s'imputa a LN00006 (Green Vita). El mateix import es treu de LN00001.
+ * Norma: percentatge (editable) del personal SAP (sous + SS) del centre
+ * d'Administració de restaurants (LN00001) s'imputa a LN00006 (Green Vita).
+ * El mateix import es treu de LN00001.
  *
  * Base: SAP (DadaResultat) del centre, nodes 13 i 15.
  */
@@ -15,9 +16,14 @@ import type { NormaRepartiment } from "@prisma/client";
 export const CODI_LN_RESTAURANTS = "LN00001";
 export const CODI_LN_GREEN_VITA = "LN00006";
 
-/** Nom estable de la norma (editable % a settings). */
+/** Nom estable de la norma (el % és editable a settings). */
 export const NOM_NORMA_ADMIN_REST_GREEN_VITA =
-  "Green Vita · 25% personal centre Admin restaurants (LN00001)";
+  "Green Vita · personal centre Admin restaurants (LN00001)";
+
+export const NOMS_NORMA_ADMIN_REST_GREEN_VITA = [
+  NOM_NORMA_ADMIN_REST_GREEN_VITA,
+  "Green Vita · 25% personal centre Admin restaurants (LN00001)",
+];
 
 /**
  * Codi del centre d'Administració dins LN00001 (CCR00000 · ADMINISTRACIO RESTAURANTS).
@@ -36,7 +42,7 @@ export type CostSapAdminRestaurants = {
 };
 
 export function esNormaAdminRestGreenVita(nom: string | null): boolean {
-  return nom === NOM_NORMA_ADMIN_REST_GREEN_VITA;
+  return nom != null && NOMS_NORMA_ADMIN_REST_GREEN_VITA.includes(nom);
 }
 
 export function percentAdminRestGreenVita(

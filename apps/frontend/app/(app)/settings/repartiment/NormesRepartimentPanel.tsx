@@ -128,9 +128,10 @@ export function NormesRepartimentPanel({
             </Button>
           </div>
           <p className={styles.helpText}>
-            Confirmades: LN00002/03 compres pool+SAP · personal pool · LN00004 gestió 30% i suport
-            personal per centres editable · LN00005/06. «Sincronitzar noves normes» afegeix del seed
-            sense esborrar les existents.
+            Confirmades: LN00002/03 compres pool+SAP · personal pool · LN00004 gestió i suport
+            personal per centres editable · LN00005/06. Els percentatges i imports són els de cada
+            norma (editables). «Sincronitzar noves normes» afegeix del seed sense esborrar les
+            existents.
           </p>
         </div>
       )}

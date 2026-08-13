@@ -168,3 +168,22 @@ export async function updatePesDefecteComercialAction(liniaNegociId: string, pes
   revalidateRepartimentPersonal();
   return { ok: true, missatge: "Pes per defecte desat." };
 }
+
+export async function updateFraccioSobrantIgualsAction(fraccio: number) {
+  const user = await requireEditor();
+  if (!user) return { ok: false, missatge: "Sense permisos." };
+
+  const { clampFraccio01, FRACCIO_SOBRANT_IGUALS_DEFECTE } = await import(
+    "@/lib/repartiment/personal-departaments-constants"
+  );
+  const valor = clampFraccio01(Number.isFinite(fraccio) ? fraccio : FRACCIO_SOBRANT_IGUALS_DEFECTE);
+
+  await db.configRepartimentPersonal.upsert({
+    where: { id: "default" },
+    update: { fraccioSobrantIguals: valor },
+    create: { id: "default", fraccioSobrantIguals: valor },
+  });
+
+  revalidateRepartimentPersonal();
+  return { ok: true, missatge: "Part a parts iguals desada." };
+}

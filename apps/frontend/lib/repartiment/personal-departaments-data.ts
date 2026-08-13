@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { CODI_LN_CENTRAL } from "@/lib/repartiment/nodes";
+import { nomNormaSenseQuantitat } from "@/lib/repartiment/normes-seed";
 import type {
   ConfigPersonalDept,
   ConfigPersonalLn,
@@ -9,6 +10,8 @@ import type {
 import {
   CODIS_LN_PERSONAL_COMERCIAL,
   CODIS_LN_PERSONAL_CONFIG,
+  FRACCIO_SOBRANT_IGUALS_DEFECTE,
+  clampFraccio01,
 } from "@/lib/repartiment/personal-departaments-constants";
 
 export type ArbreDeptSc = {
@@ -135,6 +138,7 @@ export async function carregarConfigPersonal(): Promise<{
   configsLn: ConfigPersonalLn[];
   configsDept: ConfigPersonalDept[];
   pesDefecte: PesDefecteComercial[];
+  fraccioSobrantIguals: number;
 }> {
   const codis = [...CODIS_LN_PERSONAL_CONFIG, ...CODIS_LN_PERSONAL_COMERCIAL];
   const lns = await db.liniaNegoci.findMany({
@@ -144,10 +148,15 @@ export async function carregarConfigPersonal(): Promise<{
   const lnIds = lns.map((l) => l.id);
   const lnById = new Map(lns.map((l) => [l.id, l.codi]));
 
-  const [configsLnRaw, configsDeptRaw, pesDefecteRaw] = await Promise.all([
+  const [configsLnRaw, configsDeptRaw, pesDefecteRaw, cfgSobrant] = await Promise.all([
     db.configPersonalLn.findMany({ where: { liniaNegociId: { in: lnIds } } }),
     db.configPersonalDept.findMany({ where: { liniaNegociId: { in: lnIds } } }),
     db.pesDefectePersonalComercial.findMany({ where: { liniaNegociId: { in: lnIds } } }),
+    db.configRepartimentPersonal.upsert({
+      where: { id: "default" },
+      update: {},
+      create: { id: "default", fraccioSobrantIguals: FRACCIO_SOBRANT_IGUALS_DEFECTE },
+    }),
   ]);
 
   return {
@@ -170,11 +179,17 @@ export async function carregarConfigPersonal(): Promise<{
       liniaNegociId: p.liniaNegociId,
       pesDefecte: Number(p.pesDefecte),
     })),
+    fraccioSobrantIguals: clampFraccio01(Number(cfgSobrant.fraccioSobrantIguals)),
   };
 }
 
-/** Assegura registres de config i pesos per defecte 50/50 comercials. */
+/** Assegura registres de config i pesos per defecte comercials. */
 export async function ensureConfigPersonalInicial(): Promise<void> {
+  await db.configRepartimentPersonal.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default", fraccioSobrantIguals: FRACCIO_SOBRANT_IGUALS_DEFECTE },
+  });
   const lns = await db.liniaNegoci.findMany({
     where: {
       codi: { in: [...CODIS_LN_PERSONAL_CONFIG, ...CODIS_LN_PERSONAL_COMERCIAL] },
@@ -203,6 +218,15 @@ export async function ensureConfigPersonalInicial(): Promise<void> {
         pesDefecte: codi === "LN00002" ? 0.5 : 0.5,
       },
     });
+  }
+
+  const totes = await db.normaRepartiment.findMany({ select: { id: true, nom: true } });
+  for (const n of totes) {
+    if (!n.nom) continue;
+    const nou = nomNormaSenseQuantitat(n.nom);
+    if (nou && nou !== n.nom) {
+      await db.normaRepartiment.update({ where: { id: n.id }, data: { nom: nou } });
+    }
   }
 }
 

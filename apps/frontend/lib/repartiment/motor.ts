@@ -28,6 +28,7 @@ export type ContextPersonalDept = {
   configsLn: ConfigPersonalLn[];
   configsDept: ConfigPersonalDept[];
   pesDefecte: PesDefecteComercial[];
+  fraccioSobrantIguals: number;
   /** Cost SAP sous+SS del centre Admin restaurants (opcional). */
   costAdminRestaurants?: CostSapAdminRestaurants | null;
 };
@@ -118,7 +119,8 @@ export function calcularMoviments(
     personalDept.configsDept,
     directe,
     lnIdByCodi,
-    personalDept.pesDefecte
+    personalDept.pesDefecte,
+    personalDept.fraccioSobrantIguals
   );
   const movimentsAdminRest = calcularMovimentsAdminRestGreenVita(
     normesActives,

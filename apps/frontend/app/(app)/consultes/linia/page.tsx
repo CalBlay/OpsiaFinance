@@ -411,8 +411,8 @@ export default async function ConsultaLiniaPage({
    * Personal SC:
    * - Pool = TOTAL COST SALARIAL visible de Central (13–16).
    * - Assignacions explícites per departament a 00/01/04/05/06.
-   * - Sobrant a 02/03: 50% a parts iguals + 50% segons vendes mensuals
-   *   (o pes configurat sense vendes).
+   * - Sobrant a 02/03: mix (part a parts iguals + resta segons vendes mensuals)
+   *   o pesos configurats sense vendes.
    */
   if (ev && vistaInclouRepartiment(vista)) {
     const [lnsPersonal, configPersonal] = await Promise.all([
@@ -522,7 +522,8 @@ export default async function ConsultaLiniaPage({
             configPersonal.configsDept,
             directe,
             lnIdByCodi,
-            configPersonal.pesDefecte
+            configPersonal.pesDefecte,
+            configPersonal.fraccioSobrantIguals
           );
           const objectiu = moviments.find(
             (moviment) =>

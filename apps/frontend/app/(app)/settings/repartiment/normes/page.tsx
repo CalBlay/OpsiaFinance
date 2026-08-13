@@ -30,7 +30,7 @@ export default async function RepartimentNormesPage() {
       where: {
         OR: [
           { concepteNode: { not: NODE_COST_SALARIAL } },
-          // Norma especial: 25% Admin restaurants (LN00001) → Green Vita
+          // Norma especial: % Admin restaurants (LN00001) → Green Vita
           { nom: NOM_NORMA_ADMIN_REST_GREEN_VITA },
         ],
       },

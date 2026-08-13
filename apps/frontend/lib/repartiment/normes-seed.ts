@@ -31,7 +31,7 @@ export const GRUPS_REPARTIMENT = [
 export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
   LN00000: [
     {
-      nom: "Central · compres 25% ingressos explotació",
+      nom: "Central · compres s/ ingressos explotació",
       tipus: "PERCENT_VENDES_PROPIES",
       destCodi: "LN00000",
       concepteNode: NODE_COMPRES,
@@ -39,7 +39,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 110,
     },
     {
-      nom: "Central · gestió % cost gestió SAP (Agenda)",
+      nom: "Central · gestió s/ cost gestió SAP (Agenda)",
       tipus: "PERCENT_POOL_CENTRAL",
       destCodi: "LN00000",
       concepteNode: NODE_COST_GESTIO,
@@ -57,7 +57,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 310,
     },
     {
-      nom: "Empresa · gestió % cost gestió Central SAP",
+      nom: "Empresa · gestió s/ cost gestió Central SAP",
       tipus: "PERCENT_POOL_CENTRAL",
       destCodi: "LN00002",
       concepteNode: NODE_COST_GESTIO,
@@ -75,7 +75,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 315,
     },
     {
-      nom: "Casaments · gestió % cost gestió Central SAP",
+      nom: "Casaments · gestió s/ cost gestió Central SAP",
       tipus: "PERCENT_POOL_CENTRAL",
       destCodi: "LN00003",
       concepteNode: NODE_COST_GESTIO,
@@ -85,7 +85,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
   ],
   LN00004: [
     {
-      nom: "Precuinats · compres 45% ingressos explotació",
+      nom: "Precuinats · compres s/ ingressos explotació",
       tipus: "PERCENT_VENDES_PROPIES",
       destCodi: "LN00004",
       concepteNode: NODE_COMPRES,
@@ -93,7 +93,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 450,
     },
     {
-      nom: "Precuinats · gestió % cost gestió Central SAP",
+      nom: "Precuinats · gestió s/ cost gestió Central SAP",
       tipus: "PERCENT_POOL_CENTRAL",
       destCodi: "LN00004",
       concepteNode: NODE_COST_GESTIO,
@@ -103,7 +103,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
   ],
   LN00005: [
     {
-      nom: "Foodlovers · compres 28% ingressos + SAP compres i altres aprov.",
+      nom: "Foodlovers · compres s/ ingressos + SAP compres i altres aprov.",
       tipus: "PERCENT_VENDES_PROPIES",
       destCodi: "LN00005",
       concepteNode: NODE_COMPRES,
@@ -111,7 +111,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 550,
     },
     {
-      nom: "Foodlovers · gestió % cost gestió Central SAP",
+      nom: "Foodlovers · gestió s/ cost gestió Central SAP",
       tipus: "PERCENT_POOL_CENTRAL",
       destCodi: "LN00005",
       concepteNode: NODE_COST_GESTIO,
@@ -121,7 +121,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
   ],
   LN00006: [
     {
-      nom: "Green Vita · compres 25% ingressos + SAP compres i altres aprov.",
+      nom: "Green Vita · compres s/ ingressos + SAP compres i altres aprov.",
       tipus: "PERCENT_VENDES_PROPIES",
       destCodi: "LN00006",
       concepteNode: NODE_COMPRES,
@@ -129,7 +129,7 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
       ordre: 650,
     },
     {
-      nom: "Green Vita · gestió % cost gestió Central SAP",
+      nom: "Green Vita · gestió s/ cost gestió Central SAP",
       tipus: "PERCENT_POOL_CENTRAL",
       destCodi: "LN00006",
       concepteNode: NODE_COST_GESTIO,
@@ -141,4 +141,35 @@ export const NORMES_PER_LN: Record<string, NormaSeed[]> = {
 
 export function normesConfirmades(): NormaSeed[] {
   return Object.values(NORMES_PER_LN).flat();
+}
+
+/** Noms antics amb quantitat → noms sense xifres (els valors són a la norma, editables). */
+export const RENOMBRA_NOMS_NORMES_SENSE_QUANTITAT: Record<string, string> = {
+  "Central · compres 25% ingressos explotació": "Central · compres s/ ingressos explotació",
+  "Precuinats · compres 45% ingressos explotació": "Precuinats · compres s/ ingressos explotació",
+  "Foodlovers · compres 28% ingressos + SAP compres i altres aprov.":
+    "Foodlovers · compres s/ ingressos + SAP compres i altres aprov.",
+  "Green Vita · compres 25% ingressos + SAP compres i altres aprov.":
+    "Green Vita · compres s/ ingressos + SAP compres i altres aprov.",
+  "Green Vita · 25% personal centre Admin restaurants (LN00001)":
+    "Green Vita · personal centre Admin restaurants (LN00001)",
+  "Central · gestió % cost gestió SAP (Agenda)": "Central · gestió s/ cost gestió SAP (Agenda)",
+  "Empresa · gestió % cost gestió Central SAP": "Empresa · gestió s/ cost gestió Central SAP",
+  "Casaments · gestió % cost gestió Central SAP": "Casaments · gestió s/ cost gestió Central SAP",
+  "Precuinats · gestió % cost gestió Central SAP": "Precuinats · gestió s/ cost gestió Central SAP",
+  "Foodlovers · gestió % cost gestió Central SAP": "Foodlovers · gestió s/ cost gestió Central SAP",
+  "Green Vita · gestió % cost gestió Central SAP": "Green Vita · gestió s/ cost gestió Central SAP",
+};
+
+/** Treu xifres del nom (el %/import van al camp Valor). */
+export function nomNormaSenseQuantitat(nom: string): string {
+  const mapped = RENOMBRA_NOMS_NORMES_SENSE_QUANTITAT[nom];
+  if (mapped) return mapped;
+  return nom
+    .replace(/gestió\s+\d+(?:[.,]\d+)?\s*%\s+/gi, "gestió s/ ")
+    .replace(/gestió\s+%\s+/gi, "gestió s/ ")
+    .replace(/\s*\d+(?:[.,]\d+)?\s*%/g, "")
+    .replace(/\s{2,}/g, " ")
+    .replace(/\s+·\s+/g, " · ")
+    .trim();
 }

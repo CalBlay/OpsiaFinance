@@ -4,7 +4,8 @@ import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { periodesToExportInforme } from "@/lib/export/dades";
-import { MARCA_SOBRANT_PERSONAL } from "@/lib/repartiment/personal-departaments-constants";
+import { personalSobrantAlDia } from "@/lib/repartiment/personal-departaments-constants";
+import { carregarConfigPersonal } from "@/lib/repartiment/personal-departaments-data";
 import { RepartimentLlista } from "./RepartimentLlista";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,7 @@ export const metadata = { title: "Repartiment mensual — OpsiaFinance" };
 const tab = getDadesTabById("repartiment");
 
 export default async function RepartimentLlistaPage() {
-  const [session, periods] = await Promise.all([
+  const [session, periods, configPersonal] = await Promise.all([
     auth(),
     db.period.findMany({
       where: { dadesResultat: { some: {} } },
@@ -24,18 +25,22 @@ export default async function RepartimentLlistaPage() {
             id: true,
             estat: true,
             moviments: {
-              where: { detallCalcul: { contains: MARCA_SOBRANT_PERSONAL } },
-              select: { id: true },
+              where: {
+                detallCalcul: { contains: "sobrant" },
+              },
+              select: { detallCalcul: true },
               take: 1,
             },
           },
         },
       },
     }),
+    carregarConfigPersonal(),
   ]);
 
   const role = session?.user?.role;
   const canEdit = role === "ADMIN" || role === "EDICIO";
+  const fraccioVigent = configPersonal.fraccioSobrantIguals;
 
   const items = periods.map((p) => ({
     id: p.id,
@@ -43,7 +48,10 @@ export default async function RepartimentLlistaPage() {
     any: p.any,
     mes: p.mes,
     estat: (p.execucioRepartiment?.estat as "CONFIRMAT" | "BORRADOR" | null) ?? null,
-    personalReglaAplicada: (p.execucioRepartiment?.moviments.length ?? 0) > 0,
+    personalReglaAplicada: personalSobrantAlDia(
+      p.execucioRepartiment?.moviments[0]?.detallCalcul,
+      fraccioVigent
+    ),
   }));
 
   return (
