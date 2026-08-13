@@ -170,6 +170,7 @@ export function EmpresaBoard({
             <GestioAvis vista={vista} info={data.infoGestio} />
           ) : null}
           <PresentacioComite
+            titol={etiquetaTitolEmpresa(grup)}
             periode={data.periodePresentacio}
             kpis={data.kpisComite}
             mensual={data.mensual}

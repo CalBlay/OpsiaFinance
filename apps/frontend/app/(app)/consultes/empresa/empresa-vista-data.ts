@@ -41,7 +41,7 @@ export type EmpresaVistaData = {
     personal: number[];
     compres: number[];
     gestio: number[];
-  } | null;
+  };
   perLn: {
     etiquetes: string[];
     ingressos: number[];
@@ -49,7 +49,7 @@ export type EmpresaVistaData = {
     personal: number[];
     compres: number[];
     gestio: number[];
-  } | null;
+  };
   buit: boolean;
   canEdit: boolean;
   exportSubtitle: string;
