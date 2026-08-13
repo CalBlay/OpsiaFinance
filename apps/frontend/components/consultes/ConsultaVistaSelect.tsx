@@ -5,23 +5,23 @@ import { FILTRE, VISTA_OPCIONS } from "./consulta-filtres";
 import styles from "./report.module.css";
 
 /** Selector Vista: per defecte SAP → Directe → + Traspassos → Gestió. */
-export function ConsultaVistaSelect<T extends VistaCompte = VistaCompte>({
+export function ConsultaVistaSelect({
   id,
   value,
   onChange,
   disabled = false,
   pendingHint = false,
-  opcions = VISTA_COMPTE_CADENA as readonly T[],
+  opcions = VISTA_COMPTE_CADENA,
 }: {
   id: string;
-  value: T;
-  onChange: (vista: T) => void;
+  value: VistaCompte;
+  onChange: (vista: VistaCompte) => void;
   disabled?: boolean;
   pendingHint?: boolean;
   /** Subconjunt (p.ex. només Directe/Gestió a cost personal). */
-  opcions?: readonly T[];
+  opcions?: readonly VistaCompte[];
 }) {
-  const valueEfectiu = opcions.includes(value) ? value : (opcions[0] ?? ("directe" as T));
+  const valueEfectiu = opcions.includes(value) ? value : (opcions[0] ?? "directe");
 
   return (
     <div className={styles.field}>
@@ -34,7 +34,7 @@ export function ConsultaVistaSelect<T extends VistaCompte = VistaCompte>({
         style={{ minWidth: 140 }}
         value={valueEfectiu}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.value as T)}
+        onChange={(e) => onChange(e.target.value as VistaCompte)}
       >
         {opcions.map((v) => (
           <option key={v} value={v}>
