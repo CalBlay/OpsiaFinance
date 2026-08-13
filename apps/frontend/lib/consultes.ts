@@ -1770,6 +1770,7 @@ export interface DetallCellaParams {
 }
 
 export async function getDetallCella(params: DetallCellaParams): Promise<DetallCellaResult> {
+  const vistaEfectiva = params.vista ?? "directe";
   const concepte = await db.concepteResultat.findUnique({
     where: { id: params.concepteResultatId },
     select: { node: true, descripcio: true },
@@ -1836,7 +1837,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
       },
       orderBy: { period: { mes: "asc" } },
     }),
-    vistaInclouAjustos(params.vista ?? "directe")
+    vistaInclouAjustos(vistaEfectiva)
       ? db.ajust.findMany({
           where: {
             concepteResultatId: params.concepteResultatId,
@@ -1900,7 +1901,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
 
   // Capes amb repartiment: afegir imputacions (totals → línia de detall).
   // No s'apliquen a nivell centre (van a la columna Estructura / total LN).
-  if (vistaInclouRepartiment(params.vista) && !params.centreId) {
+  if (vistaInclouRepartiment(vistaEfectiva) && !params.centreId) {
     const { NODE_COST_SALARIAL, nodeTotalDesDeDetall } = await import("@/lib/repartiment/nodes");
     const { getMovimentsGestioDetall } = await import("@/lib/repartiment/service");
 
@@ -1960,7 +1961,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
   }
 
   // Consolidat · Gestió: Prestació FDLC → Vendes LN00001 (CCR00008) al detall.
-  if (params.grup === "consolidat" && vistaInclouRepartiment(params.vista) && !params.centreId) {
+  if (params.grup === "consolidat" && vistaInclouRepartiment(vistaEfectiva) && !params.centreId) {
     const ln = params.liniaNegociId
       ? await db.liniaNegoci.findUnique({
           where: { id: params.liniaNegociId },
@@ -2081,7 +2082,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
   let totalTraspass = 0;
 
   // Capes amb traspassos: traspassos de personal (node 17 → presentació a sous 13 + SS 15).
-  if (vistaInclouTraspassos(params.vista)) {
+  if (vistaInclouTraspassos(vistaEfectiva)) {
     const {
       NODE_COST_SALARIAL,
       NODE_SOUS_SALARIS,
@@ -2261,7 +2262,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     NODE_TOTAL_COST_SALARIAL,
   } = await import("@/lib/cost-personal-centre/nodes");
   if (
-    vistaInclouTraspassos(params.vista) &&
+    vistaInclouTraspassos(vistaEfectiva) &&
     esNodePersonalCompte(concepte.node) &&
     (params.centreId || params.liniaNegociId)
   ) {
