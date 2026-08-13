@@ -195,12 +195,11 @@ export function EmpresaBoard({
                 data.canEdit
                   ? {
                       onSave: async (input) => {
-                        const r = await ajustarImportConsultaAction({
+                        return ajustarImportConsultaAction({
                           ...input,
                           any: anyActual,
                           mes: unMes ? rang.des : input.mes,
                         });
-                        return { ok: r.ok, error: r.ok ? undefined : r.error };
                       },
                     }
                   : undefined
