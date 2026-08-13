@@ -401,7 +401,7 @@ function PesLnPieCard({ pesLn }: { pesLn: PesLnComparativa }) {
 
   return (
     <ChartCard
-      title="Pes LN · vendes"
+      title="Pes LN · ingressos"
       dense
       bare
       actions={
@@ -424,7 +424,7 @@ function PesLnPieCard({ pesLn }: { pesLn: PesLnComparativa }) {
       }
     >
       {segments.length === 0 ? (
-        <p className={styles.emptyChart}>Sense vendes per LN en aquest any.</p>
+        <p className={styles.emptyChart}>Sense ingressos per LN en aquest any.</p>
       ) : (
         <ResponsiveContainer width="100%" height="100%">
           <PieChart margin={{ top: 2, right: 4, bottom: 2, left: 4 }}>
@@ -488,7 +488,7 @@ function KpisLn({
   return (
     <OpsiaKpiCardRow size="lg">
       <OpsiaKpiCard
-        label="Vendes LN"
+        label="Ingressos LN"
         import_={vendes.totalitat}
         periode={periodeLabel}
         accent="ingressos"
@@ -565,7 +565,7 @@ function KpisLn({
       </OpsiaKpiCard>
 
       <OpsiaKpiCard
-        label="Vendes empresa"
+        label="Ingressos empresa"
         import_={pes?.vendesEmpresa ?? 0}
         periode={periodeLabel}
         accent="neutral"
@@ -613,8 +613,8 @@ export function PresentacioComparativa({
 
   const dataAny = perAny.map((r) => ({
     name: r.label,
-    Vendes: r.vendes,
-    "Vendes empresa": r.vendesEmpresa ?? 0,
+    Ingressos: r.vendes,
+    "Ingressos empresa": r.vendesEmpresa ?? 0,
     "Pes %": r.pesEmpresa ?? null,
     EBITDA: r.ebitda,
     "Marge EBITDA %": r.vendes !== 0 ? (r.ebitda / r.vendes) * 100 : null,
@@ -683,7 +683,7 @@ export function PresentacioComparativa({
 
       {esLn ? (
         <div className={styles.grid2}>
-          <ChartCard title="Vendes LN vs empresa">
+          <ChartCard title="Ingressos LN vs empresa">
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={dataAny} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid
@@ -707,14 +707,15 @@ export function PresentacioComparativa({
                 <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
                 <Legend wrapperStyle={{ fontSize: "0.82rem" }} />
                 <Bar
-                  dataKey="Vendes"
-                  name="Vendes LN"
+                  dataKey="Ingressos"
+                  name="Ingressos LN"
                   fill={OPSIA_CHART.vendes}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={36}
                 />
                 <Bar
-                  dataKey="Vendes empresa"
+                  dataKey="Ingressos empresa"
+                  name="Ingressos empresa"
                   fill={OPSIA_CHART.gestio}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={36}
@@ -723,7 +724,7 @@ export function PresentacioComparativa({
             </ResponsiveContainer>
           </ChartCard>
 
-          <ChartCard title="Pes sobre vendes empresa">
+          <ChartCard title="Pes sobre ingressos empresa">
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={dataAny} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <CartesianGrid
@@ -766,7 +767,7 @@ export function PresentacioComparativa({
       ) : (
         <>
           <div className={styles.grid2}>
-            <ChartCard title="Vendes">
+            <ChartCard title="Ingressos">
               <ResponsiveContainer width="100%" height={300}>
                 <AreaChart data={dataAny} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                   <defs>
@@ -796,7 +797,8 @@ export function PresentacioComparativa({
                   <Tooltip formatter={(v) => euroTip(Number(v ?? 0))} contentStyle={tooltipStyle} />
                   <Area
                     type="monotone"
-                    dataKey="Vendes"
+                    dataKey="Ingressos"
+                    name="Ingressos"
                     stroke={OPSIA_CHART.vendes}
                     strokeWidth={3}
                     fill="url(#cmpVendesFill)"
@@ -869,7 +871,7 @@ export function PresentacioComparativa({
 
           <div className={styles.grid2}>
             {dataPesComparat.length > 0 ? (
-              <ChartCard title={`% s/ vendes · ${refAnyLabel} vs ${actualAnyLabel}`}>
+              <ChartCard title={`% s/ ingressos · ${refAnyLabel} vs ${actualAnyLabel}`}>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={dataPesComparat}
@@ -967,7 +969,7 @@ export function PresentacioComparativa({
       {mensual && mensual.length > 0 && anysMensual.length > 0 ? (
         esLn ? (
           <TendenciaMensualChart
-            title="Tendència mes a mes · Vendes LN"
+            title="Tendència mes a mes · Ingressos LN"
             data={mensual}
             anys={anysMensual}
             dataKeyPrefix="v_"
@@ -975,7 +977,7 @@ export function PresentacioComparativa({
         ) : (
           <div className={styles.grid2}>
             <TendenciaMensualChart
-              title="Tendència mes a mes · Vendes"
+              title="Tendència mes a mes · Ingressos"
               data={mensual}
               anys={anysMensual}
               dataKeyPrefix="v_"

@@ -43,7 +43,7 @@ function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: 
       periode={periodeLabel}
       accent={accentFromTipus(k.tipus, k.import_)}
       pct={k.tipus !== "vendes" ? k.pctVendes : null}
-      pctHint="sobre vendes"
+      pctHint="s/ ingressos"
       pctSigned={k.tipus === "ebitda"}
       hint={
         k.tipus === "vendes"
@@ -80,7 +80,7 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
       periode={periodeLabel}
       accent={accentFromTipus(k.tipus, k.totalitat)}
       pct={k.tipus !== "vendes" ? k.pctActual : null}
-      pctHint={`s/ vendes${k.actualLabel ? ` · ${k.actualLabel}` : ""}`}
+      pctHint={`s/ ingressos${k.actualLabel ? ` · ${k.actualLabel}` : ""}`}
       pctSigned={pctSigned}
       hint={k.tipus === "vendes" ? (k.actualLabel ?? undefined) : undefined}
       negImport
@@ -113,7 +113,7 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
               <>
                 {ppDiff > 0 ? "+" : ""}
                 {formatNum(ppDiff, 1)} pp
-                <span className={styles.kpiExecBannerVs}> s/ vendes vs {k.refLabel}</span>
+                <span className={styles.kpiExecBannerVs}> s/ ingressos vs {k.refLabel}</span>
               </>
             ) : null}
           </span>
@@ -142,7 +142,7 @@ function KpiCardComparatiu({ k, periodeLabel }: { k: KpiComparatiuItem; periodeL
           {k.tipus !== "vendes" && k.pctAnterior !== null && (
             <span className={styles.kpiExecFootPct}>
               {" "}
-              · {pctFmt(k.pctAnterior, pctSigned)}% s/ vendes
+              · {pctFmt(k.pctAnterior, pctSigned)}% s/ ingressos
             </span>
           )}
         </div>

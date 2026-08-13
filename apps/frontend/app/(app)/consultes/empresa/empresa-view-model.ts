@@ -10,7 +10,6 @@ import {
   NODE_COST_SALARIAL,
   NODE_EBITDA,
   NODE_INGRESSOS,
-  NODE_VENDES,
   buildKpisEmpresa,
 } from "@/lib/kpi-definitions";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
@@ -75,10 +74,10 @@ export function buildEmpresaVistaData(opts: {
   const chartCategories = comp.linies.map(etiquetaGrafic);
   const chartSeries = [
     {
-      name: "Vendes",
+      name: "Ingressos",
       type: "bar" as const,
-      color: OPSIA_CHART.vendes,
-      data: findRow(NODE_VENDES)?.valors ?? [],
+      color: OPSIA_CHART.ingressos,
+      data: findRow(NODE_INGRESSOS)?.valors ?? [],
     },
     {
       name: "EBITDA",

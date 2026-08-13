@@ -38,7 +38,7 @@ import {
   NODE_COST_GESTIO,
   NODE_COST_SALARIAL,
   NODE_EBITDA,
-  NODE_VENDES,
+  NODE_INGRESSOS,
 } from "@/lib/kpi-definitions";
 import { parseVistaCompte } from "@/lib/vista-compte";
 import {
@@ -51,7 +51,7 @@ import { ComparativaSelectors } from "./ComparativaSelectors";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Comparativa temporal — OpsiaFinance" };
 
-const NODE_VENDES_KPI = NODE_VENDES;
+const NODE_INGRESSOS_KPI = NODE_INGRESSOS;
 const KPI_COMPARATIU = KPI_DEFINICIONS;
 
 function valorNode(
@@ -146,7 +146,7 @@ export default async function ComparativaPage({
     if (granularitat !== "mensual" || !compMensual) return [];
     const parsed = parseMesosParam(sp.mesos);
     if (parsed) return parsed;
-    return inferDefaultMesos(compMensual.perAny[anyTaula], NODE_VENDES_KPI);
+    return inferDefaultMesos(compMensual.perAny[anyTaula], NODE_INGRESSOS_KPI);
   })();
 
   const periodeLabel = mesosSeleccionats.length ? labelMesos(mesosSeleccionats) : "";
@@ -179,11 +179,11 @@ export default async function ComparativaPage({
 
   const vendesEmpresaPerColumna = (idx: number): number => {
     if (granularitat === "mensual") return 0;
-    return valorNode(findRowEmp, NODE_VENDES, idx);
+    return valorNode(findRowEmp, NODE_INGRESSOS, idx);
   };
 
   const vendesEmpresaPerAny = (year: number): number => {
-    const row = findRowAnyEmp(year, NODE_VENDES);
+    const row = findRowAnyEmp(year, NODE_INGRESSOS);
     return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
   };
 
@@ -203,8 +203,8 @@ export default async function ComparativaPage({
       const anyAnterior = anysComparats[anysComparats.length - 2];
       const rowActual = anyActual ? findRowAny(anyActual, node) : undefined;
       const rowAnterior = anyAnterior ? findRowAny(anyAnterior, node) : undefined;
-      const vendesActual = anyActual ? findRowAny(anyActual, NODE_VENDES) : undefined;
-      const vendesAnterior = anyAnterior ? findRowAny(anyAnterior, NODE_VENDES) : undefined;
+      const vendesActual = anyActual ? findRowAny(anyActual, NODE_INGRESSOS) : undefined;
+      const vendesAnterior = anyAnterior ? findRowAny(anyAnterior, NODE_INGRESSOS) : undefined;
 
       const totalitat = rowActual ? sumMesos(rowActual.valors, mesosSeleccionats) : 0;
       const vendesActualSum = vendesActual ? sumMesos(vendesActual.valors, mesosSeleccionats) : 0;
@@ -239,7 +239,7 @@ export default async function ComparativaPage({
     }
 
     const row = findRow(node);
-    const vendesRow = findRow(NODE_VENDES);
+    const vendesRow = findRow(NODE_INGRESSOS);
     if (!row || !vendesRow || !comp) {
       return {
         totalitat: 0,
@@ -315,7 +315,7 @@ export default async function ComparativaPage({
     granularitat === "mensual" && compMensual
       ? anysComparats.map((year) => {
           const vendes = (() => {
-            const row = findRowAny(year, NODE_VENDES);
+            const row = findRowAny(year, NODE_INGRESSOS);
             return row ? sumMesos(row.valors, mesosSeleccionats) : 0;
           })();
           const vendesEmpresa = esLn ? vendesEmpresaPerAny(year) : 0;
@@ -343,7 +343,7 @@ export default async function ComparativaPage({
           };
         })
       : (comp?.columnes ?? []).map((col, idx) => {
-          const vendes = valorNode(findRow, NODE_VENDES, idx);
+          const vendes = valorNode(findRow, NODE_INGRESSOS, idx);
           const vendesEmpresa = esLn ? vendesEmpresaPerColumna(idx) : 0;
           return {
             label: col.label,
@@ -362,7 +362,7 @@ export default async function ComparativaPage({
       ? mesosSeleccionats.map((m, i) => {
           const row: SerieComparativaMes = { mes: MESOS_CURTS[m - 1] };
           for (const year of anysComparats) {
-            const vendesRow = findRowAny(year, NODE_VENDES);
+            const vendesRow = findRowAny(year, NODE_INGRESSOS);
             const ebitdaRow = findRowAny(year, NODE_EBITDA);
             const vv = vendesRow ? valorsMesos(vendesRow.valors, mesosSeleccionats) : [];
             const ee = ebitdaRow ? valorsMesos(ebitdaRow.valors, mesosSeleccionats) : [];
@@ -444,7 +444,7 @@ export default async function ComparativaPage({
         const perAny: PesLnComparativa["perAny"] = [];
 
         for (const cmpY of cmpLnAnys) {
-          const vendesRow = cmpY.concepts.find((c) => c.node === NODE_VENDES);
+          const vendesRow = cmpY.concepts.find((c) => c.node === NODE_INGRESSOS);
           if (!vendesRow) continue;
           const segments: PesLnComparativa["perAny"][number]["segments"] = [];
           cmpY.linies.forEach((ln, i) => {

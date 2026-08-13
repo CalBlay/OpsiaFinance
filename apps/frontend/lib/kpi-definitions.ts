@@ -7,8 +7,14 @@ export const NODE_COST_GESTIO = 30;
 export const NODE_EBITDA = 32;
 export const NODE_INGRESSOS = 6;
 
+/**
+ * Primer KPI de totes les consultes (Empresa, Per línia, Evolució, Comparativa):
+ * total ingressos d'explotació (node 6), no la fila VENDES (node 2).
+ * A FDLC (i altres LN amb prestació/altres) vendes ≠ ingressos; el compte i l'EBITDA
+ * tanquen sobre ingressos.
+ */
 export const KPI_DEFINICIONS = [
-  { label: "Vendes", node: NODE_VENDES, tipus: "vendes" as const },
+  { label: "Ingressos", node: NODE_INGRESSOS, tipus: "vendes" as const },
   { label: "Compres", node: NODE_COMPRES, tipus: "cost" as const },
   { label: "Personal", node: NODE_COST_SALARIAL, tipus: "cost" as const },
   { label: "Gestió", node: NODE_COST_GESTIO, tipus: "cost" as const },
@@ -26,29 +32,17 @@ export interface KpiInformeItem {
 }
 
 export function buildKpisInforme(findVal: (node: number) => number): KpiInformeItem[] {
-  const vendes = findVal(NODE_VENDES);
+  const ingressos = findVal(NODE_INGRESSOS);
   return KPI_DEFINICIONS.map((k) => {
     const import_ = findVal(k.node);
-    const pctVendes = k.tipus === "vendes" ? null : vendes ? (import_ / vendes) * 100 : null;
+    const pctVendes = k.tipus === "vendes" ? null : ingressos ? (import_ / ingressos) * 100 : null;
     return { label: k.label, tipus: k.tipus, import_, pctVendes };
   });
 }
 
-/** KPIs de la vista empresa: el primer indicador és ingressos explotació (coincideix amb la fila de la taula). */
+/** Mateixos KPIs que l'informe (ingressos explotació com a primer indicador). */
 export function buildKpisEmpresa(findVal: (node: number) => number): KpiInformeItem[] {
-  const vendes = findVal(NODE_VENDES);
-  const ingressos = findVal(NODE_INGRESSOS);
-  return buildKpisInforme(findVal).map((k) =>
-    k.tipus === "vendes"
-      ? {
-          ...k,
-          label: "Ingressos explotació",
-          import_: ingressos,
-          nota: "Vendes netes",
-          importSecundari: vendes,
-        }
-      : k
-  );
+  return buildKpisInforme(findVal);
 }
 
 export interface KpiComparatiuItem {

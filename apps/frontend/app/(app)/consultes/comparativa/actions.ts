@@ -17,7 +17,7 @@ import {
   getComparativaTemporal,
 } from "@/lib/consultes";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
-import { NODE_VENDES } from "@/lib/kpi-definitions";
+import { NODE_INGRESSOS } from "@/lib/kpi-definitions";
 import type { VistaCompte } from "@/lib/vista-compte";
 
 export type ComparativaPivotParams = {
@@ -59,7 +59,7 @@ export async function carregarComparativaPivotAction(
     const anyTaula = anysComparats[anysComparats.length - 1];
     const parsed = parseMesosParam(params.mesosRaw ?? undefined);
     const mesosSeleccionats =
-      parsed ?? inferDefaultMesos(compMensual.perAny[anyTaula], NODE_VENDES);
+      parsed ?? inferDefaultMesos(compMensual.perAny[anyTaula], NODE_INGRESSOS);
     const conceptsTaula = anyTaula
       ? filtraConceptesPerMesos(compMensual.perAny[anyTaula] ?? [], mesosSeleccionats)
       : [];
