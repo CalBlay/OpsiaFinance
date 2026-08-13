@@ -11,6 +11,7 @@ import {
   CODIS_LN_PERSONAL_COMERCIAL,
   CODIS_LN_PERSONAL_CONFIG,
   FRACCIO_SOBRANT_IGUALS_DEFECTE,
+  clampFraccio01,
   marcaSobrantPersonal,
 } from "@/lib/repartiment/personal-departaments-constants";
 import type { ModeRepartimentPersonalLn } from "@prisma/client";
