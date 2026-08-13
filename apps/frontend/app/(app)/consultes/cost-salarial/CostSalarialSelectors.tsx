@@ -148,7 +148,7 @@ export function CostSalarialSelectors({
         <ConsultaVistaSelect
           id="cost-vista"
           value={vista}
-          opcions={["directe", "gestio"]}
+          opcions={["sap", "directe", "traspassos", "gestio"]}
           onChange={(v) => go(any, mes, centreId, ambit, v)}
         />
       }

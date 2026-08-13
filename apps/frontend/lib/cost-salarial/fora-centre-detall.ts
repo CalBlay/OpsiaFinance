@@ -1,3 +1,8 @@
+import {
+  type CompteCostSalarial,
+  parseVistaCompte,
+  vistaUsaForaCentreTraspass,
+} from "@/lib/cost-salarial/compte";
 import { db } from "@/lib/db";
 import { parseForaCentreSnapshot } from "@/lib/traspass-personal/fora-centre";
 import type { DepartamentSalarial } from "@prisma/client";
@@ -32,8 +37,8 @@ export type ForaCentreDetallResultat = {
   totalSala: number;
   totalCuina: number;
   teTraspassConfirmat: boolean;
-  /** directe = Excel; gestio = net traspassos (+destí −origen). */
-  compte: "directe" | "gestio";
+  /** sap/directe = Excel; traspassos/gestio = net traspassos (+destí −origen). */
+  compte: CompteCostSalarial;
   linies: ForaCentreLiniaDetall[];
 };
 
@@ -60,7 +65,7 @@ type MovSel = {
 
 /**
  * Directe = valor Excel Fora centre.
- * Gestió = traspassos confirmats: +hores destí −hores origen (mateixa línia).
+ * Gestió / + Traspassos = traspassos confirmats: +hores destí −hores origen (mateixa línia).
  */
 export async function resoldreForaCentreRestaurant(
   centreId: string,
@@ -232,15 +237,18 @@ export async function resoldreForaCentreRestaurant(
   };
 }
 
-/** Detall modal: Excel (directe) o moviments destí/origen (gestió). */
+/** Detall modal: Excel (SAP/Directe) o moviments destí/origen (+ Traspassos / Gestió). */
 export async function getForaCentreDetall(params: {
   centreId: string;
   any: number;
   mes: number | null;
   departament?: DepartamentSalarial | null;
-  compte?: "directe" | "gestio";
+  compte?: CompteCostSalarial | string;
 }): Promise<ForaCentreDetallResultat | null> {
-  const compte = params.compte ?? "directe";
+  const compte = parseVistaCompte(
+    typeof params.compte === "string" ? params.compte : (params.compte ?? "directe")
+  );
+  const usaTraspass = vistaUsaForaCentreTraspass(compte);
   const centre = await db.centre.findUnique({
     where: { id: params.centreId },
     select: { id: true, codi: true, nom: true },
@@ -248,8 +256,8 @@ export async function getForaCentreDetall(params: {
   if (!centre) return null;
 
   const resolved = await resoldreForaCentreRestaurant(params.centreId, params.any, params.mes);
-  const totals = compte === "gestio" ? resolved.gestio : resolved.excel;
-  let linies = compte === "gestio" ? resolved.liniesTraspass : resolved.liniesExcel;
+  const totals = usaTraspass ? resolved.gestio : resolved.excel;
+  let linies = usaTraspass ? resolved.liniesTraspass : resolved.liniesExcel;
 
   if (params.departament) {
     linies = linies.filter((l) => l.departament === params.departament);

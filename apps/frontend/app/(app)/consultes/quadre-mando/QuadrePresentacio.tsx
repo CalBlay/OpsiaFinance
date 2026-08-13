@@ -84,10 +84,12 @@ export function QuadrePresentacio({
   data,
   any,
   mes,
+  vista = "directe",
 }: {
   data: QuadreMandoRestaurants;
   any: number;
   mes: number;
+  vista?: import("@/lib/cost-salarial/compte").CompteCostSalarial;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = useMemo(
@@ -224,6 +226,7 @@ export function QuadrePresentacio({
           fila={selected}
           qVendes={qVendes}
           qCost={qCost}
+          vista={vista}
           onClose={() => setSelectedId(null)}
         />
       ) : null}
@@ -235,11 +238,13 @@ function FitxaRestaurant({
   fila,
   qVendes,
   qCost,
+  vista,
   onClose,
 }: {
   fila: FilaQuadreRestaurant;
   qVendes: string;
   qCost: string;
+  vista: import("@/lib/cost-salarial/compte").CompteCostSalarial;
   onClose: () => void;
 }) {
   return (
@@ -290,7 +295,7 @@ function FitxaRestaurant({
           <ArrowRight size={14} />
         </Link>
         <Link
-          href={`/consultes/cost-salarial?vista=restaurant&centre=${fila.centre.id}&${qCost}`}
+          href={`/consultes/cost-salarial?ambit=restaurant&vista=${vista}&centre=${fila.centre.id}&${qCost}`}
           className={styles.fitxaLink}
         >
           Cost salarial

@@ -1,7 +1,7 @@
 import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
 import { ordenaPerCodi } from "@/lib/consultes-etiquetes";
 import { etiquetaGrafic } from "@/lib/consultes-grafics";
-import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
+import { type CompteCostSalarial, vistaUsaForaCentreTraspass } from "@/lib/cost-salarial/compte";
 import { costTotalLinia, normalitzaNomRestaurant } from "@/lib/cost-salarial/import";
 import {
   PARTIDES_SALARIALS,
@@ -314,10 +314,10 @@ async function computeInformeRestaurant(
     else sumaPartides(cuinaP, f);
   }
 
-  // Directe = Excel Fora centre. Gestió = +destí −origen (mateixa línia).
+  // SAP/Directe = Excel Fora centre. + Traspassos/Gestió = +destí −origen.
   const { resoldreForaCentreRestaurant } = await import("@/lib/cost-salarial/fora-centre-detall");
   const fora = await resoldreForaCentreRestaurant(centreId, any, mes);
-  const fc = compte === "gestio" ? fora.gestio : fora.excel;
+  const fc = vistaUsaForaCentreTraspass(compte) ? fora.gestio : fora.excel;
   salaP.foraCentre = fc.SALA;
   cuinaP.foraCentre = fc.CUINA;
 
@@ -436,7 +436,7 @@ async function computeComparativaRestaurants(
   for (const entry of perCentre.values()) {
     const fora = foraByCentre.get(entry.centre.id);
     if (fora) {
-      const fc = compte === "gestio" ? fora.gestio : fora.excel;
+      const fc = vistaUsaForaCentreTraspass(compte) ? fora.gestio : fora.excel;
       entry.sala.foraCentre = fc.SALA;
       entry.cuina.foraCentre = fc.CUINA;
     }

@@ -1,8 +1,10 @@
 "use client";
 
 import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import { ConsultaVistaSelect } from "@/components/consultes/ConsultaVistaSelect";
 import { FILTRE, MES_TOT_ANY } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
+import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -11,19 +13,22 @@ export function QuadreSelectors({
   anys,
   any,
   mes,
+  vista,
 }: {
   anys: number[];
   any: number;
   /** 0 = tot l'any */
   mes: number;
+  vista: CompteCostSalarial;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
-  const navega = (nextAny: number, nextMes: number) => {
+  const navega = (nextAny: number, nextMes: number, nextVista: CompteCostSalarial) => {
     const params = new URLSearchParams();
     params.set("any", String(nextAny));
     params.set("mes", String(nextMes));
+    params.set("vista", nextVista);
     startTransition(() => {
       router.push(`/consultes/quadre-mando?${params}`);
     });
@@ -42,7 +47,7 @@ export function QuadreSelectors({
               id="quadre-any"
               className={styles.select}
               value={any}
-              onChange={(e) => navega(Number(e.target.value), mes)}
+              onChange={(e) => navega(Number(e.target.value), mes, vista)}
             >
               {anys.map((y) => (
                 <option key={y} value={y}>
@@ -59,7 +64,7 @@ export function QuadreSelectors({
               id="quadre-mes"
               className={styles.select}
               value={mes}
-              onChange={(e) => navega(any, Number(e.target.value))}
+              onChange={(e) => navega(any, Number(e.target.value), vista)}
             >
               <option value={0}>{MES_TOT_ANY}</option>
               {MESOS_LLARGS.map((m, i) => (
@@ -70,6 +75,13 @@ export function QuadreSelectors({
             </select>
           </div>
         </>
+      }
+      vista={
+        <ConsultaVistaSelect
+          id="quadre-vista"
+          value={vista}
+          onChange={(v) => navega(any, mes, v)}
+        />
       }
     />
   );

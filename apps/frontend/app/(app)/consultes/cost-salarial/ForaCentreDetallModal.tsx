@@ -1,5 +1,7 @@
 "use client";
 
+import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
+import { vistaUsaForaCentreTraspass } from "@/lib/cost-salarial/compte";
 import type { ForaCentreDetallResultat } from "@/lib/cost-salarial/fora-centre-detall";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { formatNum } from "@/lib/utils";
@@ -15,7 +17,7 @@ export type ForaCentreDetallContext = {
   mes: number | null;
   departament?: "SALA" | "CUINA" | null;
   cellValue?: number;
-  compte?: "directe" | "gestio";
+  compte?: CompteCostSalarial;
 };
 
 export function ForaCentreDetallModal({
@@ -26,6 +28,7 @@ export function ForaCentreDetallModal({
   onClose: () => void;
 }) {
   const compte = context.compte ?? "directe";
+  const usaTraspass = vistaUsaForaCentreTraspass(compte);
   const [data, setData] = useState<ForaCentreDetallResultat | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -53,17 +56,15 @@ export function ForaCentreDetallModal({
         ? "Cuina"
         : "Sala + Cuina";
 
-  const titol =
-    compte === "gestio"
-      ? `Fora centre · traspassos · ${context.centreLabel}`
-      : `Fora centre · Excel · ${context.centreLabel}`;
+  const titol = usaTraspass
+    ? `Fora centre · traspassos · ${context.centreLabel}`
+    : `Fora centre · Excel · ${context.centreLabel}`;
 
-  const fontLabel =
-    compte === "gestio"
-      ? data?.teTraspassConfirmat
-        ? " · Font: traspassos confirmats (+destí −origen)"
-        : " · Sense traspass confirmat"
-      : " · Font: Excel cost salarial";
+  const fontLabel = usaTraspass
+    ? data?.teTraspassConfirmat
+      ? " · Font: traspassos confirmats (+destí −origen)"
+      : " · Sense traspass confirmat"
+    : " · Font: Excel cost salarial";
 
   return (
     <div
@@ -104,7 +105,7 @@ export function ForaCentreDetallModal({
             <p className={styles.empty}>No s&apos;ha pogut carregar el detall.</p>
           ) : data.linies.length === 0 ? (
             <p className={styles.empty}>
-              {compte === "gestio"
+              {usaTraspass
                 ? "Sense traspassos confirmats en aquest període."
                 : "Sense valor de Fora centre a l'Excel en aquest període."}
             </p>
@@ -114,8 +115,8 @@ export function ForaCentreDetallModal({
                 <thead>
                   <tr>
                     <th>Mes</th>
-                    {compte === "gestio" ? <th>Rol</th> : null}
-                    <th>{compte === "gestio" ? "Centre" : "Concepte"}</th>
+                    {usaTraspass ? <th>Rol</th> : null}
+                    <th>{usaTraspass ? "Centre" : "Concepte"}</th>
                     <th>Dept.</th>
                     <th className={styles.num}>Minuts</th>
                     <th className={styles.num}>Hores</th>
@@ -126,18 +127,17 @@ export function ForaCentreDetallModal({
                 <tbody>
                   {data.linies.map((l, i) => {
                     const aquestEsOrigen = l.origenCodi === data.centreCodi;
-                    const centreCell =
-                      compte === "directe"
-                        ? l.origenCodi === "—"
+                    const centreCell = !usaTraspass
+                      ? l.origenCodi === "—"
+                        ? l.origenNom
+                        : `${l.origenCodi} · ${l.origenNom}`
+                      : aquestEsOrigen
+                        ? l.destiCodi === "—"
+                          ? l.destiNom
+                          : `${l.destiCodi} · ${l.destiNom}`
+                        : l.origenCodi === "—"
                           ? l.origenNom
-                          : `${l.origenCodi} · ${l.origenNom}`
-                        : aquestEsOrigen
-                          ? l.destiCodi === "—"
-                            ? l.destiNom
-                            : `${l.destiCodi} · ${l.destiNom}`
-                          : l.origenCodi === "—"
-                            ? l.origenNom
-                            : `${l.origenCodi} · ${l.origenNom}`;
+                          : `${l.origenCodi} · ${l.origenNom}`;
                     const rolLabel =
                       l.rol === "origen" ? "Origen (−)" : l.rol === "desti" ? "Destí (+)" : "—";
                     return (
@@ -145,7 +145,7 @@ export function ForaCentreDetallModal({
                         key={`${l.mes}-${l.rol}-${l.origenCodi}-${l.destiCodi}-${l.departament}-${i}`}
                       >
                         <td>{MESOS_LLARGS[l.mes - 1] ?? l.periodNom}</td>
-                        {compte === "gestio" ? <td>{rolLabel}</td> : null}
+                        {usaTraspass ? <td>{rolLabel}</td> : null}
                         <td>{centreCell}</td>
                         <td>{l.departament === "CUINA" ? "Cuina" : "Sala"}</td>
                         <td className={styles.num}>
@@ -162,21 +162,20 @@ export function ForaCentreDetallModal({
                 </tbody>
                 <tfoot>
                   <tr>
-                    <td colSpan={compte === "gestio" ? 6 : 5}>Total</td>
+                    <td colSpan={usaTraspass ? 6 : 5}>Total</td>
                     <td className={styles.num}>{formatNum(data.total)}</td>
                     <td />
                   </tr>
                 </tfoot>
               </table>
-              {compte === "gestio" ? (
+              {usaTraspass ? (
                 <p className={styles.hint}>
-                  Gestió: suma les hores d&apos;entrada (destí, +) i resta les de sortida (origen,
-                  −). Clica per veure cada moviment. Cal traspass confirmat a Dades → Traspassos
-                  personal.
+                  Traspassos / Gestió: suma les hores d&apos;entrada (destí, +) i resta les de
+                  sortida (origen, −). Cal traspass confirmat a Dades → Traspassos personal.
                 </p>
               ) : (
                 <p className={styles.hint}>
-                  Directe: valor del camp Fora centre de l&apos;Excel de cost salarial.
+                  SAP / Directe: valor del camp Fora centre de l&apos;Excel de cost salarial.
                 </p>
               )}
             </>

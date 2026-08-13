@@ -454,7 +454,9 @@ function PresentacioComparativaView({
           <p className={styles.panelLead}>
             {compte === "gestio"
               ? "% sobre el cost (sense indemnitzacions)."
-              : "% de cada concepte sobre el cost."}
+              : compte === "traspassos"
+                ? "% amb Fora centre de traspassos; indemnitzacions al total."
+                : "% de cada concepte sobre el cost."}
           </p>
           <PartidesPie partides={totals.partides} total={totals.costTotal} />
         </section>
@@ -464,7 +466,9 @@ function PresentacioComparativaView({
           <p className={styles.panelLead}>
             {compte === "gestio"
               ? "Indemnitzacions només informatives: no entren al total."
-              : "Import, pes i % Sala/Cuina."}
+              : compte === "traspassos"
+                ? "Fora centre = traspassos confirmats (+destí −origen)."
+                : "Import, pes i % Sala/Cuina."}
           </p>
           <StatementTable
             rows={statementRows.filter(
@@ -519,7 +523,9 @@ function PresentacioRestaurantView(props: PresentacioRestaurantProps) {
           <p className={styles.panelLead}>
             {props.compte === "gestio"
               ? "% sobre el cost (sense indemnitzacions)."
-              : "% de cada concepte sobre el cost."}
+              : props.compte === "traspassos"
+                ? "% amb Fora centre de traspassos; indemnitzacions al total."
+                : "% de cada concepte sobre el cost."}
           </p>
           <PartidesPie partides={props.partidesTotals} total={props.costTotal} />
         </section>
@@ -528,6 +534,10 @@ function PresentacioRestaurantView(props: PresentacioRestaurantProps) {
           <h3 className={styles.panelTitle}>Statement · partides</h3>
           {props.compte === "gestio" ? (
             <p className={styles.panelLead}>Indemnitzacions només informatives (no al total).</p>
+          ) : props.compte === "traspassos" ? (
+            <p className={styles.panelLead}>
+              Fora centre = traspassos confirmats (+destí −origen).
+            </p>
           ) : null}
           <StatementTable
             rows={rows}

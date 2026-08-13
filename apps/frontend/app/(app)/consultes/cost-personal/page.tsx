@@ -1,6 +1,6 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import styles from "@/components/consultes/report.module.css";
-import { type VistaCompte, getArbreSeleccio } from "@/lib/consultes";
+import { getArbreSeleccio } from "@/lib/consultes";
 import {
   getAnysCostPersonalCentre,
   getInformeCostPersonalCentres,
@@ -10,6 +10,9 @@ import {
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import type { VISTA_COMPTE_BINARIA } from "@/lib/vista-compte";
+
+type VistaCostPersonal = (typeof VISTA_COMPTE_BINARIA)[number];
 import { CostPersonalPresentacio } from "../presenters-dynamic";
 import { CostPersonalDetallLazy } from "./CostPersonalDetallLazy";
 import { CostPersonalSelectors } from "./CostPersonalSelectors";
@@ -51,7 +54,7 @@ export default async function ConsultaCostPersonalPage({
       : (anysCost[0] ?? anyCalendari);
   const anys = anysCost.length ? anysCost : [anyActual];
   const mes = sp.mes ? Number(sp.mes) : null;
-  const vista: VistaCompte = sp.vista === "gestio" ? "gestio" : "directe";
+  const vista: VistaCostPersonal = sp.vista === "gestio" ? "gestio" : "directe";
 
   let lnId = sp.ln && arbre.some((l) => l.id === sp.ln) ? sp.ln : null;
   let centreId = sp.centre ?? null;

@@ -3,6 +3,7 @@ import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { etiquetaCentre } from "@/lib/consultes-etiquetes";
 import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
+import { etiquetaVistaCompte, parseVistaCompte } from "@/lib/cost-salarial/compte";
 import {
   PARTIDES_SALARIALS,
   getAnysCostSalarial,
@@ -44,16 +45,19 @@ function parseAmbit(sp: { ambit?: string; vista?: string }): AmbitCost {
   if (sp.ambit === "restaurant" || sp.ambit === "sala-cuina" || sp.ambit === "comparativa") {
     return sp.ambit;
   }
-  // Compat URLs antigues (?vista=restaurant)
+  // Compat URLs antigues (?vista=restaurant) — no confondre amb capes SAP/Directe/…
   if (sp.vista === "restaurant" || sp.vista === "sala-cuina" || sp.vista === "comparativa") {
     return sp.vista;
   }
   return "comparativa";
 }
 
-function parseVistaCompte(sp: { vista?: string; compte?: string }): CompteCostSalarial {
-  if (sp.vista === "gestio" || sp.compte === "gestio") return "gestio";
-  return "directe";
+function parseVistaCost(sp: { vista?: string; compte?: string }): CompteCostSalarial {
+  // URLs antigues usaven ?vista=restaurant com a àmbit → tractar com a Directe
+  if (sp.vista === "restaurant" || sp.vista === "sala-cuina" || sp.vista === "comparativa") {
+    return parseVistaCompte(sp.compte);
+  }
+  return parseVistaCompte(sp.vista ?? sp.compte);
 }
 
 export default async function ConsultaCostSalarialPage({
@@ -84,12 +88,12 @@ export default async function ConsultaCostSalarialPage({
       : (anysCost[0] ?? anyCalendari);
   const anys = anysCost.length ? anysCost : [anyActual];
   const mes = sp.mes ? Number(sp.mes) : null;
-  const vista = parseVistaCompte(sp);
+  const vista = parseVistaCost(sp);
   const ambit = parseAmbit(sp);
   const centreId = sp.centre && centres.some((c) => c.id === sp.centre) ? sp.centre : null;
 
   const periode = periodeLabel(anyActual, mes);
-  const vistaLabel = vista === "gestio" ? "Gestió (traspassos)" : "Directe (Excel)";
+  const vistaLabel = etiquetaVistaCompte(vista);
 
   const [comparativa, informe] = await Promise.all([
     ambit === "comparativa" || !centreId
@@ -119,7 +123,7 @@ export default async function ConsultaCostSalarialPage({
     <div className={styles.page}>
       <ConsultaHeader
         title="Cost salarial · restaurants"
-        subtitle={`${vistaLabel} · Fora centre: Excel o net +destí −origen. A gestió, indemnitzacions només informatives (no entren al total ni al % / vendes).`}
+        subtitle={`${vistaLabel} · Fora centre: Excel (SAP/Directe) o traspassos (+ Traspassos/Gestió). A Gestió, indemnitzacions només informatives (no entren al total ni al % / vendes).`}
         actions={
           <>
             <CostSalarialSelectors

@@ -1,6 +1,7 @@
 "use client";
 
 import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
+import { vistaUsaForaCentreTraspass } from "@/lib/cost-salarial/compte";
 import type { PartidaImport } from "@/lib/cost-salarial/partides";
 import { formatNum } from "@/lib/utils";
 import { useState } from "react";
@@ -69,10 +70,9 @@ export function DetallNumericRestaurantTable({
               const sala = partidesSala[i]?.import_ ?? 0;
               const cuina = partidesCuina[i]?.import_ ?? 0;
               const clickable = p.key === "foraCentre";
-              const title =
-                compte === "gestio"
-                  ? "Veure detall de traspassos (+destí −origen)"
-                  : "Veure detall de Fora centre (Excel)";
+              const title = vistaUsaForaCentreTraspass(compte)
+                ? "Veure detall de traspassos (+destí −origen)"
+                : "Veure detall de Fora centre (Excel)";
               return (
                 <tr key={p.key}>
                   <td>{p.label}</td>

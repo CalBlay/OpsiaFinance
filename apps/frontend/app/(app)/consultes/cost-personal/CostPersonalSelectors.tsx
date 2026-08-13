@@ -6,7 +6,10 @@ import { FILTRE, MES_TOT_ANY } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { etiquetaCentre, etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import { VISTA_COMPTE_BINARIA } from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
+
+type VistaCostPersonal = (typeof VISTA_COMPTE_BINARIA)[number];
 
 interface LnOpt {
   id: string;
@@ -30,7 +33,7 @@ export function CostPersonalSelectors({
   centreId: string | null;
   any: number;
   mes: number | null;
-  vista: "directe" | "gestio";
+  vista: VistaCostPersonal;
 }) {
   const router = useRouter();
   const lnSeleccionada = arbre.find((ln) => ln.id === lnId) ?? null;
@@ -41,7 +44,7 @@ export function CostPersonalSelectors({
     nextCentre: string | null,
     nextAny: number,
     nextMes: number | null,
-    nextVista: "directe" | "gestio"
+    nextVista: VistaCostPersonal
   ) => {
     const params = new URLSearchParams();
     params.set("any", String(nextAny));
@@ -142,7 +145,7 @@ export function CostPersonalSelectors({
         <ConsultaVistaSelect
           id="cp-vista"
           value={vista}
-          opcions={["directe", "gestio"]}
+          opcions={VISTA_COMPTE_BINARIA}
           onChange={(v) => go(lnId, centreId, any, mes, v)}
         />
       }

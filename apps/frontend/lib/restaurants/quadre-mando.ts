@@ -1,4 +1,5 @@
 import { CONSULTES_CACHE_TAG } from "@/lib/consultes-cache";
+import type { CompteCostSalarial } from "@/lib/cost-salarial/compte";
 import { getComparativaRestaurants } from "@/lib/cost-salarial/consultes";
 import { getAnysCostSalarial } from "@/lib/cost-salarial/consultes";
 import { db } from "@/lib/db";
@@ -183,17 +184,18 @@ export async function getAnysQuadreRestaurants(): Promise<number[]> {
 }
 
 /**
- * Quadre de comandament multi-unit: TPV + cost Excel + P&L (compres/EBITDA).
- * Personal % = cost Excel ÷ vendes TPV (lectura operativa).
+ * Quadre de comandament multi-unit: TPV + cost salarial (per vista) + P&L (compres/EBITDA).
+ * Personal % = cost laboral ÷ vendes TPV (lectura operativa).
  */
 export async function getQuadreMandoRestaurants(
   any: number,
   mes: number,
-  nomesMirallFdlc = false
+  nomesMirallFdlc = false,
+  compte: CompteCostSalarial = "directe"
 ): Promise<QuadreMandoRestaurants> {
   return unstable_cache(
-    () => computeQuadreMandoRestaurants(any, mes, nomesMirallFdlc),
-    ["quadre-mando-v1", String(any), String(mes), nomesMirallFdlc ? "1" : "0"],
+    () => computeQuadreMandoRestaurants(any, mes, nomesMirallFdlc, compte),
+    ["quadre-mando-v2", String(any), String(mes), nomesMirallFdlc ? "1" : "0", compte],
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -201,7 +203,8 @@ export async function getQuadreMandoRestaurants(
 async function computeQuadreMandoRestaurants(
   any: number,
   mes: number,
-  nomesMirallFdlc = false
+  nomesMirallFdlc = false,
+  compte: CompteCostSalarial = "directe"
 ): Promise<QuadreMandoRestaurants> {
   const anual = mes <= 0;
   const mesCost = anual ? null : mes;
@@ -223,7 +226,7 @@ async function computeQuadreMandoRestaurants(
 
   const [vendes, cost, plMap] = await Promise.all([
     getComparativaVendes(any, anual ? 0 : mes, nomesMirallFdlc, { totalsOnly: true }),
-    getComparativaRestaurants(any, mesCost),
+    getComparativaRestaurants(any, mesCost, compte),
     getPlNodesPerCentres(centreIds, any, mesCost, [NODE_COMPRES, NODE_EBITDA, NODE_VENDES]),
   ]);
 
