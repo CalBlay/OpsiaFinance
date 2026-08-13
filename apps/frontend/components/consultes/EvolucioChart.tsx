@@ -61,6 +61,7 @@ export function EvolucioChart({
           tickLine={false}
         />
         <YAxis
+          domain={["auto", "auto"]}
           tickFormatter={formatEix}
           tick={{ fontSize: 11, fill: "var(--color-muted-foreground)" }}
           axisLine={false}
@@ -98,6 +99,7 @@ export function EvolucioChart({
               stroke={s.color}
               strokeWidth={2.5}
               dot={{ r: 3 }}
+              connectNulls
             />
           )
         )}

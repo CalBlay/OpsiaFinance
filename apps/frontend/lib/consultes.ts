@@ -1451,6 +1451,18 @@ export interface ComparativaMensualAnys {
 export const MAX_ANYS_COMPARATIVA = 4;
 
 /** Aplica capes de vista (traspassos / repartiment) a un exercici de 12 mesos. */
+export async function aplicarCapaVistaEvolucio(
+  scope: AmbitTemporal,
+  id: string | null,
+  any: number,
+  rows: ConceptePivot[],
+  grup: GrupEmpresa,
+  vista: VistaCompte
+): Promise<ConceptePivot[]> {
+  return aplicarVistaCompteComparativaAny(scope, id, any, rows, grup, vista);
+}
+
+/** Aplica capes de vista (traspassos / repartiment) a un exercici de 12 mesos. */
 async function aplicarVistaCompteComparativaAny(
   scope: AmbitTemporal,
   id: string | null,

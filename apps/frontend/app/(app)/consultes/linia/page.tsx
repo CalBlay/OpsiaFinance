@@ -12,6 +12,7 @@ import { auth } from "@/lib/auth";
 import { recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import {
   MESOS_CURTS,
+  aplicarCapaVistaEvolucio,
   etiquetaRangMesos,
   getAnysAmbDades,
   getArbreSeleccio,
@@ -124,10 +125,23 @@ export default async function ConsultaLiniaPage({
 
   // Resum multi-LN quan no n'hi ha cap de seleccionada.
   if (!lnId) {
-    const [comp, evEmpresa] = await Promise.all([
+    const [comp, evEmpresaRaw] = await Promise.all([
       getComparativaEmpresa(anyActual, rang, vista, grup),
       getEvolucioMensualPerVista("empresa", null, anyActual, grup, vista),
     ]);
+    const evEmpresa = evEmpresaRaw
+      ? {
+          ...evEmpresaRaw,
+          concepts: await aplicarCapaVistaEvolucio(
+            "empresa",
+            null,
+            anyActual,
+            evEmpresaRaw.concepts,
+            grup,
+            vista
+          ),
+        }
+      : evEmpresaRaw;
 
     const findRow = (node: number) => comp.concepts.find((c) => c.node === node);
     const findEv = (node: number) => evEmpresa?.concepts.find((c) => c.node === node);
@@ -658,19 +672,22 @@ export default async function ConsultaLiniaPage({
   }));
   const rowsMes = ev ? retallaRang(conceptsTaula, rang) : [];
 
+  const valorsTaula = (node: number) =>
+    conceptsTaula.find((c) => c.node === node)?.valors ?? findEvRow(node)?.valors ?? [];
+
   const chartSeries = ev
     ? [
         {
           name: "Ingressos",
           type: "bar" as const,
           color: OPSIA_CHART.ingressos,
-          data: (findEvRow(NODE_INGRESSOS)?.valors ?? []).slice(rang.des - 1, rang.fins),
+          data: valorsTaula(NODE_INGRESSOS).slice(rang.des - 1, rang.fins),
         },
         {
           name: "EBITDA",
           type: "line" as const,
           color: OPSIA_CHART.ebitda,
-          data: (findEvRow(NODE_EBITDA)?.valors ?? []).slice(rang.des - 1, rang.fins),
+          data: valorsTaula(NODE_EBITDA).slice(rang.des - 1, rang.fins),
         },
       ]
     : [];
