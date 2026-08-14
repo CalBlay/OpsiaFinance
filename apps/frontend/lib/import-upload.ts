@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { db } from "@/lib/db";
 import { FDLC_LN_CODI, ensureFdlcSetup } from "@/lib/fdlc/setup";
 import { aliasLnDesDelNomFitxer, classificacioDesDelNomFitxer } from "@/lib/nom-fitxer";
@@ -60,16 +60,43 @@ function sufixLnDesDeCodi(codi: string): string {
   return String(digits).padStart(2, "0");
 }
 
-async function desarFitxer(id: string, ext: string, buffer: Buffer): Promise<string | undefined> {
-  try {
-    const uploadsDir = join(process.cwd(), "uploads");
-    await mkdir(uploadsDir, { recursive: true });
-    const filePath = join(uploadsDir, `${id}.${ext}`);
-    await writeFile(filePath, buffer);
-    return filePath;
-  } catch {
-    return undefined;
+type SaveFileResult =
+  | { ok: true; filePath: string }
+  | { ok: false; message: string; causes: string[] };
+
+function candidatUploadsDirs(): string[] {
+  const envDir = process.env.UPLOADS_DIR?.trim();
+  const dirs = [
+    envDir ? resolve(envDir) : null,
+    resolve(process.cwd(), "uploads"),
+    resolve(process.cwd(), "..", "uploads"),
+    resolve(process.cwd(), "..", "..", "uploads"),
+  ].filter((value): value is string => !!value);
+
+  return [...new Set(dirs)];
+}
+
+async function desarFitxer(id: string, ext: string, buffer: Buffer): Promise<SaveFileResult> {
+  const causes: string[] = [];
+
+  for (const uploadsDir of candidatUploadsDirs()) {
+    try {
+      await mkdir(uploadsDir, { recursive: true });
+      const filePath = join(uploadsDir, `${id}.${ext}`);
+      await writeFile(filePath, buffer);
+      return { ok: true, filePath };
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      causes.push(`${uploadsDir}: ${detail}`);
+    }
   }
+
+  return {
+    ok: false,
+    message:
+      "No s'ha pogut desar el fitxer al servidor. Revisa els permisos d'escriptura o configura UPLOADS_DIR.",
+    causes,
+  };
 }
 
 async function nomFitxerUnic(desitjat: string): Promise<string> {
@@ -321,7 +348,11 @@ export async function handleSingleImport(
     if ("error" in lnResUpdate) return { status: "error", message: lnResUpdate.error };
 
     await db.dadaResultat.deleteMany({ where: { importacioId: targetId } });
-    const filePath = await desarFitxer(targetId, ext, buffer);
+    const saved = await desarFitxer(targetId, ext, buffer);
+    if (!saved.ok) {
+      console.error(`handleSingleImport(update:${targetId})`, saved.causes);
+      return { status: "error", message: saved.message };
+    }
 
     await db.importacio.update({
       where: { id: targetId },
@@ -333,7 +364,7 @@ export async function handleSingleImport(
         formatInformeId: formatInforme.id,
         periodId: period.id,
         liniaNegociId: lnResUpdate.id,
-        ...(filePath ? { rutaStorage: filePath } : {}),
+        rutaStorage: saved.filePath,
       },
     });
 
@@ -366,10 +397,16 @@ export async function handleSingleImport(
     },
   });
 
-  const filePath = await desarFitxer(newImport.id, ext, buffer);
-  if (filePath) {
-    await db.importacio.update({ where: { id: newImport.id }, data: { rutaStorage: filePath } });
+  const saved = await desarFitxer(newImport.id, ext, buffer);
+  if (!saved.ok) {
+    console.error(`handleSingleImport(create:${newImport.id})`, saved.causes);
+    await db.importacio.delete({ where: { id: newImport.id } });
+    return { status: "error", message: saved.message };
   }
+  await db.importacio.update({
+    where: { id: newImport.id },
+    data: { rutaStorage: saved.filePath },
+  });
 
   revalidatePath("/dades");
   return { status: "success", importId: newImport.id };
@@ -500,7 +537,18 @@ export async function handleBulkFileItem(
         };
       }
       await db.dadaResultat.deleteMany({ where: { importacioId: importId } });
-      const filePath = await desarFitxer(importId, ext, buffer);
+      const saved = await desarFitxer(importId, ext, buffer);
+      if (!saved.ok) {
+        console.error(`handleBulkFileItem(update:${importId})`, saved.causes);
+        return {
+          nom: file.name,
+          periode: periodeLabel,
+          ln: lnRes.label,
+          ok: false,
+          confirmat: false,
+          missatge: saved.message,
+        };
+      }
       await db.importacio.update({
         where: { id: importId },
         data: {
@@ -511,7 +559,7 @@ export async function handleBulkFileItem(
           formatInformeId: formatInforme.id,
           periodId: period.id,
           liniaNegociId: lnResUpdate.id,
-          ...(filePath ? { rutaStorage: filePath } : {}),
+          rutaStorage: saved.filePath,
         },
       });
     } else {
@@ -529,9 +577,23 @@ export async function handleBulkFileItem(
         },
       });
       importId = nova.id;
-      const filePath = await desarFitxer(importId, ext, buffer);
-      if (filePath)
-        await db.importacio.update({ where: { id: importId }, data: { rutaStorage: filePath } });
+      const saved = await desarFitxer(importId, ext, buffer);
+      if (!saved.ok) {
+        console.error(`handleBulkFileItem(create:${importId})`, saved.causes);
+        await db.importacio.delete({ where: { id: importId } });
+        return {
+          nom: file.name,
+          periode: periodeLabel,
+          ln: lnRes.label,
+          ok: false,
+          confirmat: false,
+          missatge: saved.message,
+        };
+      }
+      await db.importacio.update({
+        where: { id: importId },
+        data: { rutaStorage: saved.filePath },
+      });
     }
 
     let res: { ok: boolean; missatge: string };
