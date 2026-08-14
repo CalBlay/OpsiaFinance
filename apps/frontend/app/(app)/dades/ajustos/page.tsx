@@ -10,13 +10,12 @@ import { AjustosManager } from "./AjustosManager";
 import { PropostaCentralPctPanel } from "./PropostaCentralPctPanel";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Ajustos — OpsiaFinance" };
+export const metadata = { title: "Ajustos - OpsiaFinance" };
 
 const tab = getDadesTabById("ajustos");
 
 export default async function AjustosPage() {
-  const [session, arbre, concepts, ajustos, proposta] = await Promise.all([
-    auth(),
+  const [arbre, concepts, ajustos, sessionResult, propostaResult] = await Promise.all([
     getArbreSeleccio(),
     db.concepteResultat.findMany({
       where: { isActive: true },
@@ -40,8 +39,25 @@ export default async function AjustosPage() {
         creatPerUser: { select: { name: true } },
       },
     }),
-    propostaAjustCentralPctSobreVendesGrup(2025, 32.5921),
+    auth().then(
+      (session) => ({ ok: true as const, session }),
+      (error) => ({ ok: false as const, error })
+    ),
+    propostaAjustCentralPctSobreVendesGrup(2025, 32.5921).then(
+      (proposta) => ({ ok: true as const, proposta }),
+      (error) => ({ ok: false as const, error })
+    ),
   ]);
+
+  if (!sessionResult.ok) {
+    console.error("[dades/ajustos] auth failed", sessionResult.error);
+  }
+  if (!propostaResult.ok) {
+    console.error("[dades/ajustos] proposta central pct failed", propostaResult.error);
+  }
+
+  const session = sessionResult.ok ? sessionResult.session : null;
+  const proposta = propostaResult.ok ? propostaResult.proposta : null;
 
   const role = session?.user?.role;
   const canEdit = role === "ADMIN" || role === "EDICIO";
@@ -60,7 +76,7 @@ export default async function AjustosPage() {
     concepte: a.concepteResultat.descripcio,
     centre: a.centre ? `${a.centre.codi} · ${a.centre.nom}` : null,
     liniaNegoci: a.liniaNegoci ? `${a.liniaNegoci.codi} · ${a.liniaNegoci.nom}` : null,
-    autor: a.creatPerUser.name,
+    autor: a.creatPerUser.name || "Usuari desconegut",
   }));
 
   return (
