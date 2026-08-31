@@ -18,6 +18,7 @@ const CONCEPTES_BASE: { node: number; descripcio: string; esSubtotal: boolean }[
   { node: 14, descripcio: "INDEMNITZACIONS", esSubtotal: false },
   { node: 15, descripcio: "SEGURETAT SOCIAL", esSubtotal: false },
   { node: 16, descripcio: "ALTRES DESPESES SOCIALS", esSubtotal: false },
+  { node: 44, descripcio: "CONTRACTES ETT", esSubtotal: false },
   { node: 17, descripcio: "TOTAL COST SALARIAL", esSubtotal: true },
   { node: 18, descripcio: "ARRENDAMENTS I CANONS", esSubtotal: false },
   { node: 19, descripcio: "REPARACIONS I CONSERVACIO", esSubtotal: false },

@@ -1,12 +1,7 @@
+import { sumaNodesPersonalDetall } from "@/lib/cost-personal-centre/nodes";
 import { vendesLn } from "@/lib/repartiment/bases-vendes";
 import type { MovimentCalculat } from "@/lib/repartiment/compres-pool";
-import {
-  NODE_ALTRES_DESPESES_SOCIALS,
-  NODE_COST_SALARIAL,
-  NODE_INDEMNITZACIONS,
-  NODE_SEGURETAT_SOCIAL,
-  NODE_SOUS_SALARIS,
-} from "@/lib/repartiment/nodes";
+import { NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
 import {
   CODIS_LN_PERSONAL_COMERCIAL,
   CODIS_LN_PERSONAL_CONFIG,
@@ -56,15 +51,9 @@ export type AllocacioDeptLn = {
 
 function directeLn(directe: Map<string, Map<number, number>>, lnId: string, node: number): number {
   // El node 17 és un subtotal: el pool ha de partir sempre del total visible
-  // de personal (línies 13–16), no del subtotal importat SAP.
+  // de personal (detall 13–16 + 44), no del subtotal importat SAP.
   if (node === NODE_COST_SALARIAL) {
-    const nodes = directe.get(lnId);
-    return (
-      (nodes?.get(NODE_SOUS_SALARIS) ?? 0) +
-      (nodes?.get(NODE_INDEMNITZACIONS) ?? 0) +
-      (nodes?.get(NODE_SEGURETAT_SOCIAL) ?? 0) +
-      (nodes?.get(NODE_ALTRES_DESPESES_SOCIALS) ?? 0)
-    );
+    return sumaNodesPersonalDetall(directe.get(lnId));
   }
   return directe.get(lnId)?.get(node) ?? 0;
 }

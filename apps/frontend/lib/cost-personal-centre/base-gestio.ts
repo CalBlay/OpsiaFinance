@@ -13,7 +13,9 @@
  */
 
 import {
+  NODES_PERSONAL_COMpte,
   NODE_ALTRES_DESPESES_SOCIALS,
+  NODE_CONTRACTES_ETT,
   NODE_INDEMNITZACIONS,
   NODE_SEGURETAT_SOCIAL,
   NODE_SOUS_SALARIS,
@@ -33,7 +35,8 @@ export interface ImportsPersonalGestio {
   indemnitzacions: number;
   totalSegSocial: number;
   altresDespesesSocials: number;
-  /** = brut + indem + SS + altres; + deltaTraspass. */
+  contractesEtt: number;
+  /** = brut + indem + SS + altres + ETT; + deltaTraspass. */
   costPersonal: number;
 }
 
@@ -65,6 +68,7 @@ function emptyImports(): ImportsPersonalGestio {
     indemnitzacions: 0,
     totalSegSocial: 0,
     altresDespesesSocials: 0,
+    contractesEtt: 0,
     costPersonal: 0,
   };
 }
@@ -73,7 +77,11 @@ function normalitzaCost(imp: ImportsPersonalGestio): ImportsPersonalGestio {
   return {
     ...imp,
     costPersonal:
-      imp.importBrut + imp.indemnitzacions + imp.totalSegSocial + imp.altresDespesesSocials,
+      imp.importBrut +
+      imp.indemnitzacions +
+      imp.totalSegSocial +
+      imp.altresDespesesSocials +
+      imp.contractesEtt,
   };
 }
 
@@ -96,22 +104,14 @@ async function carregarConceptesPersonal(): Promise<Map<string, number>> {
   const rows = await db.concepteResultat.findMany({
     where: {
       isActive: true,
-      node: {
-        in: [
-          NODE_SOUS_SALARIS,
-          NODE_INDEMNITZACIONS,
-          NODE_SEGURETAT_SOCIAL,
-          NODE_ALTRES_DESPESES_SOCIALS,
-          NODE_TOTAL_COST_SALARIAL,
-        ],
-      },
+      node: { in: [...NODES_PERSONAL_COMpte] },
     },
     select: { id: true, node: true },
   });
   return new Map(rows.map((r) => [r.id, r.node]));
 }
 
-/** SAP + ajustos per centre×mes (nodes 13–16; el 17 es deriva). Sense payroll ni traspass. */
+/** SAP + ajustos per centre×mes (detall personal 13–16, 44; el 17 es deriva). Sense payroll ni traspass. */
 export async function carregarBaseDirectePersonal(
   filtre: FiltreBaseGestio
 ): Promise<BaseGestioPersonal> {
@@ -128,7 +128,7 @@ export async function carregarBaseSapNomesPersonal(
   return carregarSapAjustos(filtre, false);
 }
 
-/** SAP (± ajustos) per centre×mes (nodes 13–16; el 17 es deriva). */
+/** SAP (± ajustos) per centre×mes (detall personal 13–16, 44; el 17 es deriva). */
 async function carregarSapAjustos(
   filtre: FiltreBaseGestio,
   incloureAjustos: boolean
@@ -199,6 +199,7 @@ async function carregarSapAjustos(
     else if (node === NODE_INDEMNITZACIONS) cel.imports.indemnitzacions += v;
     else if (node === NODE_SEGURETAT_SOCIAL) cel.imports.totalSegSocial += v;
     else if (node === NODE_ALTRES_DESPESES_SOCIALS) cel.imports.altresDespesesSocials += v;
+    else if (node === NODE_CONTRACTES_ETT) cel.imports.contractesEtt += v;
   }
 
   for (const perMes of out.values()) {
@@ -397,6 +398,7 @@ export function costAbsMensualDeBase(base: BaseGestioPersonal, centreIds?: Set<s
 
 export {
   NODE_ALTRES_DESPESES_SOCIALS,
+  NODE_CONTRACTES_ETT,
   NODE_INDEMNITZACIONS,
   NODE_SEGURETAT_SOCIAL,
   NODE_SOUS_SALARIS,

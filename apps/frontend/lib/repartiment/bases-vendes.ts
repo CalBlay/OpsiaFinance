@@ -4,6 +4,7 @@ import {
 } from "@/lib/cost-personal-centre/base-gestio";
 import {
   NODE_ALTRES_DESPESES_SOCIALS,
+  NODE_CONTRACTES_ETT,
   NODE_INDEMNITZACIONS,
   NODE_SEGURETAT_SOCIAL,
   NODE_SOUS_SALARIS,
@@ -100,6 +101,7 @@ function sumarPersonalLn(perLn: DirectePerLn, lnId: string, imp: ImportsPersonal
     NODE_ALTRES_DESPESES_SOCIALS,
     (m.get(NODE_ALTRES_DESPESES_SOCIALS) ?? 0) + imp.altresDespesesSocials
   );
+  m.set(NODE_CONTRACTES_ETT, (m.get(NODE_CONTRACTES_ETT) ?? 0) + imp.contractesEtt);
   m.set(NODE_TOTAL_COST_SALARIAL, (m.get(NODE_TOTAL_COST_SALARIAL) ?? 0) + imp.costPersonal);
 }
 

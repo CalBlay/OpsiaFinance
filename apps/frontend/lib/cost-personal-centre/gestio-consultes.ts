@@ -6,6 +6,7 @@ import {
 } from "@/lib/cost-personal-centre/base-gestio";
 import {
   NODE_ALTRES_DESPESES_SOCIALS,
+  NODE_CONTRACTES_ETT,
   NODE_INDEMNITZACIONS,
   NODE_SEGURETAT_SOCIAL,
   NODE_SOUS_SALARIS,
@@ -20,6 +21,7 @@ function emptyImports(): ImportsPersonalGestio {
     indemnitzacions: 0,
     totalSegSocial: 0,
     altresDespesesSocials: 0,
+    contractesEtt: 0,
     costPersonal: 0,
   };
 }
@@ -42,6 +44,7 @@ function sumarImportsMesos(
     tot.indemnitzacions += cel.imports.indemnitzacions;
     tot.totalSegSocial += cel.imports.totalSegSocial;
     tot.altresDespesesSocials += cel.imports.altresDespesesSocials;
+    tot.contractesEtt += cel.imports.contractesEtt;
     tot.costPersonal += cel.imports.costPersonal;
   }
   return tot;
@@ -57,10 +60,12 @@ function aplicarImportsAFiles(
   const indem = byNode.get(NODE_INDEMNITZACIONS);
   const ss = byNode.get(NODE_SEGURETAT_SOCIAL);
   const altres = byNode.get(NODE_ALTRES_DESPESES_SOCIALS);
+  const ett = byNode.get(NODE_CONTRACTES_ETT);
   if (sous) sous.valors[colIdx] = imp.importBrut;
   if (indem) indem.valors[colIdx] = imp.indemnitzacions;
   if (ss) ss.valors[colIdx] = imp.totalSegSocial;
   if (altres) altres.valors[colIdx] = imp.altresDespesesSocials;
+  if (ett) ett.valors[colIdx] = imp.contractesEtt;
 }
 
 function recalcular(rows: ConceptePivot[]): ConceptePivot[] {
@@ -93,6 +98,7 @@ export async function aplicarCostPersonalEvolucioCentre(
   const indem = byNode.get(NODE_INDEMNITZACIONS);
   const ss = byNode.get(NODE_SEGURETAT_SOCIAL);
   const altres = byNode.get(NODE_ALTRES_DESPESES_SOCIALS);
+  const ett = byNode.get(NODE_CONTRACTES_ETT);
 
   for (const [mes, cel] of perMes) {
     const idx = mes - 1;
@@ -102,6 +108,7 @@ export async function aplicarCostPersonalEvolucioCentre(
     if (indem) indem.valors[idx] = imp.indemnitzacions;
     if (ss) ss.valors[idx] = imp.totalSegSocial;
     if (altres) altres.valors[idx] = imp.altresDespesesSocials;
+    if (ett) ett.valors[idx] = imp.contractesEtt;
   }
 
   return recalcular(merged);
@@ -172,6 +179,7 @@ export async function aplicarBaseGestioPersonalLinies(
     acc.indemnitzacions += imp.indemnitzacions;
     acc.totalSegSocial += imp.totalSegSocial;
     acc.altresDespesesSocials += imp.altresDespesesSocials;
+    acc.contractesEtt += imp.contractesEtt;
     acc.costPersonal += imp.costPersonal;
   }
 
@@ -209,6 +217,7 @@ export async function aplicarBaseGestioPersonalEvolucioLn(
       acc.indemnitzacions += cel.imports.indemnitzacions;
       acc.totalSegSocial += cel.imports.totalSegSocial;
       acc.altresDespesesSocials += cel.imports.altresDespesesSocials;
+      acc.contractesEtt += cel.imports.contractesEtt;
       acc.costPersonal += cel.imports.costPersonal;
     }
   }
@@ -219,6 +228,7 @@ export async function aplicarBaseGestioPersonalEvolucioLn(
   const indem = byNode.get(NODE_INDEMNITZACIONS);
   const ss = byNode.get(NODE_SEGURETAT_SOCIAL);
   const altres = byNode.get(NODE_ALTRES_DESPESES_SOCIALS);
+  const ett = byNode.get(NODE_CONTRACTES_ETT);
 
   for (const [mes, imp] of perMes) {
     const idx = mes - 1;
@@ -227,6 +237,7 @@ export async function aplicarBaseGestioPersonalEvolucioLn(
     if (indem) indem.valors[idx] = imp.indemnitzacions;
     if (ss) ss.valors[idx] = imp.totalSegSocial;
     if (altres) altres.valors[idx] = imp.altresDespesesSocials;
+    if (ett) ett.valors[idx] = imp.contractesEtt;
   }
 
   return recalcular(merged);

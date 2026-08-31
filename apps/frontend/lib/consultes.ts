@@ -2368,6 +2368,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     NODE_INDEMNITZACIONS,
     NODE_SEGURETAT_SOCIAL,
     NODE_ALTRES_DESPESES_SOCIALS,
+    NODE_CONTRACTES_ETT,
     NODE_TOTAL_COST_SALARIAL,
   } = await import("@/lib/cost-personal-centre/nodes");
   if (
@@ -2402,6 +2403,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
         else if (concepte.node === NODE_SEGURETAT_SOCIAL) sumBase += cel.imports.totalSegSocial;
         else if (concepte.node === NODE_ALTRES_DESPESES_SOCIALS)
           sumBase += cel.imports.altresDespesesSocials;
+        else if (concepte.node === NODE_CONTRACTES_ETT) sumBase += cel.imports.contractesEtt;
         else if (concepte.node === NODE_TOTAL_COST_SALARIAL) sumBase += cel.imports.costPersonal;
       }
     }

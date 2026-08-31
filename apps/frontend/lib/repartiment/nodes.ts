@@ -1,3 +1,5 @@
+import { NODES_PERSONAL_DETALL } from "@/lib/cost-personal-centre/nodes";
+
 /** Nodes SAP del compte de resultats (repartiment). */
 export const NODE_VENDES = 2;
 export const NODE_INGRESSOS = 6;
@@ -10,6 +12,8 @@ export const NODE_INDEMNITZACIONS = 14;
 export const NODE_SEGURETAT_SOCIAL = 15;
 export const NODE_ALTRES_DESPESES_SOCIALS = 16;
 export const NODE_COST_SALARIAL = 17;
+/** Contractes ETT (detall dins TOTAL COST SALARIAL). */
+export { NODE_CONTRACTES_ETT } from "@/lib/cost-personal-centre/nodes";
 /** Detalls de despeses de gestió (abans del subtotal 30). */
 export const NODES_GESTIO_DETALL = [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29] as const;
 /** Detall on històricament es mostraven reclassificacions de gestió. */
@@ -25,19 +29,14 @@ const FIRST_NODE_GESTIO_DETALL = NODES_GESTIO_DETALL[0] ?? NODE_MOVIMENTS_INTERN
  * però a la vista Gestió es reparteixen entre les línies de detall perquè
  * el compte quadri (detall → subtotal) i sous/SS (i compres/altres) restin lligats.
  *
- * Cost salarial (17) → totes les partides de personal (13–16)
+ * Cost salarial (17) → partides de personal (13–16 + 44 ETT)
  * Compres (11) → mercaderies (7) + altres aprovisionaments (8)
  * Gestió (30) → cada línia de detall 18–29 (proporcional a |base|;
  *   així Central al X% escala cada partida, no només moviments interns)
  */
 export const NODE_REPARTIMENT_A_DETALLS: Readonly<Record<number, readonly number[]>> = {
   [NODE_COMPRES]: [NODE_COMPRES_DETALL, NODE_ALTRES_APROVISIONAMENTS],
-  [NODE_COST_SALARIAL]: [
-    NODE_SOUS_SALARIS,
-    NODE_INDEMNITZACIONS,
-    NODE_SEGURETAT_SOCIAL,
-    NODE_ALTRES_DESPESES_SOCIALS,
-  ],
+  [NODE_COST_SALARIAL]: NODES_PERSONAL_DETALL,
   [NODE_COST_GESTIO]: NODES_GESTIO_DETALL,
 };
 
@@ -139,6 +138,7 @@ export const CONCEPTE_NODE_LABEL: Record<number, string> = {
   [NODE_COMPRES]: "TOTAL COMPRES",
   [NODE_SOUS_SALARIS]: "SOUS I SALARIS",
   [NODE_SEGURETAT_SOCIAL]: "SEGURETAT SOCIAL",
+  44: "CONTRACTES ETT",
   [NODE_COST_SALARIAL]: "TOTAL COST SALARIAL",
   [NODE_COST_GESTIO]: "TOTAL DESPESES GESTIO",
   [NODE_EBITDA]: "EBITDA",

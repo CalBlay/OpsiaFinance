@@ -297,7 +297,7 @@ export default async function ConsultaLiniaPage({
 
   /**
    * Personal SC:
-   * - Pool = TOTAL COST SALARIAL visible de Central (13–16).
+   * - Pool = TOTAL COST SALARIAL visible de Central (13–16 + 44 ETT).
    * - Assignacions explícites per departament a 00/01/04/05/06.
    * - Sobrant a 02/03: mix (part a parts iguals + resta segons vendes mensuals)
    *   o pesos configurats sense vendes.
@@ -497,7 +497,7 @@ export default async function ConsultaLiniaPage({
   const kpis = ev && !ev.buit ? buildKpisInforme(valorKpi) : [];
 
   // Mateix càlcul que el KPI, aplicat als detalls de Compres (7–8), Personal
-  // (13–16) i Gestió (18–29) perquè els totals i l'EBITDA quadrin amb Gestió.
+  // (13–16, 44) i Gestió (18–29) perquè els totals i l'EBITDA quadrin amb Gestió.
   let conceptsTaula = ev?.concepts ?? [];
   if (
     ev &&
