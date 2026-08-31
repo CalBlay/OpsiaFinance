@@ -33,7 +33,7 @@ export function FloatingAddButton({
 
   if (href && !disabled) {
     return (
-      <Link href={href} className={base} aria-label={label} title={label}>
+      <Link href={href} prefetch className={base} aria-label={label} title={label}>
         <Plus className="h-7 w-7" strokeWidth={2.2} />
       </Link>
     );

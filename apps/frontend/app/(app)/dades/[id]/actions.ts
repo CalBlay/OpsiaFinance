@@ -1,9 +1,9 @@
 "use server";
 
-import { unlink } from "node:fs/promises";
 import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { esborrarFitxerDisc } from "@/lib/import-file-storage";
 import { processarImportExcel } from "@/lib/processar-import";
 import type { EstatImport } from "@/types";
 import { revalidatePath } from "next/cache";
@@ -54,16 +54,13 @@ export async function eliminarImportAction(
   if (!imp) return;
 
   if (imp.rutaStorage) {
-    try {
-      await unlink(imp.rutaStorage);
-    } catch {
-      /* ja no existia */
-    }
+    await esborrarFitxerDisc(imp.rutaStorage);
   }
 
   await db.importacio.delete({ where: { id: importId } });
 
   revalidatePath("/dades");
+  revalidateConsultesDades();
   if (options.redirect) redirect("/dades");
 }
 

@@ -225,6 +225,27 @@
   padding-top: var(--opsia-space-2);
 }
 
+/* ─── Skeleton (càrrega) ───────────────────────────────────────────────────── */
+.skeletonLine {
+  height: 2.5rem;
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-surface-muted, rgba(0, 0, 0, 0.06));
+}
+
+.skeletonPulse {
+  animation: novaSkeletonPulse 1.2s ease-in-out infinite;
+}
+
+@keyframes novaSkeletonPulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 /* ─── Responsive ─────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
   .page {

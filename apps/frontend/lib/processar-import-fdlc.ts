@@ -40,11 +40,9 @@ async function upsertPeriode(any: number, mes: number): Promise<string> {
 }
 
 export async function processarImportFdlc(
-  imp: ImportWithRelations
+  imp: ImportWithRelations,
+  fitxer: Buffer
 ): Promise<{ ok: boolean; missatge: string }> {
-  if (!imp.rutaStorage)
-    return { ok: false, missatge: "Fitxer no disponible al servidor. Puja'l de nou." };
-
   const anyMatch = imp.nomFitxer.match(/20\d{2}/)?.[0];
   const any = imp.period?.any ?? (anyMatch ? Number(anyMatch) : null);
   if (!any) {
@@ -65,10 +63,7 @@ export async function processarImportFdlc(
     await db.importacio.update({ where: { id: imp.id }, data: { liniaNegociId: lnId } });
   }
 
-  const { fets, mesosDetectats, errors, avisos, comptesNoMapats } = parsePygFdlc(
-    imp.rutaStorage,
-    any
-  );
+  const { fets, mesosDetectats, errors, avisos, comptesNoMapats } = parsePygFdlc(fitxer, any);
 
   if (fets.length === 0) {
     return { ok: false, missatge: errors.join(" ") || "No s'han trobat dades." };

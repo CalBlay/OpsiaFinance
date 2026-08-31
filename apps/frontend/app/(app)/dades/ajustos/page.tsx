@@ -1,13 +1,13 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
-import { propostaAjustCentralPctSobreVendesGrup } from "@/lib/ajustos/proposta-central-pct-grup";
 import { auth } from "@/lib/auth";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { db } from "@/lib/db";
 import { ajustosToExportInforme } from "@/lib/export/dades";
+import { Suspense } from "react";
 import { AjustosManager } from "./AjustosManager";
-import { PropostaCentralPctPanel } from "./PropostaCentralPctPanel";
+import { PropostaCentralPctLoader } from "./PropostaCentralPctLoader";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ajustos - OpsiaFinance" };
@@ -15,12 +15,12 @@ export const metadata = { title: "Ajustos - OpsiaFinance" };
 const tab = getDadesTabById("ajustos");
 
 export default async function AjustosPage() {
-  const [arbre, concepts, ajustos, sessionResult, propostaResult] = await Promise.all([
+  const [arbre, concepts, ajustos, session] = await Promise.all([
     getArbreSeleccio(),
     db.concepteResultat.findMany({
-      where: { isActive: true },
       orderBy: { ordre: "asc" },
       select: { id: true, node: true, descripcio: true },
+      where: { isActive: true },
     }),
     db.ajust.findMany({
       orderBy: { createdAt: "desc" },
@@ -39,25 +39,8 @@ export default async function AjustosPage() {
         creatPerUser: { select: { name: true } },
       },
     }),
-    auth().then(
-      (session) => ({ ok: true as const, session }),
-      (error) => ({ ok: false as const, error })
-    ),
-    propostaAjustCentralPctSobreVendesGrup(2025, 32.5921).then(
-      (proposta) => ({ ok: true as const, proposta }),
-      (error) => ({ ok: false as const, error })
-    ),
+    auth(),
   ]);
-
-  if (!sessionResult.ok) {
-    console.error("[dades/ajustos] auth failed", sessionResult.error);
-  }
-  if (!propostaResult.ok) {
-    console.error("[dades/ajustos] proposta central pct failed", propostaResult.error);
-  }
-
-  const session = sessionResult.ok ? sessionResult.session : null;
-  const proposta = propostaResult.ok ? propostaResult.proposta : null;
 
   const role = session?.user?.role;
   const canEdit = role === "ADMIN" || role === "EDICIO";
@@ -95,7 +78,9 @@ export default async function AjustosPage() {
         />
       }
     >
-      {proposta ? <PropostaCentralPctPanel calc={proposta} /> : null}
+      <Suspense fallback={null}>
+        <PropostaCentralPctLoader />
+      </Suspense>
       <AjustosManager arbre={arbre} concepts={concepts} ajustos={ajustosPlain} canEdit={canEdit} />
     </DadesPageShell>
   );

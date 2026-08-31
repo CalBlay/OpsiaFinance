@@ -14,8 +14,8 @@
  * - Sense punt inicial (p.ex. "TOTAL INGRESSOS EXPLOT", "EBITDA") és un TOTAL/SUBTOTAL.
  */
 
-import { readFileSync } from "fs";
 import * as XLSX from "xlsx";
+import { type ExcelSource, readWorkbook } from "./read-workbook";
 
 /** Concepte del compte de resultats (una línia de l'estructura del P&L). */
 export interface ConcepteParsed {
@@ -71,12 +71,12 @@ function triaNomFull(noms: string[]): string | null {
   return noms[0] ?? null;
 }
 
-export function parseCompteResultats(filePath: string): ParseResultatsResult {
+export function parseCompteResultats(source: ExcelSource): ParseResultatsResult {
   const errors: string[] = [];
 
-  let workbook;
+  let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.read(readFileSync(filePath));
+    workbook = readWorkbook(source);
   } catch (err) {
     return {
       concepts: [],

@@ -1,13 +1,19 @@
-import { getArbreSeleccio } from "@/lib/consultes";
-import { ensureFdlcSetup } from "@/lib/fdlc/setup";
+import { getLiniesImportOptions } from "@/lib/consultes";
+import { Suspense } from "react";
 import { NovaImportForm } from "./NovaImportForm";
+import { NovaImportSkeleton } from "./NovaImportSkeleton";
 
 export const metadata = { title: "Nova importació — OpsiaFinance" };
 
-export default async function NovaDadesPage() {
-  await ensureFdlcSetup();
-  const arbre = await getArbreSeleccio();
-  const linies = arbre.map((ln) => ({ id: ln.id, codi: ln.codi, nom: ln.nom }));
-
+async function NovaImportFormLoader() {
+  const linies = await getLiniesImportOptions();
   return <NovaImportForm linies={linies} />;
+}
+
+export default function NovaDadesPage() {
+  return (
+    <Suspense fallback={<NovaImportSkeleton />}>
+      <NovaImportFormLoader />
+    </Suspense>
+  );
 }

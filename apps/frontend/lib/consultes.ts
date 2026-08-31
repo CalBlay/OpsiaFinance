@@ -227,6 +227,21 @@ export const getArbreSeleccio = cache(async () => {
   )();
 });
 
+/** Només id/codi/nom — per al formulari de nova importació (sense centres). */
+export const getLiniesImportOptions = cache(async () => {
+  return unstable_cache(
+    async () =>
+      ordenaPerCodi(
+        await db.liniaNegoci.findMany({
+          where: { isActive: true },
+          select: { id: true, codi: true, nom: true },
+        })
+      ),
+    consultesCacheKey("consultes-linies-import"),
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
+});
+
 /* ─── Consulta: C.Explotació d'un centre, anual per mesos ─────────────────────── */
 
 async function computeCompteExplotacioCentreBase(

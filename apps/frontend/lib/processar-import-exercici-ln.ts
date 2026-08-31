@@ -43,12 +43,9 @@ async function upsertPeriode(any: number, mes: number): Promise<string> {
  * No crea ni confirma repartiment.
  */
 export async function processarImportExerciciLn(
-  imp: ImportWithRelations
+  imp: ImportWithRelations,
+  fitxer: Buffer
 ): Promise<{ ok: boolean; missatge: string }> {
-  if (!imp.rutaStorage) {
-    return { ok: false, missatge: "Fitxer no disponible al servidor. Puja'l de nou." };
-  }
-
   const anyMatch = imp.nomFitxer.match(/20\d{2}/)?.[0];
   const anyFallback = imp.period?.any ?? (anyMatch ? Number(anyMatch) : null);
 
@@ -64,7 +61,7 @@ export async function processarImportExerciciLn(
   await ensureConceptesCompteBase();
 
   const { fets, mesosDetectats, anyDetectat, titolBloc, errors, avisos, etiquetesNoMapades } =
-    parsePygExerciciLn(imp.rutaStorage, anyFallback);
+    parsePygExerciciLn(fitxer, anyFallback);
 
   const any = anyDetectat ?? anyFallback;
   if (!any) {

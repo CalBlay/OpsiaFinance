@@ -3,8 +3,8 @@
   "private": true,
   "version": "0.0.1",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "npm --prefix ../.. run prisma:generate && next dev",
+    "build": "npm --prefix ../.. run prisma:deploy && next build",
     "postinstall": "prisma generate --schema=../../prisma/schema.prisma"
   },
   "dependencies": {

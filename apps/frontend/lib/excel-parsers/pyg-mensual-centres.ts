@@ -13,8 +13,8 @@
  * Fulls a saltar: "REST" (consolidació total)
  */
 
-import { readFileSync } from "fs";
 import * as XLSX from "xlsx";
+import { type ExcelSource, readWorkbook } from "./read-workbook";
 
 /** Fulls que són consolidacions i s'han de saltar */
 const SKIP_SHEETS = new Set(["REST"]);
@@ -49,13 +49,13 @@ export interface ParseResult {
   errors: string[];
 }
 
-export function parsePygMensualCentres(filePath: string, anyExcel: number): ParseResult {
+export function parsePygMensualCentres(source: ExcelSource, _anyExcel: number): ParseResult {
   const rows: ParsedRow[] = [];
   const errors: string[] = [];
 
-  let workbook;
+  let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.read(readFileSync(filePath));
+    workbook = readWorkbook(source);
   } catch (err) {
     return { rows: [], errors: [`No s'ha pogut llegir el fitxer: ${err}`] };
   }
@@ -93,7 +93,7 @@ export function parsePygMensualCentres(filePath: string, anyExcel: number): Pars
 
         if (rawVal === null || rawVal === undefined || rawVal === "") continue;
         const valor = typeof rawVal === "number" ? rawVal : Number.parseFloat(String(rawVal));
-        if (isNaN(valor) || valor === 0) continue;
+        if (Number.isNaN(valor) || valor === 0) continue;
 
         rows.push({
           centreNom,

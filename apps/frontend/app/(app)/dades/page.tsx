@@ -2,9 +2,9 @@ import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
-import { db } from "@/lib/db";
 import { importsToExportInforme } from "@/lib/export/dades";
 import type { ImportCercaItem } from "@/lib/import-search";
+import { getImportacionsLlista } from "@/lib/importacions-list";
 import { formatDateShort } from "@/lib/utils";
 import type { EstatImport } from "@/types";
 import { ImportsLlista } from "./ImportsLlista";
@@ -23,15 +23,7 @@ const ESTAT_LABELS: Record<EstatImport, string> = {
 const tab = getDadesTabById("importacions");
 
 export default async function DadesPage() {
-  const imports = await db.importacio.findMany({
-    orderBy: { createdAt: "desc" },
-    include: {
-      formatInforme: { select: { nom: true, tipusInforme: true } },
-      period: { select: { any: true, mes: true, nom: true } },
-      liniaNegoci: { select: { codi: true, nom: true } },
-      creatPerUser: { select: { name: true } },
-    },
-  });
+  const imports = await getImportacionsLlista();
 
   const items: ImportCercaItem[] = imports.map((imp) => ({
     id: imp.id,

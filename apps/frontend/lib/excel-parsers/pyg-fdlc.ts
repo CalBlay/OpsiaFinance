@@ -7,7 +7,6 @@
  * - Una pujada extreu tots els mesos amb dades de l'exercici indicat
  */
 
-import { readFileSync } from "fs";
 import {
   esSubcomptePg,
   mapFdlcCompte,
@@ -16,6 +15,7 @@ import {
   prefixPg3,
 } from "@/lib/fdlc/mapeig";
 import * as XLSX from "xlsx";
+import { type ExcelSource, readWorkbook } from "./read-workbook";
 
 export interface FdlcFetParsed {
   node: number;
@@ -220,7 +220,7 @@ function triaFullFdlc(noms: string[]): string {
 /**
  * Llegeix tots els mesos amb dades de l'Excel FDLC per a un exercici (`any`).
  */
-export function parsePygFdlc(filePath: string, _any: number): ParsePygFdlcResult {
+export function parsePygFdlc(source: ExcelSource, _any: number): ParsePygFdlcResult {
   const errors: string[] = [];
   const avisos: string[] = [];
   const comptesNoMapats = new Set<string>();
@@ -228,7 +228,7 @@ export function parsePygFdlc(filePath: string, _any: number): ParsePygFdlcResult
 
   let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.read(readFileSync(filePath));
+    workbook = readWorkbook(source);
   } catch (err) {
     return {
       fets: [],
@@ -313,7 +313,8 @@ export function parsePygFdlc(filePath: string, _any: number): ParsePygFdlcResult
       const valor = normalitzarImportFdlc(node, raw);
       if (valor === 0) continue;
 
-      const mapMes = agregatPerMes.get(mes)!;
+      const mapMes = agregatPerMes.get(mes);
+      if (!mapMes) continue;
       mapMes.set(node, (mapMes.get(node) ?? 0) + valor);
     }
   }

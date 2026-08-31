@@ -151,9 +151,17 @@ model Importacio {
   formatInforme              FormatInforme?             @relation(fields: [formatInformeId], references: [id])
   liniaNegoci                LiniaNegoci?               @relation(fields: [liniaNegociId], references: [id])
   period                     Period?                    @relation(fields: [periodId], references: [id])
+  fitxer                     ImportacioFitxer?
 
   @@index([liniaNegociId])
   @@index([periodId, liniaNegociId, formatInformeId])
+}
+
+/// Contingut binari de l'Excel (Neon / Vercel: el disc local no persisteix)
+model ImportacioFitxer {
+  importacioId String     @id
+  contingut    Bytes
+  importacio   Importacio @relation(fields: [importacioId], references: [id], onDelete: Cascade)
 }
 
 /// Fila normalitzada del model financer intern

@@ -7,7 +7,12 @@ import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
 import { type RangMesos, rangToQuery } from "@/lib/periodes";
-import type { VistaCompte } from "@/lib/vista-compte";
+import {
+  VISTA_COMPTE_CADENA,
+  VISTA_COMPTE_SENSE_GESTIO,
+  type VistaCompte,
+  parseVistaCompte,
+} from "@/lib/vista-compte";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 
@@ -22,7 +27,7 @@ function hrefLinia(ln: string, any: number, rang: RangMesos, vista: VistaCompte)
   if (ln) qs.set("ln", ln);
   qs.set("any", String(any));
   if (vista !== "directe") qs.set("vista", vista);
-  const rangQ = rangToQuery(rang); // &des=&fins=
+  const rangQ = rangToQuery(rang);
   return `/consultes/linia?${qs.toString()}${rangQ}`;
 }
 
@@ -33,6 +38,9 @@ export function LiniaSelectors({
   any,
   rang,
   vista,
+  vistesCarregades,
+  onVistaLocal,
+  mostraCapesGestio = true,
 }: {
   linies: LnOpt[];
   anys: number[];
@@ -40,12 +48,16 @@ export function LiniaSelectors({
   any: number;
   rang: RangMesos;
   vista: VistaCompte;
+  vistesCarregades?: VistaCompte[];
+  onVistaLocal?: (vista: VistaCompte) => boolean | undefined;
+  mostraCapesGestio?: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const lineSelectId = "linia-line";
   const yearSelectId = "linia-year";
   const viewSelectId = "linia-view";
+  const opcions = mostraCapesGestio ? VISTA_COMPTE_CADENA : VISTA_COMPTE_SENSE_GESTIO;
 
   const [localLn, setLocalLn] = useState(lnId ?? "");
   const [localAny, setLocalAny] = useState(any);
@@ -61,21 +73,39 @@ export function LiniaSelectors({
 
   useEffect(() => {
     if (!lnId) return;
-    for (const other of ["sap", "ajustos", "directe", "traspassos", "gestio"] as VistaCompte[]) {
+    for (const other of opcions) {
       if (other === vista) continue;
       router.prefetch(hrefLinia(lnId, any, rang, other));
     }
-  }, [router, lnId, any, rang, vista]);
+  }, [router, lnId, any, rang, vista, opcions]);
 
-  const go = (nextLn: string, nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
+  const goServer = (
+    nextLn: string,
+    nextAny: number,
+    nextRang: RangMesos,
+    nextVista: VistaCompte
+  ) => {
+    const vistaEfectiva = parseVistaCompte(nextVista, { permetCapesGestio: mostraCapesGestio });
     setLocalLn(nextLn);
     setLocalAny(nextAny);
     setLocalRang(nextRang);
-    setLocalVista(nextVista);
+    setLocalVista(vistaEfectiva);
     startTransition(() => {
-      router.replace(hrefLinia(nextLn, nextAny, nextRang, nextVista), { scroll: false });
+      router.replace(hrefLinia(nextLn, nextAny, nextRang, vistaEfectiva), { scroll: false });
     });
   };
+
+  const goVista = (nextVista: VistaCompte) => {
+    const vistaEfectiva = parseVistaCompte(nextVista, { permetCapesGestio: mostraCapesGestio });
+    setLocalVista(vistaEfectiva);
+    if (vistesCarregades?.includes(vistaEfectiva) && onVistaLocal) {
+      const ok = onVistaLocal(vistaEfectiva);
+      if (ok !== false) return;
+    }
+    goServer(localLn, localAny, localRang, vistaEfectiva);
+  };
+
+  const vistaPending = isPending && !onVistaLocal;
 
   return (
     <ConsultaToolbar
@@ -92,7 +122,7 @@ export function LiniaSelectors({
               style={{ minWidth: 100 }}
               value={localAny}
               disabled={isPending}
-              onChange={(e) => go(localLn, Number(e.target.value), localRang, localVista)}
+              onChange={(e) => goServer(localLn, Number(e.target.value), localRang, localVista)}
             >
               {anys.map((y) => (
                 <option key={y} value={y}>
@@ -105,7 +135,7 @@ export function LiniaSelectors({
             rang={localRang}
             anyActual={localAny}
             disabled={isPending}
-            onChange={(next) => go(localLn, localAny, next, localVista)}
+            onChange={(next) => goServer(localLn, localAny, next, localVista)}
           />
         </>
       }
@@ -119,7 +149,7 @@ export function LiniaSelectors({
             className={styles.select}
             value={localLn}
             disabled={isPending}
-            onChange={(e) => go(e.target.value, localAny, localRang, localVista)}
+            onChange={(e) => goServer(e.target.value, localAny, localRang, localVista)}
           >
             <option value="">Totes (resum)</option>
             {linies.map((ln) => (
@@ -134,9 +164,10 @@ export function LiniaSelectors({
         <ConsultaVistaSelect
           id={viewSelectId}
           value={localVista}
-          disabled={isPending}
-          pendingHint={isPending}
-          onChange={(v) => go(localLn, localAny, localRang, v)}
+          opcions={opcions}
+          disabled={vistaPending}
+          pendingHint={vistaPending}
+          onChange={goVista}
         />
       }
     />

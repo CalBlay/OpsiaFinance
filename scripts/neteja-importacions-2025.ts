@@ -100,7 +100,7 @@ async function main() {
   let fitxersEsborrats = 0;
   let fitxersAbsents = 0;
   for (const imp of imports) {
-    if (!imp.rutaStorage) continue;
+    if (!imp.rutaStorage || imp.rutaStorage === "db" || imp.rutaStorage.startsWith("db:")) continue;
     try {
       await unlink(imp.rutaStorage);
       fitxersEsborrats++;

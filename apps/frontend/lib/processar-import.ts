@@ -1,6 +1,7 @@
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { parseCompteResultats, periodeDesDelNomFitxer } from "@/lib/excel-parsers/compte-resultats";
+import { carregarFitxerImportacio } from "@/lib/import-file-storage";
 import { resolveLiniaNegociImport } from "@/lib/linia-informe";
 import { codiLnDelNomFitxer } from "@/lib/nom-fitxer";
 import { processarImportExerciciLn } from "@/lib/processar-import-exercici-ln";
@@ -22,7 +23,7 @@ const MESOS_NOMS: Record<number, string> = {
   12: "Desembre",
 };
 
-/** Processa un Excel ja desat al disc i carrega les dades a la BBDD. */
+/** Processa un Excel ja desat (BBDD o disc) i carrega les dades. */
 export async function processarImportExcel(
   importId: string
 ): Promise<{ ok: boolean; missatge: string }> {
@@ -36,16 +37,17 @@ export async function processarImportExcel(
   });
 
   if (!imp) return { ok: false, missatge: "Importació no trobada." };
-  if (!imp.rutaStorage)
-    return { ok: false, missatge: "Fitxer no disponible al servidor. Puja'l de nou." };
+
+  const fitxer = await carregarFitxerImportacio(imp.id, imp.rutaStorage);
+  if (!fitxer) return { ok: false, missatge: "Fitxer no disponible al servidor. Puja'l de nou." };
 
   const liniaNegociIdImport = imp.liniaNegociId;
 
   if (imp.formatInforme?.tipusInforme === "PYG_FDLC") {
-    return processarImportFdlc(imp);
+    return processarImportFdlc(imp, fitxer);
   }
   if (imp.formatInforme?.tipusInforme === "PYG_EXERCICI_LN") {
-    return processarImportExerciciLn(imp);
+    return processarImportExerciciLn(imp, fitxer);
   }
 
   let periodId = imp.periodId;
@@ -65,7 +67,7 @@ export async function processarImportExcel(
     await db.importacio.update({ where: { id: importId }, data: { periodId } });
   }
 
-  const { concepts, columnes, fets, errors } = parseCompteResultats(imp.rutaStorage);
+  const { concepts, columnes, fets, errors } = parseCompteResultats(fitxer);
   if (fets.length === 0) {
     return { ok: false, missatge: `No s'han trobat dades. ${errors.join(" ")}` };
   }

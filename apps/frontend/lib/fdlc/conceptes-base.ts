@@ -48,11 +48,13 @@ const CONCEPTES_BASE: { node: number; descripcio: string; esSubtotal: boolean }[
 
 /** Crea els conceptes base si encara no existeixen (necessari abans del primer import FDLC). */
 export async function ensureConceptesCompteBase(): Promise<void> {
-  for (const c of CONCEPTES_BASE) {
-    await db.concepteResultat.upsert({
-      where: { node: c.node },
-      update: {},
-      create: { node: c.node, descripcio: c.descripcio, esSubtotal: c.esSubtotal, ordre: c.node },
-    });
-  }
+  await Promise.all(
+    CONCEPTES_BASE.map((c) =>
+      db.concepteResultat.upsert({
+        where: { node: c.node },
+        update: {},
+        create: { node: c.node, descripcio: c.descripcio, esSubtotal: c.esSubtotal, ordre: c.node },
+      })
+    )
+  );
 }

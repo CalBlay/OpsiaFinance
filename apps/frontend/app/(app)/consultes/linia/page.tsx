@@ -4,7 +4,6 @@ import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn, PivotRow } from "@/components/consultes/PivotTable";
 import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown";
-import type { KpiComite } from "@/components/consultes/PresentacioComite";
 import { EvolucioChart } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
@@ -12,21 +11,18 @@ import { auth } from "@/lib/auth";
 import { recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import {
   MESOS_CURTS,
-  aplicarCapaVistaEvolucio,
   etiquetaRangMesos,
   getAnysAmbDades,
   getArbreSeleccio,
-  getComparativaEmpresa,
   getEvolucioMensual,
   getEvolucioMensualPerVista,
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
-import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { db } from "@/lib/db";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
-import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
+import { grupPermetVistaGestio, liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import {
   NODE_COMPRES,
   NODE_COST_GESTIO,
@@ -36,7 +32,7 @@ import {
   buildKpisInforme,
 } from "@/lib/kpi-definitions";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
-import { type RangMesos, esAnyComplet, etiquetaRangMesosLlarga, rangToQuery } from "@/lib/periodes";
+import type { RangMesos } from "@/lib/periodes";
 import { aplicarDeltaPresentacioGestio } from "@/lib/repartiment/gestio-consultes";
 import {
   CODI_LN_CENTRAL,
@@ -55,12 +51,17 @@ import {
   carregarCostPersonalDeptSc,
 } from "@/lib/repartiment/personal-departaments-data";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
-import { etiquetaVistaCompte, parseVistaCompte, vistaInclouRepartiment } from "@/lib/vista-compte";
+import {
+  etiquetaVistaCompte,
+  parseVistaCompte,
+  vistaInclouRepartiment,
+  vistaInclouTraspassos,
+} from "@/lib/vista-compte";
 import { ajustarImportConsultaAction } from "../actions";
-import { LiniaResumPresentacio } from "../presenters-dynamic";
 import { LiniaCentresLazy } from "./LiniaCentresLazy";
-import type { FilaResumLinia } from "./LiniaResumPresentacio";
+import { LiniaResumBoard } from "./LiniaResumBoard";
 import { LiniaSelectors } from "./LiniaSelectors";
+import { carregarLiniaResumCapesAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Consulta per línia de negoci — OpsiaFinance" };
@@ -74,17 +75,6 @@ function retallaRang(rows: PivotRow[], rang: RangMesos): PivotRow[] {
       total: valors.reduce((a, b) => a + b, 0),
     };
   });
-}
-
-function pctSobreIngressos(
-  valor: number,
-  ingressos: number,
-  opts?: { signed?: boolean }
-): number | null {
-  if (!ingressos) return null;
-  return opts?.signed
-    ? (valor / Math.abs(ingressos)) * 100
-    : (Math.abs(valor) / Math.abs(ingressos)) * 100;
 }
 
 export default async function ConsultaLiniaPage({
@@ -120,145 +110,29 @@ export default async function ConsultaLiniaPage({
   );
 
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
-  const periodeLlarga = etiquetaRangMesosLlarga(rang, anyActual);
   const vistaLabel = etiquetaVistaCompte(vista);
 
   // Resum multi-LN quan no n'hi ha cap de seleccionada.
   if (!lnId) {
-    const [comp, evEmpresaRaw] = await Promise.all([
-      getComparativaEmpresa(anyActual, rang, vista, grup),
-      getEvolucioMensualPerVista("empresa", null, anyActual, grup, vista),
-    ]);
-    const evEmpresa = evEmpresaRaw
-      ? {
-          ...evEmpresaRaw,
-          concepts: await aplicarCapaVistaEvolucio(
-            "empresa",
-            null,
-            anyActual,
-            evEmpresaRaw.concepts,
-            grup,
-            vista
-          ),
-        }
-      : evEmpresaRaw;
-
-    const findRow = (node: number) => comp.concepts.find((c) => c.node === node);
-    const findEv = (node: number) => evEmpresa?.concepts.find((c) => c.node === node);
-
-    const ingressosTotal = findRow(NODE_INGRESSOS)?.total ?? 0;
-    const personalTotal = findRow(NODE_COST_SALARIAL)?.total ?? 0;
-    const compresTotal = findRow(NODE_COMPRES)?.total ?? 0;
-    const gestioTotal = findRow(NODE_COST_GESTIO)?.total ?? 0;
-    const ebitdaTotal = findRow(NODE_EBITDA)?.total ?? 0;
-
-    const kpisComite: KpiComite[] = [
-      {
-        label: "Ingressos",
-        import_: ingressosTotal,
-        hint: "Explotació",
-        accent: "ingressos",
-      },
-      {
-        label: "Compres",
-        import_: compresTotal,
-        pct: pctSobreIngressos(compresTotal, ingressosTotal),
-        pctHint: "s/ ingressos",
-        accent: "cost",
-      },
-      {
-        label: "Personal",
-        import_: personalTotal,
-        pct: pctSobreIngressos(personalTotal, ingressosTotal),
-        pctHint: "s/ ingressos",
-        accent: "cost",
-      },
-      {
-        label: "Gestió",
-        import_: gestioTotal,
-        pct: pctSobreIngressos(gestioTotal, ingressosTotal),
-        pctHint: "s/ ingressos",
-        accent: "cost",
-      },
-      {
-        label: "EBITDA",
-        import_: ebitdaTotal,
-        pct: pctSobreIngressos(ebitdaTotal, ingressosTotal, { signed: true }),
-        pctHint: "s/ ingressos",
-        accent: "ebitda",
-      },
-    ];
-
-    const mesIni = rang.des - 1;
-    const mesFi = rang.fins;
-    const sliceMes = <T,>(arr: T[]): T[] => (esAnyComplet(rang) ? arr : arr.slice(mesIni, mesFi));
-
-    const perLn = {
-      etiquetes: comp.linies.map(etiquetaGrafic),
-      ingressos: findRow(NODE_INGRESSOS)?.valors ?? [],
-      ebitda: findRow(NODE_EBITDA)?.valors ?? [],
-      personal: findRow(NODE_COST_SALARIAL)?.valors ?? [],
-      compres: findRow(NODE_COMPRES)?.valors ?? [],
-      gestio: findRow(NODE_COST_GESTIO)?.valors ?? [],
-    };
-
-    const mensual = {
-      mesos: sliceMes([...MESOS_CURTS]),
-      ingressos: sliceMes(findEv(NODE_INGRESSOS)?.valors ?? []),
-      ebitda: sliceMes(findEv(NODE_EBITDA)?.valors ?? []),
-      personal: sliceMes(findEv(NODE_COST_SALARIAL)?.valors ?? []),
-      compres: sliceMes(findEv(NODE_COMPRES)?.valors ?? []),
-      gestio: sliceMes(findEv(NODE_COST_GESTIO)?.valors ?? []),
-    };
-
-    const totalIngAbs = Math.abs(ingressosTotal) || 0;
-    const files: FilaResumLinia[] = comp.linies.map((l, i) => {
-      const ingressos = perLn.ingressos[i] ?? 0;
-      const ebitda = perLn.ebitda[i] ?? 0;
-      return {
-        id: l.id,
-        name: etiquetaGrafic(l),
-        ingressos,
-        pctSobreTotal: totalIngAbs ? (Math.abs(ingressos) / totalIngAbs) * 100 : null,
-        ebitda,
-        ebitdaPct: ingressos ? (ebitda / Math.abs(ingressos)) * 100 : null,
-        href: `/consultes/linia?ln=${l.id}&any=${anyActual}${rangToQuery(rang)}&vista=${vista}`,
-      };
+    const potGestio = grupPermetVistaGestio(grup);
+    const carregaCapesEager = potGestio && vistaInclouTraspassos(vista);
+    const capesInicials = await carregarLiniaResumCapesAction({
+      any: anyActual,
+      rang,
+      vistaInicial: vista,
     });
 
     return (
-      <div className={styles.page}>
-        <ConsultaHeader
-          title="Compte d'explotació · per línia de negoci"
-          subtitle={`Resum de totes les línies · ${periodeLlarga} · ${vistaLabel}`}
-          actions={
-            <LiniaSelectors
-              linies={linies}
-              anys={anys.length ? anys : [anyActual]}
-              lnId={null}
-              any={anyActual}
-              rang={rang}
-              vista={vista}
-            />
-          }
-        />
-
-        {comp.buit ? (
-          <div className={styles.prompt}>
-            <h3>Sense dades</h3>
-            <p>No hi ha dades de línies per {periodeLabel.toLowerCase()}.</p>
-          </div>
-        ) : (
-          <LiniaResumPresentacio
-            periode={periodeLlarga}
-            vistaLabel={vistaLabel}
-            kpis={kpisComite}
-            mensual={mensual}
-            perLn={perLn}
-            files={files}
-          />
-        )}
-      </div>
+      <LiniaResumBoard
+        linies={linies}
+        anys={anys.length ? anys : [anyActual]}
+        anyActual={anyActual}
+        rang={rang}
+        grup={grup}
+        vistaInicial={vista}
+        capesInicials={capesInicials}
+        potPrecarregarVistes={potGestio && !carregaCapesEager}
+      />
     );
   }
 

@@ -6,9 +6,9 @@
  * - Un fitxer = un exercici (12 mesos)
  */
 
-import { readFileSync } from "node:fs";
 import { mapEtiquetaHistoricANode, normalitzarImportHistoric } from "@/lib/historic-calblay/mapeig";
 import * as XLSX from "xlsx";
+import { type ExcelSource, readWorkbook } from "./read-workbook";
 
 export interface ExerciciLnFet {
   node: number;
@@ -130,7 +130,7 @@ function triarCapcalera(caps: CapcaleraHistoric[]): CapcaleraHistoric | null {
 }
 
 export function parsePygExerciciLn(
-  filePath: string,
+  source: ExcelSource,
   anyFallback: number | null = null
 ): ParsePygExerciciLnResult {
   const errors: string[] = [];
@@ -141,7 +141,7 @@ export function parsePygExerciciLn(
 
   let workbook: XLSX.WorkBook;
   try {
-    workbook = XLSX.read(readFileSync(filePath));
+    workbook = readWorkbook(source);
   } catch (err) {
     return {
       fets: [],
