@@ -21,20 +21,37 @@ function isPoolerUrl(url) {
   return /-pooler[\.\-]/i.test(url) || url.includes("-pooler.");
 }
 
+/** Neon: ep-xxx-pooler.region… → ep-xxx.region… (mateix user/password/db). */
+function deriveNeonDirectUrl(poolerUrl) {
+  if (!poolerUrl || !isPoolerUrl(poolerUrl)) return null;
+  const direct = poolerUrl.replace(/-pooler(?=\.)/i, "");
+  return direct !== poolerUrl ? direct : null;
+}
+
 let migrateUrl = directUrl;
 
-if (!migrateUrl) {
-  if (databaseUrl && isPoolerUrl(databaseUrl)) {
+if (!migrateUrl && databaseUrl && isPoolerUrl(databaseUrl)) {
+  const derived = deriveNeonDirectUrl(databaseUrl);
+  if (derived) {
+    migrateUrl = derived;
+    warn(
+      "DIRECT_URL no definit; s'ha derivat la connexió directa de Neon des de DATABASE_URL " +
+        "(recomanat: afegir DIRECT_URL explícit a Vercel)."
+    );
+  } else {
     fail(
-      "DIRECT_URL no està definit i DATABASE_URL usa el pooler de Neon.\n" +
+      "DIRECT_URL no està definit i no s'ha pogut derivar des del pooler de Neon.\n" +
         "A Vercel: Project → Settings → Environment Variables\n" +
         "  • DATABASE_URL = connection string amb «-pooler» (per l'app)\n" +
         "  • DIRECT_URL   = connection string sense «-pooler» (per migracions)\n" +
         "Copia-ho des de Neon → Connect → «Direct connection»."
     );
   }
+}
+
+if (!migrateUrl) {
   migrateUrl = databaseUrl;
-  if (migrateUrl) {
+  if (migrateUrl && !directUrl) {
     warn("DIRECT_URL no definit; s'usa DATABASE_URL (ok només si no és pooler).");
   }
 }
