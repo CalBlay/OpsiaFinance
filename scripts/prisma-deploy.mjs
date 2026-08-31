@@ -5,9 +5,14 @@
  * més que el timeout fix de 10 segons de Prisma.
  */
 import { spawn } from "node:child_process";
+import { readdir } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pg from "pg";
 
 const { Client } = pg;
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const migrationsDir = path.join(root, "prisma", "migrations");
 
 const directUrl = process.env.DIRECT_URL?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -102,19 +107,62 @@ function runMigrate() {
   });
 }
 
+async function pendingMigrationNames(client) {
+  const entries = await readdir(migrationsDir, { withFileTypes: true });
+  const localNames = entries
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+
+  try {
+    const { rows } = await client.query(
+      `SELECT migration_name
+       FROM _prisma_migrations
+       WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL`
+    );
+    const appliedNames = new Set(rows.map((row) => row.migration_name));
+    return localNames.filter((name) => !appliedNames.has(name));
+  } catch (error) {
+    // Primera migració: Prisma encara no ha creat la seva taula de control.
+    if (error?.code === "42P01") return localNames;
+    throw error;
+  }
+}
+
 async function main() {
-  const client = new Client({ connectionString: migrateUrl });
+  const client = new Client({
+    connectionString: migrateUrl,
+    application_name: "opsia-prisma-deploy",
+  });
   let locked = false;
 
   try {
     await client.connect();
+
+    const pendingBeforeLock = await pendingMigrationNames(client);
+    if (pendingBeforeLock.length === 0) {
+      console.log("[prisma-deploy] No hi ha migracions pendents; no cal adquirir el lock.");
+      return;
+    }
+
+    console.log(
+      `[prisma-deploy] ${pendingBeforeLock.length} migració(ns) pendent(s): ${pendingBeforeLock.join(", ")}`
+    );
     await client.query("SELECT set_config('statement_timeout', $1, false)", [`${lockTimeoutMs}ms`]);
     console.log(
       `[prisma-deploy] Esperant el lock de migracions (màxim ${Math.ceil(lockTimeoutMs / 1000)}s)…`
     );
     await client.query("SELECT pg_advisory_lock($1)", [lockId]);
     locked = true;
-    console.log("[prisma-deploy] Lock adquirit; aplicant migracions…");
+    console.log("[prisma-deploy] Lock adquirit; comprovant de nou l'estat…");
+
+    const pendingAfterLock = await pendingMigrationNames(client);
+    if (pendingAfterLock.length === 0) {
+      console.log("[prisma-deploy] Un altre desplegament ja ha aplicat les migracions.");
+      return;
+    }
+
+    console.log("[prisma-deploy] Aplicant migracions…");
 
     const code = await runMigrate();
     if (code !== 0) {
