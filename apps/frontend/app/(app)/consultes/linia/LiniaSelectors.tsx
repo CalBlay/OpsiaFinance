@@ -71,14 +71,6 @@ export function LiniaSelectors({
     setLocalVista(vista);
   }, [lnId, any, rang, vista]);
 
-  useEffect(() => {
-    if (!lnId) return;
-    for (const other of opcions) {
-      if (other === vista) continue;
-      router.prefetch(hrefLinia(lnId, any, rang, other));
-    }
-  }, [router, lnId, any, rang, vista, opcions]);
-
   const goServer = (
     nextLn: string,
     nextAny: number,

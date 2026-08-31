@@ -1,3 +1,4 @@
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import {
@@ -34,6 +35,7 @@ import {
   desactivarNormesPersonalObsoletes,
   ensureConfigPersonalInicial,
 } from "@/lib/repartiment/personal-departaments-data";
+import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
 export function validarZeroSumMoviments(
@@ -172,24 +174,63 @@ export async function getMovimentsGestioDetall(
   if (!NODES_REPARTIMENT_GESTIO_ACTIUS.includes(concepteNode)) return [];
   if (!periodIds.length) return [];
 
+  const periodIdsKey = [...periodIds].sort().join(",");
+  const moviments = await getMovimentsGestioDetallCached(
+    periodIdsKey,
+    concepteNode,
+    nodePresentacio ?? 0
+  );
+  if (!liniaNegociIds?.length) return moviments;
+
+  const lnIds = new Set(liniaNegociIds);
+  return moviments.filter((m) => lnIds.has(m.liniaNegociDestiId));
+}
+
+const getMovimentsGestioDetallCached = cache(
+  async (
+    periodIdsKey: string,
+    concepteNode: number,
+    nodePresentacio: number
+  ): Promise<MovimentGestioDetall[]> =>
+    unstable_cache(
+      () =>
+        getMovimentsGestioDetallImpl(
+          periodIdsKey.split(",").filter(Boolean),
+          concepteNode,
+          nodePresentacio || undefined
+        ),
+      consultesCacheKey(
+        "repartiment-gestio-detall-v1",
+        periodIdsKey,
+        String(concepteNode),
+        String(nodePresentacio)
+      ),
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 600 }
+    )()
+);
+
+async function getMovimentsGestioDetallImpl(
+  periodIds: string[],
+  concepteNode: number,
+  nodePresentacio?: number
+): Promise<MovimentGestioDetall[]> {
   const { fraccioDetallDinsTotal, nodesPresentacioGestio } = await import(
     "@/lib/repartiment/nodes"
   );
 
-  const central = await db.liniaNegoci.findUnique({
-    where: { codi: CODI_LN_CENTRAL },
-    select: { id: true },
-  });
+  const [central, confirmats] = await Promise.all([
+    db.liniaNegoci.findUnique({
+      where: { codi: CODI_LN_CENTRAL },
+      select: { id: true },
+    }),
+    db.execucioRepartiment.findMany({
+      where: { periodId: { in: periodIds }, estat: "CONFIRMAT" },
+      select: { periodId: true },
+    }),
+  ]);
   if (!central) return [];
-
-  const confirmats = await db.execucioRepartiment.findMany({
-    where: { periodId: { in: periodIds }, estat: "CONFIRMAT" },
-    select: { periodId: true },
-  });
   const confirmatsIds = confirmats.map((c) => c.periodId);
   if (!confirmatsIds.length) return [];
-
-  const lnFilter = liniaNegociIds?.length ? new Set(liniaNegociIds) : null;
 
   const [deps, directeByPeriod, execucions, periods] = await Promise.all([
     carregarDepsComunsDelta(),
@@ -243,7 +284,6 @@ export async function getMovimentsGestioDetall(
     for (const m of moviments) {
       if (m.concepteNode !== concepteNode) continue;
       if (m.liniaNegociDestiId === central.id) continue;
-      if (lnFilter && !lnFilter.has(m.liniaNegociDestiId)) continue;
       if (Math.abs(m.importCalculat) < 0.005) continue;
       out.push({
         periodId: period.id,
@@ -255,20 +295,18 @@ export async function getMovimentsGestioDetall(
       });
     }
 
-    if (!lnFilter || lnFilter.has(central.id)) {
-      const perLn = deltasDesDeDirecte(central.id, directe, deps, personalDept, exec);
-      const residual = perLn.get(central.id)?.get(concepteNode) ?? 0;
-      if (Math.abs(residual) >= 0.005) {
-        out.push({
-          periodId: period.id,
-          liniaNegociDestiId: central.id,
-          concepteNode,
-          import_: residual,
-          normaNom: "Residual LN00000 (zero-sum)",
-          detallCalcul:
-            "Redistribució: −Σ imputacions a les altres LN (el total d'empresa no canvia)",
-        });
-      }
+    const perLn = deltasDesDeDirecte(central.id, directe, deps, personalDept, exec);
+    const residual = perLn.get(central.id)?.get(concepteNode) ?? 0;
+    if (Math.abs(residual) >= 0.005) {
+      out.push({
+        periodId: period.id,
+        liniaNegociDestiId: central.id,
+        concepteNode,
+        import_: residual,
+        normaNom: "Residual LN00000 (zero-sum)",
+        detallCalcul:
+          "Redistribució: −Σ imputacions a les altres LN (el total d'empresa no canvia)",
+      });
     }
   }
 
@@ -288,9 +326,6 @@ export async function getMovimentsGestioDetall(
 }
 
 async function carregarDepsComunsDelta(): Promise<DepsComunsDelta> {
-  // Gestió recalcula en viu: cal assegurar la norma Admin→GV abans de llegir-ne la llista.
-  await ensureNormaAdminRestGreenVita();
-
   const [normes, lns, grupCompres, grups] = await Promise.all([
     getNormesVigents(),
     db.liniaNegoci.findMany({ select: { id: true, codi: true } }),
@@ -431,12 +466,12 @@ export async function confirmarExecucioRepartiment(execucioId: string, userId: s
 
 /**
  * Mapa node → delta gestió per LN (només execucions confirmades).
- * Es recalcula en viu (imputació). LN00000 és residual zero-sum:
+ * Es llegeix de l'execució confirmada. LN00000 és residual zero-sum:
  * Compres / Personal / Gestió tenen el mateix total empresa que Traspassos;
  * només canvia el pes per LN.
  *
- * Carrega normes/grups/dades/execucions en batch (no N recàlculs amb 2× P&L cadascun).
- * Cache per petició (clau = periodIds ordenats).
+ * Així la consulta coincideix amb el repartiment aprovat i no torna a executar
+ * el motor de repartiment a cada càrrega.
  */
 export async function getDeltasGestioPerLn(
   periodIds: string[]
@@ -470,54 +505,36 @@ async function getDeltasGestioPerLnImpl(
   const confirmatsIds = confirmats.map((c) => c.periodId);
   if (!confirmatsIds.length) return new Map();
 
-  const [deps, directeByPeriod, execucions, periods] = await Promise.all([
-    carregarDepsComunsDelta(),
-    getDirectePerLnNodeMany(confirmatsIds),
-    db.execucioRepartiment.findMany({
-      where: { periodId: { in: confirmatsIds } },
-      select: {
-        periodId: true,
-        pesos: { select: { grupId: true, liniaNegociId: true, pesOverride: true } },
-        moviments: {
-          where: { importOverride: { not: null } },
-          select: {
-            liniaNegociDestiId: true,
-            concepteNode: true,
-            importOverride: true,
-          },
+  const execucions = await db.execucioRepartiment.findMany({
+    where: { periodId: { in: confirmatsIds }, estat: "CONFIRMAT" },
+    select: {
+      periodId: true,
+      moviments: {
+        where: { concepteNode: { in: [...NODES_REPARTIMENT_GESTIO_ACTIUS] } },
+        select: {
+          liniaNegociDestiId: true,
+          concepteNode: true,
+          importCalculat: true,
+          importOverride: true,
         },
       },
-    }),
-    db.period.findMany({
-      where: { id: { in: confirmatsIds } },
-      select: { id: true, any: true, mes: true },
-    }),
-  ]);
-
-  const execByPeriod = new Map(execucions.map((e) => [e.periodId, e]));
-  const personalByPeriod = new Map(
-    await Promise.all(
-      periods.map(
-        async (p) => [p.id, await carregarContextPersonalDept(p.any, p.mes, p.id)] as const
-      )
-    )
-  );
+    },
+  });
   const result = new Map<string, Map<string, Map<number, number>>>();
 
-  for (const periodId of confirmatsIds) {
-    const directe = directeByPeriod.get(periodId) ?? new Map();
-    const periodMeta = periods.find((p) => p.id === periodId);
-    const personalDept = periodMeta
-      ? (personalByPeriod.get(periodMeta.id) ??
-        (await carregarContextPersonalDept(periodMeta.any, periodMeta.mes, periodMeta.id)))
-      : await carregarContextPersonalDept(new Date().getFullYear(), 1);
-
-    result.set(
-      periodId,
-      filtrarDeltasCompresGestio(
-        deltasDesDeDirecte(central.id, directe, deps, personalDept, execByPeriod.get(periodId))
-      )
-    );
+  for (const execucio of execucions) {
+    const perLn = new Map<string, Map<number, number>>();
+    for (const moviment of execucio.moviments) {
+      if (moviment.liniaNegociDestiId === central.id) continue;
+      aplicarDeltaDesti(
+        perLn,
+        moviment.liniaNegociDestiId,
+        moviment.concepteNode,
+        Number(moviment.importOverride ?? moviment.importCalculat)
+      );
+    }
+    balanceZeroSumCentral(perLn, central.id, NODES_INVARIANT_EMPRESA);
+    result.set(execucio.periodId, filtrarDeltasCompresGestio(perLn));
   }
   return result;
 }

@@ -19,6 +19,7 @@ import {
   parseRangMesosFromSearchParams,
 } from "@/lib/consultes";
 import { etiquetaLiniaNegoci } from "@/lib/consultes-etiquetes";
+import { aplicarBaseGestioPersonalEvolucioLn } from "@/lib/cost-personal-centre/gestio-consultes";
 import { db } from "@/lib/db";
 import { slugFilename } from "@/lib/export/filename";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
@@ -34,6 +35,7 @@ import {
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import type { RangMesos } from "@/lib/periodes";
 import { aplicarDeltaPresentacioGestio } from "@/lib/repartiment/gestio-consultes";
+import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import {
   CODI_LN_CENTRAL,
   fraccionsRepartimentDetall,
@@ -142,7 +144,24 @@ export default async function ConsultaLiniaPage({
     vistaInclouRepartiment(vista) ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
-  const ev = evRaw;
+  // Reutilitzem la composiciÃ³ de capes d'EvoluciÃ³: el selector de LN ja no
+  // necessita carregar totes les altres lÃ­nies per reconstruir els KPI.
+  let ev = evRaw;
+  // Les fórmules antigues es conserven més avall temporalment per compatibilitat
+  // de codi, però aquesta consulta ja treballa amb la capa compartida.
+  const calcularKpisLegacy = false;
+  if (ev && vistaInclouTraspassos(vista)) {
+    ev = {
+      ...ev,
+      concepts: await aplicarBaseGestioPersonalEvolucioLn(lnId, anyActual, ev.concepts),
+    };
+  }
+  if (ev && vistaInclouRepartiment(vista)) {
+    ev = {
+      ...ev,
+      concepts: await aplicarVistaGestioEvolucioLn(lnId, anyActual, ev.concepts),
+    };
+  }
   const findEvRow = (node: number) => ev?.concepts.find((c) => c.node === node);
 
   /**
@@ -161,7 +180,7 @@ export default async function ConsultaLiniaPage({
   let esAgenda = false;
   let esAgendaCompres = false;
   let codiLnPersonal: string | null = null;
-  if (ev && vistaInclouRepartiment(vista)) {
+  if (calcularKpisLegacy && ev && vistaInclouRepartiment(vista)) {
     const [central, normesGestio] = await Promise.all([
       db.liniaNegoci.findUnique({
         where: { codi: CODI_LN_CENTRAL },
@@ -203,7 +222,7 @@ export default async function ConsultaLiniaPage({
    * 2. Aquestes quantitats es resten de TOTAL COMPRES Central (7 + 8).
    * 3. El restant es distribueix a 02 i 03 segons el pes de vendes mensual.
    */
-  if (ev && vistaInclouRepartiment(vista)) {
+  if (calcularKpisLegacy && ev && vistaInclouRepartiment(vista)) {
     const lnsCompres = await db.liniaNegoci.findMany({
       where: { codi: { in: ["LN00000", "LN00002", "LN00003", "LN00004", "LN00005", "LN00006"] } },
       select: { id: true, codi: true },
@@ -302,7 +321,7 @@ export default async function ConsultaLiniaPage({
    * - Sobrant a 02/03: mix (part a parts iguals + resta segons vendes mensuals)
    *   o pesos configurats sense vendes.
    */
-  if (ev && vistaInclouRepartiment(vista)) {
+  if (calcularKpisLegacy && ev && vistaInclouRepartiment(vista)) {
     const [lnsPersonal, configPersonal] = await Promise.all([
       db.liniaNegoci.findMany({
         where: {
@@ -430,6 +449,7 @@ export default async function ConsultaLiniaPage({
 
   /** Traspàs específic: Administració Restaurants (LN00001) → Green Vita (LN00006). */
   if (
+    calcularKpisLegacy &&
     vistaInclouRepartiment(vista) &&
     personalKpiMensual &&
     (codiLnPersonal === CODI_LN_RESTAURANTS || codiLnPersonal === CODI_LN_GREEN_VITA)
@@ -464,7 +484,7 @@ export default async function ConsultaLiniaPage({
     }
   }
 
-  if (ev && (gestioKpiMensual || compresKpiMensual || personalKpiMensual)) {
+  if (calcularKpisLegacy && ev && (gestioKpiMensual || compresKpiMensual || personalKpiMensual)) {
     const ebitdaPropi = findEvRow(NODE_EBITDA)?.valors ?? [];
     const gestioPropia = findEvRow(NODE_COST_GESTIO)?.valors ?? [];
     const compresPropies = findEvRow(NODE_COMPRES)?.valors ?? [];
@@ -500,6 +520,7 @@ export default async function ConsultaLiniaPage({
   // (13–16, 44) i Gestió (18–29) perquè els totals i l'EBITDA quadrin amb Gestió.
   let conceptsTaula = ev?.concepts ?? [];
   if (
+    calcularKpisLegacy &&
     ev &&
     vistaInclouRepartiment(vista) &&
     (gestioKpiMensual || compresKpiMensual || personalKpiMensual)

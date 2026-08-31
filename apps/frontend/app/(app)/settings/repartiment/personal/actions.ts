@@ -1,6 +1,7 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import type { ModeRepartimentPersonalLn } from "@prisma/client";
 import { revalidatePath } from "next/cache";
@@ -14,6 +15,7 @@ async function requireEditor() {
 }
 
 function revalidateRepartimentPersonal() {
+  revalidateConsultesDades();
   revalidatePath("/settings/repartiment");
   revalidatePath("/settings/repartiment/personal");
   revalidatePath("/dades/repartiment");
