@@ -868,7 +868,7 @@ const getComparativaEmpresaBase = cache(
     unstable_cache(
       () => computeComparativaEmpresaBase(any, des, fins, grup, inclouAjustos),
       consultesCacheKey(
-        "consultes-cmp-empresa-base-v3",
+        "consultes-cmp-empresa-base-v4",
         String(any),
         String(des),
         String(fins),
@@ -1254,7 +1254,7 @@ const getEvolucioMensualEmpresa = cache(
         };
       },
       consultesCacheKey(
-        "consultes-evolucio-empresa-v3",
+        "consultes-evolucio-empresa-v4",
         String(any),
         grup,
         inclouAjustos ? "1" : "0"
