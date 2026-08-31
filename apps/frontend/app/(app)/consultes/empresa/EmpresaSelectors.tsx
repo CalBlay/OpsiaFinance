@@ -24,6 +24,8 @@ export function EmpresaSelectors({
   grup,
   vistesCarregades,
   onVistaLocal,
+  onPendingChange,
+  onScopeNavigate,
 }: {
   anys: number[];
   any: number;
@@ -32,6 +34,8 @@ export function EmpresaSelectors({
   grup: GrupEmpresa;
   vistesCarregades?: VistaCompte[];
   onVistaLocal?: (vista: VistaCompte) => boolean | undefined;
+  onPendingChange?: (pending: boolean) => void;
+  onScopeNavigate?: (any: number, rang: RangMesos) => void;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -50,17 +54,23 @@ export function EmpresaSelectors({
     setLocalVista(vista);
   }, [any, rang, vista]);
 
+  useEffect(() => {
+    onPendingChange?.(isPending);
+  }, [isPending, onPendingChange]);
+
   const goServer = (nextAny: number, nextRang: RangMesos, nextVista: VistaCompte) => {
     const vistaEfectiva = parseVistaCompte(nextVista, { permetCapesGestio: mostraCapesGestio });
     setLocalAny(nextAny);
     setLocalRang(nextRang);
     setLocalVista(vistaEfectiva);
+    onScopeNavigate?.(nextAny, nextRang);
     startTransition(() => {
       const q =
         vistaEfectiva === "directe"
           ? `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}`
           : `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}&vista=${vistaEfectiva}`;
       router.replace(q, { scroll: false });
+      router.refresh();
     });
   };
 

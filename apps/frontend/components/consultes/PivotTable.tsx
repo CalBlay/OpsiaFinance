@@ -112,6 +112,8 @@ export type PivotCellClickHandler = (info: {
   value: number;
 }) => void;
 
+export type PivotCellHoverHandler = PivotCellClickHandler;
+
 export function PivotTable({
   columns,
   rows,
@@ -119,6 +121,7 @@ export function PivotTable({
   showTotal = true,
   firstColLabel = "Concepte",
   onCellClick,
+  onCellHover,
 }: {
   columns: PivotColumn[];
   rows: PivotRow[];
@@ -130,6 +133,8 @@ export function PivotTable({
   /** @deprecated L'edició es fa al modal de detall. */
   editConfig?: PivotEditConfig;
   onCellClick?: PivotCellClickHandler;
+  /** Precàrrega del detall en passar el ratolí per una cel·la. */
+  onCellHover?: PivotCellHoverHandler;
 }) {
   const clickable = !!onCellClick;
 
@@ -160,45 +165,32 @@ export function PivotTable({
                 const col = columns[i];
                 const columnKey = col?.key ?? `${r.node}-${i}`;
                 const canClick = clickable && !r.esSubtotal && !!r.concepteId;
+                const cellInfo =
+                  canClick && col
+                    ? {
+                        concepteId: r.concepteId as string,
+                        concepteNom: r.descripcio,
+                        node: r.node,
+                        colIndex: i,
+                        colKey: col.key,
+                        colLabel: col.sublabel ? `${col.label} · ${col.sublabel}` : col.label,
+                        value: v,
+                      }
+                    : null;
                 return (
                   <td
                     key={columnKey}
                     className={cn(styles.td, styles.right, canClick && styles.clickableTd)}
                     role={canClick ? "button" : undefined}
                     tabIndex={canClick ? 0 : undefined}
-                    onClick={
-                      canClick && col
-                        ? () => {
-                            const concepteId = r.concepteId;
-                            if (!concepteId) return;
-                            onCellClick({
-                              concepteId,
-                              concepteNom: r.descripcio,
-                              node: r.node,
-                              colIndex: i,
-                              colKey: col.key,
-                              colLabel: col.sublabel ? `${col.label} · ${col.sublabel}` : col.label,
-                              value: v,
-                            });
-                          }
-                        : undefined
-                    }
+                    onMouseEnter={cellInfo && onCellHover ? () => onCellHover(cellInfo) : undefined}
+                    onClick={cellInfo && onCellClick ? () => onCellClick(cellInfo) : undefined}
                     onKeyDown={
-                      canClick && col
+                      cellInfo && onCellClick
                         ? (e) => {
                             if (e.key !== "Enter" && e.key !== " ") return;
                             e.preventDefault();
-                            const concepteId = r.concepteId;
-                            if (!concepteId) return;
-                            onCellClick({
-                              concepteId,
-                              concepteNom: r.descripcio,
-                              node: r.node,
-                              colIndex: i,
-                              colKey: col.key,
-                              colLabel: col.sublabel ? `${col.label} · ${col.sublabel}` : col.label,
-                              value: v,
-                            });
+                            onCellClick(cellInfo);
                           }
                         : undefined
                     }

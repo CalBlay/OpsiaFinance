@@ -1,15 +1,13 @@
+import { RouteLoading } from "@/components/ui/RouteLoading";
 import { auth } from "@/lib/auth";
 import {
-  type ComparativaEmpresa,
   aplicarConsolidacioInterEvolucioEmpresa,
   getAnysAmbDades,
   getComparativaEmpresa,
-  getComparativaEmpresaParell,
   getEvolucioMensual,
   parseRangMesosFromSearchParams,
   restarConceptesPivot,
 } from "@/lib/consultes";
-import { sensePivotRows } from "@/lib/consultes-slim";
 import { aplicarBaseGestioPersonalEvolucioEmpresa } from "@/lib/cost-personal-centre/gestio-consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-empresa";
@@ -21,6 +19,7 @@ import {
   vistaInclouRepartiment,
   vistaInclouTraspassos,
 } from "@/lib/vista-compte";
+import { Suspense } from "react";
 import { EmpresaBoard } from "./EmpresaBoard";
 import { buildEmpresaVistaData } from "./empresa-view-model";
 import type { EmpresaVistaData } from "./empresa-vista-data";
@@ -28,7 +27,7 @@ import type { EmpresaVistaData } from "./empresa-vista-data";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Resultats d'empresa — OpsiaFinance" };
 
-export default async function ConsultaEmpresaPage({
+async function EmpresaPageContent({
   searchParams,
 }: {
   searchParams: Promise<{
@@ -51,32 +50,31 @@ export default async function ConsultaEmpresaPage({
   const potGestio = grupPermetVistaGestio(grup);
   const vista = parseVistaCompte(sp.vista, { permetCapesGestio: potGestio });
   const isAdmin = session?.user?.role === "ADMIN";
-  const carregaCapesEager = potGestio && vistaInclouTraspassos(vista);
+  const needsSapEv = vista === "sap" || vista === "ajustos";
 
-  const [evEmpresaRaw, evEmpresaSap, infoGestio] = await Promise.all([
+  const [comp, evEmpresaRaw, evEmpresaSap, infoGestio] = await Promise.all([
+    getComparativaEmpresa(anyActual, rang, vista, grup),
     getEvolucioMensual("empresa", null, anyActual, grup, { inclouAjustos: true }),
-    vista === "sap" || vista === "ajustos" || carregaCapesEager
+    needsSapEv
       ? getEvolucioMensual("empresa", null, anyActual, grup, { inclouAjustos: false })
       : Promise.resolve(null),
     vistaInclouRepartiment(vista) ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
-  async function evPerVista(v: VistaCompte) {
-    if (v === "ajustos") {
-      if (!evEmpresaRaw || !evEmpresaSap) return evEmpresaRaw;
-      return {
-        ...evEmpresaRaw,
-        concepts: restarConceptesPivot(evEmpresaRaw.concepts, evEmpresaSap.concepts),
-      };
-    }
-    const base = v === "sap" ? (evEmpresaSap ?? evEmpresaRaw) : evEmpresaRaw;
-    if (!base) return null;
-    if (!vistaInclouTraspassos(v) && !vistaInclouRepartiment(v)) return base;
-    let concepts = base.concepts;
-    if (vistaInclouTraspassos(v)) {
+  let evEmpresa = evEmpresaRaw;
+  if (vista === "ajustos" && evEmpresaSap) {
+    evEmpresa = {
+      ...evEmpresaRaw,
+      concepts: restarConceptesPivot(evEmpresaRaw.concepts, evEmpresaSap.concepts),
+    };
+  } else if (vista === "sap" && evEmpresaSap) {
+    evEmpresa = evEmpresaSap;
+  } else if (vistaInclouTraspassos(vista) || vistaInclouRepartiment(vista)) {
+    let concepts = evEmpresaRaw.concepts;
+    if (vistaInclouTraspassos(vista)) {
       concepts = await aplicarBaseGestioPersonalEvolucioEmpresa(anyActual, concepts);
     }
-    if (vistaInclouRepartiment(v)) {
+    if (vistaInclouRepartiment(vista)) {
       concepts = await aplicarVistaGestioEvolucioEmpresa(anyActual, concepts);
       if (grupAplicaConsolidacioInter(grup)) {
         concepts = await aplicarConsolidacioInterEvolucioEmpresa(anyActual, grup, concepts, {
@@ -85,71 +83,54 @@ export default async function ConsultaEmpresaPage({
         });
       }
     }
-    return { ...base, concepts };
+    evEmpresa = { ...evEmpresaRaw, concepts };
   }
 
-  function build(
-    v: VistaCompte,
-    comp: ComparativaEmpresa,
-    ev: Awaited<ReturnType<typeof evPerVista>>,
-    info: typeof infoGestio
-  ): EmpresaVistaData {
-    return sensePivotRows(
-      buildEmpresaVistaData({
-        vista: v,
-        grup,
-        anyActual,
-        rang,
-        isAdmin,
-        comp,
-        evFdlc: null,
-        evEmpresa: ev,
-        infoGestio: info,
-      })
-    );
-  }
+  const capes: Partial<Record<VistaCompte, EmpresaVistaData>> = {
+    [vista]: buildEmpresaVistaData({
+      vista,
+      grup,
+      anyActual,
+      rang,
+      isAdmin,
+      comp,
+      evFdlc: null,
+      evEmpresa,
+      infoGestio,
+    }),
+  };
 
-  const capes: Partial<Record<VistaCompte, EmpresaVistaData>> = {};
-
-  if (carregaCapesEager) {
-    const parell = await getComparativaEmpresaParell(anyActual, rang, grup);
-    const [evSap, evDirecte, evTraspassos, evGestio] = await Promise.all([
-      evPerVista("sap"),
-      evPerVista("directe"),
-      evPerVista("traspassos"),
-      evPerVista("gestio"),
-    ]);
-    capes.sap = build("sap", parell.sap, evSap, null);
-    capes.ajustos = build(
-      "ajustos",
-      {
-        ...parell.directe,
-        concepts: restarConceptesPivot(parell.directe.concepts, parell.sap.concepts),
-      },
-      await evPerVista("ajustos"),
-      null
-    );
-    capes.directe = build("directe", parell.directe, evDirecte, null);
-    if (parell.traspassos) {
-      capes.traspassos = build("traspassos", parell.traspassos, evTraspassos, null);
-    }
-    if (parell.gestio) {
-      capes.gestio = build("gestio", parell.gestio, evGestio, infoGestio);
-    }
-  } else {
-    const comp = await getComparativaEmpresa(anyActual, rang, vista, grup);
-    capes[vista] = build(vista, comp, await evPerVista(vista), infoGestio);
-  }
+  const scopeKey = `${anyActual}:${rang.des}-${rang.fins}:${grup}:${vista}`;
 
   return (
     <EmpresaBoard
+      key={scopeKey}
       anys={anys.length ? anys : [anyActual]}
       anyActual={anyActual}
       rang={rang}
       grup={grup}
       vistaInicial={vista}
       capesInicials={capes}
-      potCarregarCapes={potGestio && !carregaCapesEager}
+      potCarregarCapes={potGestio}
     />
+  );
+}
+
+export default function ConsultaEmpresaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    any?: string;
+    mes?: string;
+    des?: string;
+    fins?: string;
+    vista?: string;
+    grup?: string;
+  }>;
+}) {
+  return (
+    <Suspense fallback={<RouteLoading label="Carregant resultats d'empresa…" />}>
+      <EmpresaPageContent searchParams={searchParams} />
+    </Suspense>
   );
 }

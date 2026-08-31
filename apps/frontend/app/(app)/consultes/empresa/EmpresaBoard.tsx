@@ -7,6 +7,7 @@ import { PivotTableDrilldown } from "@/components/consultes/PivotTableDrilldown"
 import { PresentacioComite } from "@/components/consultes/charts-dynamic";
 import styles from "@/components/consultes/report.module.css";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
+import { RouteLoading } from "@/components/ui/RouteLoading";
 import { slugFilename } from "@/lib/export/filename";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
 import { etiquetaGrupEmpresa } from "@/lib/grups-empresa";
@@ -44,40 +45,43 @@ export function EmpresaBoard({
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
   const [capes, setCapes] = useState(capesInicials);
+  const [filterPending, setFilterPending] = useState(false);
+  const [pendingScopeKey, setPendingScopeKey] = useState<string | null>(null);
   const pivotScopeKey = `${anyActual}:${rang.des}-${rang.fins}:${grup}`;
   const [pivotScope, setPivotScope] = useState(pivotScopeKey);
   const [pivotByVista, setPivotByVista] = useState<
     Partial<Record<VistaCompte, EmpresaVistaData["pivotRows"]>>
-  >({});
+  >(() => {
+    const initial: Partial<Record<VistaCompte, EmpresaVistaData["pivotRows"]>> = {};
+    for (const [v, capa] of Object.entries(capesInicials) as [VistaCompte, EmpresaVistaData][]) {
+      if (capa.pivotRows.length) initial[v] = capa.pivotRows;
+    }
+    return initial;
+  });
   const [pivotLoading, setPivotLoading] = useState(false);
   const pivotRef = useRef(pivotByVista);
   pivotRef.current = pivotByVista;
 
-  if (pivotScope !== pivotScopeKey) {
+  useEffect(() => {
+    if (pivotScope === pivotScopeKey) return;
     setPivotScope(pivotScopeKey);
     setPivotByVista({});
-  }
+  }, [pivotScope, pivotScopeKey]);
 
   useEffect(() => {
     setVista(vistaInicial);
   }, [vistaInicial]);
 
   useEffect(() => {
-    const recarregarPivot = Object.values(pivotRef.current).some((rows) => !!rows?.length);
     setCapes(capesInicials);
-    setPivotByVista({});
-    if (!recarregarPivot) return;
-    let cancelled = false;
-    setPivotLoading(true);
-    void carregarEmpresaPivotAction({ any: anyActual, rang, grup, vista }).then((rows) => {
-      if (cancelled) return;
-      setPivotByVista({ [vista]: rows });
-      setPivotLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [capesInicials, anyActual, rang, grup, vista]);
+    const initial: Partial<Record<VistaCompte, EmpresaVistaData["pivotRows"]>> = {};
+    for (const [v, capa] of Object.entries(capesInicials) as [VistaCompte, EmpresaVistaData][]) {
+      if (capa.pivotRows.length) initial[v] = capa.pivotRows;
+    }
+    setPivotByVista(initial);
+    setFilterPending(false);
+    setPendingScopeKey(null);
+  }, [capesInicials]);
 
   // Prefetch capes que falten (SAP / traspassos / gestió) després del paint.
   useEffect(() => {
@@ -92,6 +96,9 @@ export function EmpresaBoard({
         const data = await carregarEmpresaCapaAction({ any: anyActual, rang, grup, vista: v });
         if (!cancelled && data) {
           setCapes((prev) => (prev[v] ? prev : { ...prev, [v]: data }));
+          if (data.pivotRows.length) {
+            setPivotByVista((prev) => (prev[v]?.length ? prev : { ...prev, [v]: data.pivotRows }));
+          }
         }
       })
     );
@@ -106,9 +113,11 @@ export function EmpresaBoard({
   const nomEmpresa = etiquetaGrupEmpresa(grup);
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
   const unMes = esUnMes(rang);
+  const scopeLoading =
+    filterPending || (pendingScopeKey != null && pendingScopeKey !== pivotScopeKey);
 
   const ensurePivot = useCallback(async () => {
-    if (!data || data.pivotRows.length || pivotRef.current[vista]?.length) return;
+    if (pivotRef.current[vista]?.length || data?.pivotRows.length) return;
     setPivotLoading(true);
     try {
       const rows = await carregarEmpresaPivotAction({
@@ -121,14 +130,20 @@ export function EmpresaBoard({
     } finally {
       setPivotLoading(false);
     }
-  }, [anyActual, data, grup, rang, vista]);
+  }, [anyActual, data?.pivotRows.length, grup, rang, vista]);
 
   const onVistaLocal = (next: VistaCompte) => {
     setVista(next);
     replaceVistaQuery(next);
     if (capes[next]) return true;
-    void carregarEmpresaCapaAction({ any: anyActual, rang, grup, vista: next }).then((data) => {
-      if (data) setCapes((prev) => (prev[next] ? prev : { ...prev, [next]: data }));
+    void carregarEmpresaCapaAction({ any: anyActual, rang, grup, vista: next }).then((capa) => {
+      if (!capa) return;
+      setCapes((prev) => (prev[next] ? prev : { ...prev, [next]: capa }));
+      if (capa.pivotRows.length) {
+        setPivotByVista((prev) =>
+          prev[next]?.length ? prev : { ...prev, [next]: capa.pivotRows }
+        );
+      }
     });
     return true;
   };
@@ -156,6 +171,10 @@ export function EmpresaBoard({
               grup={grup}
               vistesCarregades={vistesCarregades}
               onVistaLocal={onVistaLocal}
+              onPendingChange={setFilterPending}
+              onScopeNavigate={(nextAny, nextRang) =>
+                setPendingScopeKey(`${nextAny}:${nextRang.des}-${nextRang.fins}:${grup}`)
+              }
             />
             <span onPointerEnter={() => void ensurePivot()}>
               <ExportInformeButton
@@ -173,7 +192,9 @@ export function EmpresaBoard({
         }
       />
 
-      {data.buit ? (
+      {scopeLoading ? (
+        <RouteLoading label="Actualitzant període…" />
+      ) : data.buit ? (
         <div className={styles.prompt}>
           <h3>Sense dades</h3>
           <p>

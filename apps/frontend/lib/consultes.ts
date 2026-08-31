@@ -1875,32 +1875,109 @@ export interface DetallCellaParams {
 }
 
 export async function getDetallCella(params: DetallCellaParams): Promise<DetallCellaResult> {
-  const vistaEfectiva = params.vista ?? "directe";
-  const concepte = await db.concepteResultat.findUnique({
-    where: { id: params.concepteResultatId },
-    select: { node: true, descripcio: true },
-  });
-  if (!concepte) {
-    return {
-      concepteNode: 0,
-      concepteDescripcio: "?",
-      items: [],
-      totalDades: 0,
-      totalAjustos: 0,
-      totalRepartiment: 0,
-      totalMirall: 0,
-      totalTraspass: 0,
-      totalPayroll: 0,
-      payrollSubstitueix: false,
-      total: 0,
-    };
-  }
+  return getDetallCellaCached(
+    params.concepteResultatId,
+    params.any,
+    params.mes,
+    params.rang?.des,
+    params.rang?.fins,
+    params.centreId,
+    params.liniaNegociId,
+    (params.lnIdsGrup ?? []).slice().sort().join(","),
+    params.vista ?? "directe",
+    params.grup ?? ""
+  );
+}
 
+const getDetallCellaCached = cache(
+  async (
+    concepteResultatId: string,
+    any: number,
+    mes: number | undefined,
+    des: number | undefined,
+    fins: number | undefined,
+    centreId: string | undefined,
+    liniaNegociId: string | undefined,
+    lnIdsGrupKey: string,
+    vista: VistaCompte,
+    grup: string
+  ): Promise<DetallCellaResult> => {
+    const params: DetallCellaParams = {
+      concepteResultatId,
+      any,
+      mes,
+      rang: des != null && fins != null ? { des, fins } : undefined,
+      centreId,
+      liniaNegociId,
+      lnIdsGrup: lnIdsGrupKey ? lnIdsGrupKey.split(",") : undefined,
+      vista,
+      grup: grup ? (grup as GrupEmpresa) : undefined,
+    };
+    return unstable_cache(
+      () => computeDetallCella(params),
+      consultesCacheKey(
+        "consultes-detall-cella-v1",
+        concepteResultatId,
+        String(any),
+        mes != null ? String(mes) : "",
+        des != null && fins != null ? `${des}-${fins}` : "",
+        centreId ?? "",
+        liniaNegociId ?? "",
+        lnIdsGrupKey,
+        vista,
+        grup
+      ),
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+    )();
+  }
+);
+
+async function computeDetallCella(params: DetallCellaParams): Promise<DetallCellaResult> {
+  const vistaEfectiva = params.vista ?? "directe";
   const periodWhere: Prisma.PeriodWhereInput = params.mes
     ? { any: params.any, mes: params.mes }
     : params.rang
       ? prismaPeriodFilter(params.any, params.rang)
       : { any: params.any };
+
+  const emptyDetall = (node = 0, descripcio = "?"): DetallCellaResult => ({
+    concepteNode: node,
+    concepteDescripcio: descripcio,
+    items: [],
+    totalDades: 0,
+    totalAjustos: 0,
+    totalRepartiment: 0,
+    totalMirall: 0,
+    totalTraspass: 0,
+    totalPayroll: 0,
+    payrollSubstitueix: false,
+    total: 0,
+  });
+
+  const [concepte, periods] = await Promise.all([
+    db.concepteResultat.findUnique({
+      where: { id: params.concepteResultatId },
+      select: { node: true, descripcio: true },
+    }),
+    db.period.findMany({
+      where: periodWhere,
+      select: { id: true, any: true, mes: true },
+      orderBy: { mes: "asc" },
+    }),
+  ]);
+
+  if (!concepte) return emptyDetall();
+
+  const periodIds = periods.map((p) => p.id);
+  const periodById = new Map(periods.map((p) => [p.id, p]));
+  const dadaPeriodWhere: Prisma.DadaResultatWhereInput =
+    periodIds.length > 0 ? { periodId: { in: periodIds } } : { period: periodWhere };
+  const ajustPeriodWhere: Prisma.AjustWhereInput =
+    periodIds.length > 0 ? { periodId: { in: periodIds } } : { period: periodWhere };
+
+  if ((params.mes || params.rang) && periodIds.length === 0) {
+    return emptyDetall(concepte.node, concepte.descripcio);
+  }
 
   // Filtre LN via prismaWhereDadaPerLnInforme (mateixa semàntica que lnInformePerAgregacio).
   // No usar mai centre.liniaNegociId ni només dada.liniaNegociId.
@@ -1927,7 +2004,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
     db.dadaResultat.findMany({
       where: {
         concepteResultatId: params.concepteResultatId,
-        period: periodWhere,
+        ...dadaPeriodWhere,
         ...prismaWhere,
       },
       select: {
@@ -1946,7 +2023,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
       ? db.ajust.findMany({
           where: {
             concepteResultatId: params.concepteResultatId,
-            period: periodWhere,
+            ...ajustPeriodWhere,
             ...ajustWhere,
           },
           select: {
@@ -2017,12 +2094,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
       nodeTotalDesDeDetall(concepte.node) ??
       (concepte.node === NODE_COST_SALARIAL ? NODE_COST_SALARIAL : null);
 
-    if (nodeDelta != null) {
-      const periods = await db.period.findMany({
-        where: periodWhere,
-        select: { id: true, any: true, mes: true },
-        orderBy: { mes: "asc" },
-      });
+    if (nodeDelta != null && periodIds.length) {
       const lnFilter = params.liniaNegociId
         ? [params.liniaNegociId]
         : lnIdsGrupSet
@@ -2030,7 +2102,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
           : undefined;
 
       const moviments = await getMovimentsGestioDetall(
-        periods.map((p) => p.id),
+        periodIds,
         nodeDelta,
         lnFilter,
         concepte.node
@@ -2045,7 +2117,6 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
             })
           : [];
       const lnById = new Map(linies.map((l) => [l.id, l]));
-      const periodById = new Map(periods.map((p) => [p.id, p]));
 
       for (const m of moviments) {
         const period = periodById.get(m.periodId);
@@ -2206,14 +2277,8 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
         : nodeTotalDesDeDetall(concepte.node);
 
     if (nodeDelta === NODE_COST_SALARIAL) {
-      const periods = await db.period.findMany({
-        where: periodWhere,
-        select: { id: true, any: true, mes: true },
-        orderBy: { mes: "asc" },
-      });
-      if (periods.length) {
-        const periodIds = periods.map((p) => p.id);
-        const periodById = new Map(periods.map((p) => [p.id, p]));
+      if (periodIds.length) {
+        const periodByIdTr = periodById;
 
         let centreFilter: string[] | null = null;
         if (params.centreId) {
@@ -2316,7 +2381,7 @@ export async function getDetallCella(params: DetallCellaParams): Promise<DetallC
         };
 
         for (const m of moviments) {
-          const period = periodById.get(m.execucio.periodId);
+          const period = periodByIdTr.get(m.execucio.periodId);
           if (!period) continue;
           const imp = Number(m.import_);
           const dept = m.departament === "CUINA" ? "Cuina" : "Sala";

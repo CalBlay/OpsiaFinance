@@ -7,13 +7,19 @@ import { MESOS_LLARGS } from "@/lib/periodes";
 import { cn, formatNumSigned } from "@/lib/utils";
 import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   ajustarImportConsultaAction,
   fetchDetallCellaAction,
 } from "../../app/(app)/consultes/actions";
 import styles from "./DetallCellaModal.module.css";
 import { type PivotEditSave, parseImportInput } from "./PivotTable";
+import {
+  clearDetallCellaCached,
+  detallCellaCacheKey,
+  getDetallCellaCached,
+  loadDetallCellaCached,
+} from "./detall-cella-client-cache";
 
 export interface DetallCellaContext {
   concepteId: string;
@@ -60,8 +66,8 @@ export function DetallCellaModal({
     (!!context.centreId || !!context.liniaNegociId) &&
     context.vista === "directe";
 
-  useEffect(() => {
-    const params: DetallCellaParams = {
+  const detallParams = useMemo(
+    (): DetallCellaParams => ({
       concepteResultatId: context.concepteId,
       any: context.any,
       mes: context.mes,
@@ -71,12 +77,38 @@ export function DetallCellaModal({
       lnIdsGrup: context.lnIdsGrup,
       vista: context.vista,
       grup: context.grup,
-    };
-    startTransition(async () => {
-      const result = await fetchDetallCellaAction(params);
-      setData(result);
+    }),
+    [
+      context.concepteId,
+      context.any,
+      context.mes,
+      context.rang,
+      context.centreId,
+      context.liniaNegociId,
+      context.lnIdsGrup,
+      context.vista,
+      context.grup,
+    ]
+  );
+
+  const fetchKey = detallCellaCacheKey(detallParams);
+
+  useEffect(() => {
+    const cached = getDetallCellaCached(fetchKey);
+    if (cached) {
+      setData(cached);
+      return;
+    }
+
+    setData(null);
+    startTransition(() => {
+      void loadDetallCellaCached(fetchKey, () => fetchDetallCellaAction(detallParams)).then(
+        (result) => {
+          setData(result);
+        }
+      );
     });
-  }, [context]);
+  }, [detallParams, fetchKey]);
 
   useEffect(() => {
     if (!potEditar) return;
@@ -138,6 +170,7 @@ export function DetallCellaModal({
         motiu: motiu.trim(),
       });
       if (res.ok) {
+        clearDetallCellaCached(fetchKey);
         onClose();
         router.refresh();
       } else {
@@ -182,9 +215,16 @@ export function DetallCellaModal({
         </div>
 
         <div className={styles.body}>
-          {isPending && <p className={styles.loading}>Carregant detall…</p>}
+          <div className={styles.summary}>
+            <span>
+              Total visible:{" "}
+              <strong>{formatNumSigned(context.cellValue ?? data?.total ?? 0, 2)}&nbsp;€</strong>
+            </span>
+          </div>
 
-          {!isPending && data && (
+          {isPending && !data && <p className={styles.loading}>Carregant detall…</p>}
+
+          {data && (
             <>
               <div className={styles.summary}>
                 <span>
