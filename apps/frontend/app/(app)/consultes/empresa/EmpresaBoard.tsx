@@ -33,7 +33,6 @@ export function EmpresaBoard({
   grup,
   vistaInicial,
   capesInicials,
-  potCarregarCapes = false,
 }: {
   anys: number[];
   anyActual: number;
@@ -41,7 +40,6 @@ export function EmpresaBoard({
   grup: GrupEmpresa;
   vistaInicial: VistaCompte;
   capesInicials: Partial<Record<VistaCompte, EmpresaVistaData>>;
-  potCarregarCapes?: boolean;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
   const [capes, setCapes] = useState(capesInicials);
@@ -82,30 +80,6 @@ export function EmpresaBoard({
     setFilterPending(false);
     setPendingScopeKey(null);
   }, [capesInicials]);
-
-  // Prefetch capes que falten (SAP / traspassos / gestió) després del paint.
-  useEffect(() => {
-    if (!potCarregarCapes) return;
-    const pending = (["sap", "ajustos", "directe", "traspassos", "gestio"] as VistaCompte[]).filter(
-      (v) => !capes[v]
-    );
-    if (!pending.length) return;
-    let cancelled = false;
-    void Promise.all(
-      pending.map(async (v) => {
-        const data = await carregarEmpresaCapaAction({ any: anyActual, rang, grup, vista: v });
-        if (!cancelled && data) {
-          setCapes((prev) => (prev[v] ? prev : { ...prev, [v]: data }));
-          if (data.pivotRows.length) {
-            setPivotByVista((prev) => (prev[v]?.length ? prev : { ...prev, [v]: data.pivotRows }));
-          }
-        }
-      })
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [potCarregarCapes, capes, anyActual, rang, grup]);
 
   const data = capes[vista] ?? null;
   const vistesCarregades = (Object.keys(capes) as VistaCompte[]).filter((k) => !!capes[k]);

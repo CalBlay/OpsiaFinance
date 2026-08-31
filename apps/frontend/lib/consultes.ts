@@ -1927,7 +1927,7 @@ const getDetallCellaCached = cache(
         vista,
         grup
       ),
-      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 600 }
     )();
   }
 );

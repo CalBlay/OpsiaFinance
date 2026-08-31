@@ -70,7 +70,6 @@ export function EmpresaSelectors({
           ? `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}`
           : `/consultes/empresa?any=${nextAny}${rangToQuery(nextRang)}&vista=${vistaEfectiva}`;
       router.replace(q, { scroll: false });
-      router.refresh();
     });
   };
 

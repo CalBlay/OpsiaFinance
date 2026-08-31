@@ -111,7 +111,6 @@ async function EmpresaPageContent({
       grup={grup}
       vistaInicial={vista}
       capesInicials={capes}
-      potCarregarCapes={potGestio}
     />
   );
 }

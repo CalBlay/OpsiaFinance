@@ -50,7 +50,8 @@ export function DetallCellaModal({
 }) {
   const router = useRouter();
   const [data, setData] = useState<DetallCellaResult | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [motiu, setMotiu] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -94,20 +95,33 @@ export function DetallCellaModal({
   const fetchKey = detallCellaCacheKey(detallParams);
 
   useEffect(() => {
+    let active = true;
     const cached = getDetallCellaCached(fetchKey);
     if (cached) {
       setData(cached);
+      setIsLoading(false);
+      setLoadError(null);
       return;
     }
 
     setData(null);
-    startTransition(() => {
-      void loadDetallCellaCached(fetchKey, () => fetchDetallCellaAction(detallParams)).then(
-        (result) => {
-          setData(result);
-        }
-      );
-    });
+    setLoadError(null);
+    setIsLoading(true);
+    void loadDetallCellaCached(fetchKey, () => fetchDetallCellaAction(detallParams))
+      .then((result) => {
+        if (active) setData(result);
+      })
+      .catch((err) => {
+        console.error("[consultes] detall de cel·la failed", err);
+        if (active) setLoadError("No s'ha pogut carregar el detall. Torna-ho a provar.");
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
   }, [detallParams, fetchKey]);
 
   useEffect(() => {
@@ -222,7 +236,8 @@ export function DetallCellaModal({
             </span>
           </div>
 
-          {isPending && !data && <p className={styles.loading}>Carregant detall…</p>}
+          {isLoading && !data && <p className={styles.loading}>Carregant detall…</p>}
+          {loadError && <p className={styles.empty}>{loadError}</p>}
 
           {data && (
             <>

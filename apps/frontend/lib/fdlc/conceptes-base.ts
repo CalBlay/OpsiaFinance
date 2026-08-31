@@ -47,14 +47,23 @@ const CONCEPTES_BASE: { node: number; descripcio: string; esSubtotal: boolean }[
   { node: 42, descripcio: "RESULTAT DESPRES D'IMPOSTOS", esSubtotal: true },
 ];
 
-/** Crea els conceptes base si encara no existeixen (necessari abans del primer import FDLC). */
+/** Crea o actualitza els conceptes base (ordre de fila = índex, no node SAP). */
 export async function ensureConceptesCompteBase(): Promise<void> {
   await Promise.all(
-    CONCEPTES_BASE.map((c) =>
+    CONCEPTES_BASE.map((c, index) =>
       db.concepteResultat.upsert({
         where: { node: c.node },
-        update: {},
-        create: { node: c.node, descripcio: c.descripcio, esSubtotal: c.esSubtotal, ordre: c.node },
+        update: {
+          descripcio: c.descripcio,
+          esSubtotal: c.esSubtotal,
+          ordre: index + 1,
+        },
+        create: {
+          node: c.node,
+          descripcio: c.descripcio,
+          esSubtotal: c.esSubtotal,
+          ordre: index + 1,
+        },
       })
     )
   );

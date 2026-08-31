@@ -7,6 +7,7 @@ import { fetchDetallCellaAction } from "../../app/(app)/consultes/actions";
 import { type DetallCellaContext, DetallCellaModal } from "./DetallCellaModal";
 import {
   type PivotCellClickHandler,
+  type PivotCellPointerDownHandler,
   type PivotColumn,
   type PivotEditConfig,
   type PivotRow,
@@ -101,6 +102,17 @@ export function PivotTableDrilldown({
   const [modalCtx, setModalCtx] = useState<DetallCellaContext | null>(null);
   const prefetchTimers = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
+  const startDetallLoad = useCallback((params: DetallCellaParams) => {
+    const key = detallCellaCacheKey(params);
+    const timer = prefetchTimers.current.get(key);
+    if (timer) {
+      clearTimeout(timer);
+      prefetchTimers.current.delete(key);
+    }
+    if (getDetallCellaCached(key)) return;
+    void loadDetallCellaCached(key, () => fetchDetallCellaAction(params));
+  }, []);
+
   const prefetchDetall = useCallback(
     (info: Parameters<PivotCellClickHandler>[0]) => {
       const params = buildDetallParams(info, drilldown);
@@ -112,12 +124,19 @@ export function PivotTableDrilldown({
         key,
         setTimeout(() => {
           prefetchTimers.current.delete(key);
-          if (getDetallCellaCached(key)) return;
-          void loadDetallCellaCached(key, () => fetchDetallCellaAction(params));
+          startDetallLoad(params);
         }, 60)
       );
     },
-    [drilldown]
+    [drilldown, startDetallLoad]
+  );
+
+  const handleCellPointerDown: PivotCellPointerDownHandler = useCallback(
+    (info) => {
+      const params = buildDetallParams(info, drilldown);
+      if (params) startDetallLoad(params);
+    },
+    [drilldown, startDetallLoad]
   );
 
   const handleCellClick: PivotCellClickHandler = (info) => {
@@ -136,6 +155,7 @@ export function PivotTableDrilldown({
         firstColLabel={firstColLabel}
         onCellClick={handleCellClick}
         onCellHover={prefetchDetall}
+        onCellPointerDown={handleCellPointerDown}
       />
       {modalCtx && (
         <DetallCellaModal

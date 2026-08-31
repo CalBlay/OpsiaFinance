@@ -113,6 +113,7 @@ export type PivotCellClickHandler = (info: {
 }) => void;
 
 export type PivotCellHoverHandler = PivotCellClickHandler;
+export type PivotCellPointerDownHandler = PivotCellClickHandler;
 
 export function PivotTable({
   columns,
@@ -122,6 +123,7 @@ export function PivotTable({
   firstColLabel = "Concepte",
   onCellClick,
   onCellHover,
+  onCellPointerDown,
 }: {
   columns: PivotColumn[];
   rows: PivotRow[];
@@ -135,6 +137,8 @@ export function PivotTable({
   onCellClick?: PivotCellClickHandler;
   /** Precàrrega del detall en passar el ratolí per una cel·la. */
   onCellHover?: PivotCellHoverHandler;
+  /** Inicia la càrrega abans del clic per reduir l'espera en obrir el detall. */
+  onCellPointerDown?: PivotCellPointerDownHandler;
 }) {
   const clickable = !!onCellClick;
 
@@ -184,6 +188,10 @@ export function PivotTable({
                     role={canClick ? "button" : undefined}
                     tabIndex={canClick ? 0 : undefined}
                     onMouseEnter={cellInfo && onCellHover ? () => onCellHover(cellInfo) : undefined}
+                    onFocus={cellInfo && onCellHover ? () => onCellHover(cellInfo) : undefined}
+                    onPointerDown={
+                      cellInfo && onCellPointerDown ? () => onCellPointerDown(cellInfo) : undefined
+                    }
                     onClick={cellInfo && onCellClick ? () => onCellClick(cellInfo) : undefined}
                     onKeyDown={
                       cellInfo && onCellClick

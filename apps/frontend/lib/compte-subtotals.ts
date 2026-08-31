@@ -1,4 +1,5 @@
 import type { ConceptePivot } from "@/lib/consultes";
+import { NODES_PERSONAL_DETALL } from "@/lib/cost-personal-centre/nodes";
 
 export type ConcepteOrdre = { node: number; esSubtotal: boolean; ordre?: number };
 
@@ -11,6 +12,14 @@ const SUBTOTAL_COMPOSIT: Record<number, readonly number[]> = {
   38: [36, 37],
   40: [32, 35, 38, 39],
   42: [40, 41],
+};
+
+/**
+ * Subtotals que sumen detalls per node (no per ordre de fila).
+ * Necessari quan el node SAP (p.ex. 44 ETT) té ordre > subtotal 17 a la BD.
+ */
+const SUBTOTAL_DETALL_EXPLICIT: Record<number, readonly number[]> = {
+  17: NODES_PERSONAL_DETALL,
 };
 
 const COMPOSIT_ORDER = [12, 31, 32, 35, 38, 40, 42] as const;
@@ -59,6 +68,16 @@ export function recalcularSubtotalsCompte(
 
     const row = byNode.get(c.node);
     if (!row) continue;
+
+    const detallExplicit = SUBTOTAL_DETALL_EXPLICIT[c.node];
+    if (detallExplicit) {
+      for (let col = 0; col < nCols; col++) {
+        row.valors[col] = detallExplicit.reduce((s, n) => s + (byNode.get(n)?.valors[col] ?? 0), 0);
+      }
+      row.total = row.valors.reduce((a, b) => a + b, 0);
+      lastSubIdx = i;
+      continue;
+    }
 
     for (let col = 0; col < nCols; col++) {
       let sum = 0;
