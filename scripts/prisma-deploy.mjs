@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 /**
  * prisma migrate deploy amb connexió directa (no pooler).
- * Neon/PgBouncer no suporta pg_advisory_lock → P1002 si s'usa el pooler.
+ * Serialitza desplegaments concurrents amb un lock PostgreSQL que pot esperar
+ * més que el timeout fix de 10 segons de Prisma.
  */
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import pg from "pg";
+
+const { Client } = pg;
 
 const directUrl = process.env.DIRECT_URL?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
@@ -67,41 +71,64 @@ if (isPoolerUrl(migrateUrl)) {
   );
 }
 
-const maxAttempts = Number(process.env.PRISMA_DEPLOY_RETRIES ?? "3");
-const retryDelayMs = Number(process.env.PRISMA_DEPLOY_RETRY_DELAY_MS ?? "15000");
+const lockId = 72707369;
+const lockTimeoutMs = Number(process.env.PRISMA_DEPLOY_LOCK_TIMEOUT_MS ?? "300000");
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+if (!Number.isFinite(lockTimeoutMs) || lockTimeoutMs <= 0) {
+  fail("PRISMA_DEPLOY_LOCK_TIMEOUT_MS ha de ser un nombre positiu de mil·lisegons.");
 }
 
 function runMigrate() {
-  const r = spawnSync("npx", ["prisma", "migrate", "deploy"], {
-    stdio: "inherit",
-    env: { ...process.env, DATABASE_URL: migrateUrl },
-    shell: process.platform === "win32",
+  return new Promise((resolve, reject) => {
+    const child = spawn("npx", ["prisma", "migrate", "deploy"], {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        DATABASE_URL: migrateUrl,
+        // L'outer lock es manté durant tota la migració.
+        PRISMA_SCHEMA_DISABLE_ADVISORY_LOCK: "1",
+      },
+      shell: process.platform === "win32",
+    });
+
+    child.once("error", reject);
+    child.once("exit", (code, signal) => {
+      if (signal) {
+        reject(new Error(`prisma migrate deploy finalitzat pel senyal ${signal}`));
+        return;
+      }
+      resolve(code ?? 1);
+    });
   });
-  return r.status ?? 1;
 }
 
 async function main() {
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    if (attempt > 1) {
-      console.log(`[prisma-deploy] Reintent ${attempt}/${maxAttempts}…`);
-    }
-    const code = runMigrate();
-    if (code === 0) {
-      console.log("[prisma-deploy] Migracions aplicades.");
+  const client = new Client({ connectionString: migrateUrl });
+  let locked = false;
+
+  try {
+    await client.connect();
+    await client.query("SELECT set_config('statement_timeout', $1, false)", [`${lockTimeoutMs}ms`]);
+    console.log(
+      `[prisma-deploy] Esperant el lock de migracions (màxim ${Math.ceil(lockTimeoutMs / 1000)}s)…`
+    );
+    await client.query("SELECT pg_advisory_lock($1)", [lockId]);
+    locked = true;
+    console.log("[prisma-deploy] Lock adquirit; aplicant migracions…");
+
+    const code = await runMigrate();
+    if (code !== 0) {
+      process.exitCode = code;
       return;
     }
-    const isLockError = code !== 0;
-    if (attempt < maxAttempts && isLockError) {
-      console.warn(
-        `[prisma-deploy] Ha fallat (codi ${code}). Pot ser lock concurrent; esperant ${retryDelayMs}ms…`
-      );
-      await sleep(retryDelayMs);
-      continue;
+
+    console.log("[prisma-deploy] Migracions aplicades.");
+  } finally {
+    if (locked) {
+      await client.query("SELECT pg_advisory_unlock($1)", [lockId]);
+      console.log("[prisma-deploy] Lock alliberat.");
     }
-    process.exit(code);
+    await client.end();
   }
 }
 
