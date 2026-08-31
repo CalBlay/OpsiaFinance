@@ -195,7 +195,7 @@ export const getDarrerPeriodAmbDades = cache(
         return dada?.period ?? null;
       },
       consultesCacheKey("consultes-darrer-period", grup),
-      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
     )()
 );
 
@@ -328,7 +328,7 @@ const getCompteExplotacioCentreBase = cache(
     unstable_cache(
       () => computeCompteExplotacioCentreBase(centreId, any, inclouAjustos),
       consultesCacheKey("consultes-centre-base", centreId, String(any), inclouAjustos ? "1" : "0"),
-      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
     )()
 );
 
@@ -418,7 +418,7 @@ export async function getComparativaLn(
       String(rang.fins),
       vista
     ),
-    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
   )();
 }
 
@@ -875,7 +875,7 @@ const getComparativaEmpresaBase = cache(
         grup,
         inclouAjustos ? "1" : "0"
       ),
-      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
     )()
 );
 
@@ -1259,7 +1259,7 @@ const getEvolucioMensualEmpresa = cache(
         grup,
         inclouAjustos ? "1" : "0"
       ),
-      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
     )()
 );
 
@@ -1315,7 +1315,7 @@ const getEvolucioMensualLn = cache(
         String(any),
         inclouAjustos ? "1" : "0"
       ),
-      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
     )()
 );
 
@@ -1659,7 +1659,7 @@ export async function getComparativaMensualEntreAnys(
       };
     },
     consultesCacheKey("consultes-cmp-mensual-anys", scope, id ?? "", anysKey, grup, vistaEfectiva),
-    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
   )();
 }
 
@@ -1825,7 +1825,7 @@ export async function getComparativaTemporal(
       };
     },
     consultesCacheKey(...cacheKey),
-    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
   )();
 }
 
