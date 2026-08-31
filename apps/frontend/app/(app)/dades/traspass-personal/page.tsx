@@ -1,45 +1,23 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
+import { RouteLoading } from "@/components/ui/RouteLoading";
 import { auth } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { getTraspassPersonalPeriodsLlista } from "@/lib/dades-list";
 import { periodesToExportInforme } from "@/lib/export/dades";
 import Link from "next/link";
+import { Suspense } from "react";
 import { PeriodLinkList, UploadHoresForm } from "./TraspassPersonalPanel";
 import styles from "./page.module.css";
 
-export const dynamic = "force-dynamic";
 export const metadata = { title: "Traspassos de personal — OpsiaFinance" };
 
 const tab = getDadesTabById("traspass-personal");
 
-export default async function TraspassPersonalLlistaPage() {
-  const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+async function TraspassPersonalContent() {
+  const [session, periods] = await Promise.all([auth(), getTraspassPersonalPeriodsLlista()]);
 
-  const periods = await db.period.findMany({
-    where: { execucioTraspassPersonal: { isNot: null } },
-    orderBy: [{ any: "desc" }, { mes: "desc" }],
-    include: {
-      execucioTraspassPersonal: {
-        select: {
-          id: true,
-          estat: true,
-          nomFitxer: true,
-          createdAt: true,
-          updatedAt: true,
-          importacio: {
-            select: {
-              id: true,
-              nomFitxer: true,
-              createdAt: true,
-              creatPerUser: { select: { name: true } },
-            },
-          },
-        },
-      },
-    },
-  });
+  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
 
   const items = periods.map((p) => ({
     id: p.id,
@@ -88,5 +66,13 @@ export default async function TraspassPersonalLlistaPage() {
       <PeriodLinkList periods={items} canEdit={canEdit} />
       <UploadHoresForm canEdit={canEdit} />
     </DadesPageShell>
+  );
+}
+
+export default function TraspassPersonalLlistaPage() {
+  return (
+    <Suspense fallback={<RouteLoading label="Carregant traspassos…" />}>
+      <TraspassPersonalContent />
+    </Suspense>
   );
 }

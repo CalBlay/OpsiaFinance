@@ -44,6 +44,14 @@ function carregaFitxerDelegate(): typeof db.carregaFitxer | undefined {
 export async function llistaCarreguesFitxer(
   tipus: TipusCarregaFitxer | TipusCarregaFitxer[]
 ): Promise<CarregaFitxerLlistaItem[]> {
+  const { getCarreguesFitxerLlista } = await import("@/lib/dades-list");
+  return getCarreguesFitxerLlista(tipus);
+}
+
+/** Consulta directa (sense cache) — només per a dades-list. */
+export async function llistaCarreguesFitxerUncached(
+  tipus: TipusCarregaFitxer | TipusCarregaFitxer[]
+): Promise<CarregaFitxerLlistaItem[]> {
   const carrega = carregaFitxerDelegate();
   if (!carrega) return [];
 

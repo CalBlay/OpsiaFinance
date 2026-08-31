@@ -1,85 +1,58 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { ExportInformeButton } from "@/components/export/ExportInformeButton";
+import { RouteLoading } from "@/components/ui/RouteLoading";
 import { auth } from "@/lib/auth";
-import { llistaCarreguesFitxer } from "@/lib/carrega-fitxer";
 import {
   getAnysAmbCostSalarialOTraspass,
   getComparativaForaCentreMes,
 } from "@/lib/cost-salarial/comparativa-fora-centre";
 import { getCentresRestaurants } from "@/lib/cost-salarial/consultes";
-import { db } from "@/lib/db";
+import {
+  getCarreguesFitxerLlista,
+  getCostSalarialRegistres,
+  getDarrerMesCostSalarial,
+} from "@/lib/dades-list";
 import { costRegistresToExportInforme } from "@/lib/export/dades";
+import { Suspense } from "react";
 import navStyles from "./ComparativaForaCentre.module.css";
 import { ComparativaForaCentrePanel } from "./ComparativaForaCentrePanel";
 import { CostSalarialManager } from "./CostSalarialManager";
 import { HistorialCostSalarial } from "./HistorialCostSalarial";
 
-export const dynamic = "force-dynamic";
 export const metadata = { title: "Cost salarial restaurants — OpsiaFinance" };
 
 const tab = getDadesTabById("cost-salarial");
 
-export default async function CostSalarialDadesPage({
+async function CostSalarialContent({
   searchParams,
 }: {
   searchParams: Promise<{ any?: string; mes?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
-  const mesFiltre = sp.mes ? Number(sp.mes) : null;
+  const mesUrl = sp.mes ? Number(sp.mes) : null;
   const vista = sp.vista === "comparativa" ? "comparativa" : "registres";
 
-  const [session, centres, anysRaw, carregues] = await Promise.all([
+  const [session, centres, anys, carregues] = await Promise.all([
     auth(),
     getCentresRestaurants(),
     getAnysAmbCostSalarialOTraspass(),
-    llistaCarreguesFitxer("COST_SALARIAL"),
+    getCarreguesFitxerLlista("COST_SALARIAL"),
   ]);
 
-  const anys = anysRaw.length ? anysRaw : [new Date().getFullYear()];
-  const anyFiltre = sp.any ? Number(sp.any) : anys[0];
+  const anyFiltre = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
+  const mesFiltre =
+    mesUrl ?? (vista === "registres" ? await getDarrerMesCostSalarial(anyFiltre) : null);
 
   const role = session?.user?.role;
   const canEdit = role === "ADMIN" || role === "EDICIO";
 
-  const comparativa =
+  const [comparativa, registres] = await Promise.all([
     vista === "comparativa" && mesFiltre
-      ? await getComparativaForaCentreMes(anyFiltre, mesFiltre)
-      : null;
-
-  const registres =
-    vista === "registres"
-      ? await db.costSalarialRestaurant.findMany({
-          where: {
-            period: {
-              any: anyFiltre,
-              ...(mesFiltre ? { mes: mesFiltre } : {}),
-            },
-          },
-          orderBy: [
-            { period: { any: "desc" } },
-            { period: { mes: "desc" } },
-            { centre: { codi: "asc" } },
-            { departament: "asc" },
-          ],
-          select: {
-            id: true,
-            departament: true,
-            totalSalari: true,
-            incentiusMensual: true,
-            incentiuTrimestral: true,
-            horesExtres: true,
-            altres: true,
-            baixes: true,
-            indemnitzacions: true,
-            foraCentre: true,
-            notes: true,
-            updatedAt: true,
-            period: { select: { any: true, mes: true, nom: true } },
-            centre: { select: { id: true, codi: true, nom: true } },
-          },
-        })
-      : [];
+      ? getComparativaForaCentreMes(anyFiltre, mesFiltre)
+      : Promise.resolve(null),
+    vista === "registres" ? getCostSalarialRegistres(anyFiltre, mesFiltre) : Promise.resolve([]),
+  ]);
 
   const registresPlain = registres.map((r) => ({
     id: r.id,
@@ -174,5 +147,17 @@ export default async function CostSalarialDadesPage({
         </>
       )}
     </DadesPageShell>
+  );
+}
+
+export default function CostSalarialDadesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ any?: string; mes?: string; vista?: string }>;
+}) {
+  return (
+    <Suspense fallback={<RouteLoading label="Carregant cost salarial…" />}>
+      <CostSalarialContent searchParams={searchParams} />
+    </Suspense>
   );
 }

@@ -1,3 +1,4 @@
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { CODI_LN_CENTRAL } from "@/lib/repartiment/nodes";
 import { nomNormaSenseQuantitat } from "@/lib/repartiment/normes-seed";
@@ -13,6 +14,7 @@ import {
   FRACCIO_SOBRANT_IGUALS_DEFECTE,
   clampFraccio01,
 } from "@/lib/repartiment/personal-departaments-constants";
+import { unstable_cache } from "next/cache";
 
 export type ArbreDeptSc = {
   centreId: string;
@@ -134,7 +136,17 @@ export async function carregarCostPersonalDeptSc(any: number, mes: number): Prom
   return result;
 }
 
-export async function carregarConfigPersonal(): Promise<{
+export async function carregarConfigPersonal(): Promise<
+  Awaited<ReturnType<typeof carregarConfigPersonalUncached>>
+> {
+  return unstable_cache(
+    () => carregarConfigPersonalUncached(),
+    consultesCacheKey("dades-config-personal"),
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
+}
+
+export async function carregarConfigPersonalUncached(): Promise<{
   configsLn: ConfigPersonalLn[];
   configsDept: ConfigPersonalDept[];
   pesDefecte: PesDefecteComercial[];

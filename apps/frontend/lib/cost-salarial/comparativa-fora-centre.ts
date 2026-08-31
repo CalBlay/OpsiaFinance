@@ -8,10 +8,13 @@
  *   (esborrany o confirmat).
  */
 
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { getCentresRestaurants } from "@/lib/cost-salarial/consultes";
 import { db } from "@/lib/db";
 import { parseForaCentreSnapshot } from "@/lib/traspass-personal/fora-centre";
 import type { DepartamentSalarial, EstatExecucioTraspassPersonal } from "@prisma/client";
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
 export type FilComparativaForaCentre = {
   centreId: string;
@@ -61,6 +64,23 @@ function teDiferencia(delta: number): boolean {
 }
 
 export async function getComparativaForaCentreMes(
+  any: number,
+  mes: number
+): Promise<ComparativaForaCentreMes | null> {
+  return getComparativaForaCentreMesCached(any, mes);
+}
+
+export const getComparativaForaCentreMesCached = cache(
+  async (any: number, mes: number): Promise<ComparativaForaCentreMes | null> => {
+    return unstable_cache(
+      () => computeComparativaForaCentreMes(any, mes),
+      consultesCacheKey("dades-comparativa-fora-centre", String(any), String(mes)),
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+    )();
+  }
+);
+
+async function computeComparativaForaCentreMes(
   any: number,
   mes: number
 ): Promise<ComparativaForaCentreMes | null> {
@@ -182,19 +202,25 @@ export async function getComparativaForaCentreMes(
   };
 }
 
-export async function getAnysAmbCostSalarialOTraspass(): Promise<number[]> {
-  const [a, b] = await Promise.all([
-    db.period.findMany({
-      where: { costsSalarials: { some: {} } },
-      select: { any: true },
-      distinct: ["any"],
-    }),
-    db.period.findMany({
-      where: { execucioTraspassPersonal: { isNot: null } },
-      select: { any: true },
-      distinct: ["any"],
-    }),
-  ]);
-  const s = new Set([...a, ...b].map((p) => p.any));
-  return [...s].sort((x, y) => y - x);
-}
+export const getAnysAmbCostSalarialOTraspass = cache(async (): Promise<number[]> => {
+  return unstable_cache(
+    async () => {
+      const [a, b] = await Promise.all([
+        db.period.findMany({
+          where: { costsSalarials: { some: {} } },
+          select: { any: true },
+          distinct: ["any"],
+        }),
+        db.period.findMany({
+          where: { execucioTraspassPersonal: { isNot: null } },
+          select: { any: true },
+          distinct: ["any"],
+        }),
+      ]);
+      const s = new Set([...a, ...b].map((p) => p.any));
+      return [...s].sort((x, y) => y - x);
+    },
+    consultesCacheKey("dades-cost-salarial-anys"),
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+  )();
+});

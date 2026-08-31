@@ -4,10 +4,13 @@
  * Gestió no forma part d’aquesta vista.
  */
 
+import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { carregarBaseSapNomesPersonal } from "@/lib/cost-personal-centre/base-gestio";
 import { desglossarFilaPayroll } from "@/lib/cost-personal-centre/payroll-imports";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import { unstable_cache } from "next/cache";
+import { cache } from "react";
 
 export type ImportsSousSs = {
   sous: number;
@@ -104,6 +107,23 @@ function teDiferencia(d: ImportsSousSs): boolean {
 }
 
 export async function getComparativaPersonalMes(
+  any: number,
+  mes: number
+): Promise<ComparativaPersonalMes> {
+  return getComparativaPersonalMesCached(any, mes);
+}
+
+export const getComparativaPersonalMesCached = cache(
+  async (any: number, mes: number): Promise<ComparativaPersonalMes> => {
+    return unstable_cache(
+      () => computeComparativaPersonalMes(any, mes),
+      consultesCacheKey("dades-comparativa-personal", String(any), String(mes)),
+      { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
+    )();
+  }
+);
+
+async function computeComparativaPersonalMes(
   any: number,
   mes: number
 ): Promise<ComparativaPersonalMes> {

@@ -1,81 +1,53 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { getDadesTabById } from "@/components/dades/dades-tabs";
+import { RouteLoading } from "@/components/ui/RouteLoading";
 import { auth } from "@/lib/auth";
-import { llistaCarreguesFitxer } from "@/lib/carrega-fitxer";
 import { getComparativaPersonalMes } from "@/lib/cost-personal-centre/comparativa";
 import { desglossarFilaPayroll } from "@/lib/cost-personal-centre/payroll-imports";
-import { db } from "@/lib/db";
+import {
+  getAnysAmbCostPersonalCentre,
+  getCarreguesFitxerLlista,
+  getCostPersonalCentreRegistres,
+  getDarrerMesCostPersonalCentre,
+} from "@/lib/dades-list";
+import { Suspense } from "react";
 import { ComparativaPersonalPanel } from "./ComparativaPersonalPanel";
 import { CostPersonalCentrePanel } from "./CostPersonalCentrePanel";
 
-export const dynamic = "force-dynamic";
 export const metadata = { title: "Cost personal centre — OpsiaFinance" };
 
 const tab = getDadesTabById("cost-personal-centre");
 
-export default async function CostPersonalCentreDadesPage({
+async function CostPersonalCentreContent({
   searchParams,
 }: {
   searchParams: Promise<{ any?: string; mes?: string; vista?: string }>;
 }) {
   const sp = await searchParams;
-  const mesFiltre = sp.mes ? Number(sp.mes) : null;
+  const mesUrl = sp.mes ? Number(sp.mes) : null;
   const vista = sp.vista === "comparativa" ? "comparativa" : "registres";
 
-  const [session, anysRaw, carregues] = await Promise.all([
+  const [session, anys, carregues] = await Promise.all([
     auth(),
-    db.period.findMany({
-      where: { costsPersonalsCentre: { some: {} } },
-      select: { any: true },
-      distinct: ["any"],
-      orderBy: { any: "desc" },
-    }),
-    llistaCarreguesFitxer(["COST_PERSONAL_CENTRE", "COST_PERSONAL_MILLORES"]),
+    getAnysAmbCostPersonalCentre(),
+    getCarreguesFitxerLlista(["COST_PERSONAL_CENTRE", "COST_PERSONAL_MILLORES"]),
   ]);
 
-  const anys = anysRaw.map((a) => a.any);
-  if (!anys.length) anys.push(new Date().getFullYear());
   const anyFiltre = sp.any ? Number(sp.any) : anys[0];
+  const mesFiltre =
+    mesUrl ?? (vista === "registres" ? await getDarrerMesCostPersonalCentre(anyFiltre) : null);
 
   const role = session?.user?.role;
   const canEdit = role === "ADMIN" || role === "EDICIO";
 
-  const comparativa =
+  const [comparativa, registresRaw] = await Promise.all([
     vista === "comparativa" && mesFiltre
-      ? await getComparativaPersonalMes(anyFiltre, mesFiltre)
-      : null;
-
-  const registres =
+      ? getComparativaPersonalMes(anyFiltre, mesFiltre)
+      : Promise.resolve(null),
     vista === "registres"
-      ? await db.costPersonalCentre.findMany({
-          where: {
-            period: {
-              any: anyFiltre,
-              ...(mesFiltre ? { mes: mesFiltre } : {}),
-            },
-          },
-          orderBy: [
-            { period: { mes: "desc" } },
-            { origen: "asc" },
-            { centre: { codi: "asc" } },
-            { departamentSalarial: "asc" },
-          ],
-          select: {
-            id: true,
-            origen: true,
-            importBrut: true,
-            segSocialEmpresa: true,
-            totalSegSocial: true,
-            costPersonal: true,
-            textOrigen: true,
-            departamentSalarial: true,
-            period: { select: { nom: true, any: true, mes: true } },
-            centre: { select: { codi: true, nom: true } },
-            departament: { select: { codi: true, nom: true } },
-          },
-          take: 5000,
-        })
-      : [];
+      ? getCostPersonalCentreRegistres(anyFiltre, mesFiltre)
+      : Promise.resolve([]),
+  ]);
 
   return (
     <DadesPageShell title={tab.title} description={tab.description}>
@@ -135,7 +107,7 @@ export default async function CostPersonalCentreDadesPage({
           filtreAny={anyFiltre}
           filtreMes={mesFiltre}
           carregues={carregues}
-          registres={registres.map((r) => {
+          registres={registresRaw.map((r) => {
             const d = desglossarFilaPayroll(r);
             return {
               id: r.id,
@@ -162,5 +134,17 @@ export default async function CostPersonalCentreDadesPage({
         />
       )}
     </DadesPageShell>
+  );
+}
+
+export default function CostPersonalCentreDadesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ any?: string; mes?: string; vista?: string }>;
+}) {
+  return (
+    <Suspense fallback={<RouteLoading label="Carregant cost personal…" />}>
+      <CostPersonalCentreContent searchParams={searchParams} />
+    </Suspense>
   );
 }
