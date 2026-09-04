@@ -18,7 +18,7 @@ export const metadata = { title: "Normes compres i gestió — OpsiaFinance" };
 
 export default async function RepartimentNormesPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const canEdit = session?.user?.role === "ADMIN";
 
   await syncGrupsRepartiment();
   await ensureConfigPersonalInicial();

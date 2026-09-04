@@ -1,7 +1,7 @@
 import { authConfig } from "@/lib/auth.config";
 import { GRUP_COOKIE_NAME } from "@/lib/grup-cookie-name";
 import { parseGrupEmpresa } from "@/lib/grups-empresa";
-import { potAdministrar } from "@/lib/roles";
+import { potConfigurar, potEditar } from "@/lib/roles";
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -38,11 +38,11 @@ export default auth((req) => {
   }
 
   const role = req.auth?.user?.role;
-  if (
-    (pathname.startsWith("/dades") || pathname.startsWith("/settings")) &&
-    role &&
-    !potAdministrar(role)
-  ) {
+  // EDICIO: Dades (import/ajustos). Configuració: només ADMIN.
+  if (pathname.startsWith("/dades") && role && !potEditar(role)) {
+    return NextResponse.redirect(new URL("/", url));
+  }
+  if (pathname.startsWith("/settings") && role && !potConfigurar(role)) {
     return NextResponse.redirect(new URL("/", url));
   }
 

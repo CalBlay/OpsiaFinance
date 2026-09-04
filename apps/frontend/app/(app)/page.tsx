@@ -14,7 +14,7 @@ import {
   buildKpisEmpresa,
 } from "@/lib/kpi-definitions";
 import { MESOS_LLARGS } from "@/lib/periodes";
-import { potAdministrar } from "@/lib/roles";
+import { potEditar } from "@/lib/roles";
 import { ArrowRight, BarChart3, GitCompareArrows, ShoppingBag, Users } from "lucide-react";
 import Link from "next/link";
 import styles from "./page.module.css";
@@ -26,7 +26,7 @@ export default async function HomePage() {
   const [session, grup] = await Promise.all([auth(), getGrupEmpresaActual()]);
   const darrer = await getDarrerPeriodAmbDades(grup);
 
-  const showAdmin = potAdministrar(session?.user?.role);
+  const showDades = potEditar(session?.user?.role);
   const nomEmpresa = etiquetaGrupEmpresa(grup);
 
   let kpis: ReturnType<typeof buildKpisEmpresa> | null = null;
@@ -134,11 +134,11 @@ export default async function HomePage() {
         <div className={styles.empty}>
           <h3>Sense dades per mostrar</h3>
           <p>
-            {showAdmin
+            {showDades
               ? "Carrega un informe a Dades per veure els indicadors aquí."
               : "Quan hi hagi dades carregades, els indicadors apareixeran aquí."}
           </p>
-          {showAdmin && (
+          {showDades && (
             <Link href="/dades" className={styles.emptyLink}>
               Anar a Dades
             </Link>

@@ -9,7 +9,7 @@ export const metadata = { title: "Traspassos de personal — OpsiaFinance" };
 
 export default async function TraspassPersonalSettingsPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const canEdit = session?.user?.role === "ADMIN";
 
   const tarifaHora = await ensureConfigTraspassPersonal();
 

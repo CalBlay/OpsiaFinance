@@ -24,7 +24,7 @@ export default async function DimensionsPage() {
   ]);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN" || role === "EDICIO";
+  const canEdit = role === "ADMIN";
   const hasData = linies.length > 0;
 
   return (

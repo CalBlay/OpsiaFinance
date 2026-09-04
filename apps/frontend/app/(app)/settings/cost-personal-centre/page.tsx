@@ -9,7 +9,7 @@ export const metadata = { title: "Cost personal centre — OpsiaFinance" };
 
 export default async function CostPersonalCentreSettingsPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const canEdit = session?.user?.role === "ADMIN";
 
   const [mapeigs, arbre] = await Promise.all([
     llistaMapeigsCostPersonal(),

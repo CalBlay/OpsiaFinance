@@ -1,0 +1,49 @@
+.page {
+  padding: var(--opsia-space-8) var(--opsia-space-10);
+  max-width: 480px;
+}
+
+.title {
+  font-size: var(--opsia-font-size-2xl);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--opsia-ink-strong);
+  margin-bottom: var(--opsia-space-2);
+}
+
+.subtitle {
+  font-size: var(--opsia-font-size-sm);
+  color: var(--opsia-ink-soft);
+  margin-bottom: var(--opsia-space-8);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-5);
+}
+
+.error {
+  padding: var(--opsia-space-3) var(--opsia-space-4);
+  border-radius: var(--opsia-radius-sm);
+  background: rgba(192, 57, 43, 0.07);
+  color: var(--opsia-ui-danger);
+  font-size: var(--opsia-font-size-sm);
+  border: 1px solid rgba(192, 57, 43, 0.15);
+}
+
+.success {
+  padding: var(--opsia-space-3) var(--opsia-space-4);
+  border-radius: var(--opsia-radius-sm);
+  background: rgba(39, 174, 96, 0.08);
+  color: var(--opsia-ui-success, #1e7a46);
+  font-size: var(--opsia-font-size-sm);
+  border: 1px solid rgba(39, 174, 96, 0.2);
+  margin-bottom: var(--opsia-space-5);
+}
+
+.formActions {
+  display: flex;
+  gap: var(--opsia-space-3);
+  padding-top: var(--opsia-space-3);
+}

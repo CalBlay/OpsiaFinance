@@ -19,7 +19,7 @@
   flex-shrink: 0;
 }
 
-.logoutBtn {
+.iconBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -30,10 +30,11 @@
   background: transparent;
   color: var(--opsia-ink-soft);
   cursor: pointer;
+  text-decoration: none;
   transition: background var(--opsia-transition-fast), color var(--opsia-transition-fast);
 }
 
-.logoutBtn:hover {
+.iconBtn:hover {
   background: var(--opsia-bg-panel);
   color: var(--opsia-ink-strong);
 }

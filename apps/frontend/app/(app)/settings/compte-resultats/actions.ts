@@ -11,7 +11,7 @@ const ERR = (m: string): Result => ({ ok: false, missatge: m });
 async function requireEditor(): Promise<boolean> {
   const session = await auth();
   const role = session?.user?.role;
-  return role === "ADMIN" || role === "EDICIO";
+  return role === "ADMIN";
 }
 
 function refresh() {

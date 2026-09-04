@@ -20,7 +20,7 @@ export const metadata = { title: "Repartiment personal SC — OpsiaFinance" };
 
 export default async function RepartimentSettingsPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const canEdit = session?.user?.role === "ADMIN";
 
   await syncGrupsRepartiment();
   await ensureConfigPersonalInicial();

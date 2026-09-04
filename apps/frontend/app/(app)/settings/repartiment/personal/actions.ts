@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 
 async function requireEditor() {
   const session = await auth();
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "EDICIO")) {
+  if (!session?.user || session.user.role !== "ADMIN") {
     return null;
   }
   return session.user;

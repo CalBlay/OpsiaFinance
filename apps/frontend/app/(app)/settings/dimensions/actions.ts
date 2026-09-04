@@ -1,7 +1,7 @@
 "use server";
 
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
@@ -15,7 +15,7 @@ const ERR = (missatge: string): Result => ({ ok: false, missatge });
 async function requireEditor(): Promise<boolean> {
   const session = await auth();
   const role = session?.user?.role;
-  return role === "ADMIN" || role === "EDICIO";
+  return role === "ADMIN";
 }
 
 function refresh() {
@@ -48,14 +48,14 @@ export async function importarArbreAction(): Promise<Result> {
     );
   }
 
-  let workbook;
+  let workbook: XLSX.WorkBook;
   try {
     workbook = XLSX.read(readFileSync(filePath));
   } catch {
     return ERR(`No s'ha pogut llegir el fitxer '${ARBRE_FILE}'.`);
   }
 
-  const sheet = workbook.Sheets["Dimensions"];
+  const sheet = workbook.Sheets.Dimensions;
   if (!sheet) return ERR("Full 'Dimensions' no trobat al fitxer.");
 
   const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {

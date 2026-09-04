@@ -1,7 +1,7 @@
 "use client";
 
 import { LinkPending } from "@/components/ui/LinkPending";
-import { potAdministrar } from "@/lib/roles";
+import { potConfigurar, potEditar } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { BarChart3, Database, Home, Settings, ShoppingBag } from "lucide-react";
@@ -9,10 +9,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./Sidebar.module.css";
 
-const ADMIN_NAV = [
-  { href: "/dades", label: "Dades", icon: Database },
-  { href: "/settings", label: "Configuració", icon: Settings },
-] as const;
+const DADES_NAV = { href: "/dades", label: "Dades", icon: Database } as const;
+const CONFIG_NAV = { href: "/settings", label: "Configuració", icon: Settings } as const;
 
 function isResultatsActive(pathname: string): boolean {
   if (!pathname.startsWith("/consultes")) return false;
@@ -32,7 +30,9 @@ function isRestaurantsActive(pathname: string): boolean {
 
 export function Sidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
-  const showAdmin = potAdministrar(role);
+  const showDades = potEditar(role);
+  const showConfig = potConfigurar(role);
+  const adminNav = [...(showDades ? [DADES_NAV] : []), ...(showConfig ? [CONFIG_NAV] : [])];
 
   return (
     <nav className={styles.sidebar} aria-label="Navegació principal">
@@ -72,11 +72,11 @@ export function Sidebar({ role }: { role: UserRole }) {
         </li>
       </ul>
 
-      {showAdmin && (
+      {adminNav.length > 0 && (
         <div className={styles.adminBlock}>
           <p className={styles.adminLabel}>Administració</p>
           <ul className={styles.nav}>
-            {ADMIN_NAV.map((item) => {
+            {adminNav.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
               return (
                 <li key={item.href}>

@@ -34,7 +34,7 @@ export default async function SettingsPage() {
   ]);
 
   if (session?.user?.role !== "ADMIN") {
-    redirect("/settings/dimensions");
+    redirect("/");
   }
 
   const currentUserId = session?.user.id;

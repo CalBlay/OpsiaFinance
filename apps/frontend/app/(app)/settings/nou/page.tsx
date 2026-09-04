@@ -55,9 +55,9 @@ export default function NouUsuariPage() {
             defaultValue="CONSULTA"
             disabled={isPending}
           >
-            <option value="CONSULTA">Consultor — només lectura</option>
-            <option value="EDICIO">Editor — càrrega i edició</option>
-            <option value="ADMIN">Administrador — accés complet</option>
+            <option value="CONSULTA">Consultor — només consulta</option>
+            <option value="EDICIO">Editor — consulta, importació i ajustos</option>
+            <option value="ADMIN">Administrador — també configuració i usuaris</option>
           </select>
         </div>
 

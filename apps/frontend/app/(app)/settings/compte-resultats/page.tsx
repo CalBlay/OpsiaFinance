@@ -16,7 +16,7 @@ export default async function CompteResultatsPage() {
   ]);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN" || role === "EDICIO";
+  const canEdit = role === "ADMIN";
 
   return (
     <div className={styles.page}>

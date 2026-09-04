@@ -12,7 +12,7 @@ export default async function ConsolidacioSettingsPage() {
   await ensureNormesConsolidacio();
 
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const canEdit = session?.user?.role === "ADMIN";
 
   const [normesRaw, nodeLabels] = await Promise.all([
     db.normaConsolidacio.findMany({
