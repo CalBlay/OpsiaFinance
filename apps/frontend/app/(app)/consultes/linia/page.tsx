@@ -32,8 +32,10 @@ import {
   NODE_INGRESSOS,
   buildKpisInforme,
 } from "@/lib/kpi-definitions";
+import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import type { RangMesos } from "@/lib/periodes";
+import { kpisPuntEquilibri } from "@/lib/punt-equilibri";
 import { aplicarDeltaPresentacioGestio } from "@/lib/repartiment/gestio-consultes";
 import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import {
@@ -98,6 +100,7 @@ export default async function ConsultaLiniaPage({
     getAnysAmbDades(),
     getGrupEmpresaActual(),
   ]);
+  const naturaByNode = await getMapaNaturaConceptes();
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
   const rang = parseRangMesosFromSearchParams(sp);
@@ -514,7 +517,7 @@ export default async function ConsultaLiniaPage({
               : (findEvRow(node)?.valors ?? []);
     return valors.slice(rang.des - 1, rang.fins).reduce((s, v) => s + v, 0);
   };
-  const kpis = ev && !ev.buit ? buildKpisInforme(valorKpi) : [];
+  const kpisBase = ev && !ev.buit ? buildKpisInforme(valorKpi) : [];
 
   // Mateix càlcul que el KPI, aplicat als detalls de Compres (7–8), Personal
   // (13–16, 44) i Gestió (18–29) perquè els totals i l'EBITDA quadrin amb Gestió.
@@ -566,6 +569,10 @@ export default async function ConsultaLiniaPage({
     label: m,
   }));
   const rowsMes = ev ? retallaRang(conceptsTaula, rang) : [];
+  const kpis =
+    kpisBase.length && naturaByNode
+      ? [...kpisBase, ...kpisPuntEquilibri(rowsMes, naturaByNode)]
+      : kpisBase;
 
   const valorsTaula = (node: number) =>
     conceptsTaula.find((c) => c.node === node)?.valors ?? findEvRow(node)?.valors ?? [];

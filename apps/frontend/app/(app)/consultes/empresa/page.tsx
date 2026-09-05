@@ -11,6 +11,7 @@ import {
 import { aplicarBaseGestioPersonalEvolucioEmpresa } from "@/lib/cost-personal-centre/gestio-consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-empresa";
+import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import { aplicarVistaGestioEvolucioEmpresa } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import {
@@ -52,13 +53,14 @@ async function EmpresaPageContent({
   const isAdmin = session?.user?.role === "ADMIN";
   const needsSapEv = vista === "sap" || vista === "ajustos";
 
-  const [comp, evEmpresaRaw, evEmpresaSap, infoGestio] = await Promise.all([
+  const [comp, evEmpresaRaw, evEmpresaSap, infoGestio, naturaByNode] = await Promise.all([
     getComparativaEmpresa(anyActual, rang, vista, grup),
     getEvolucioMensual("empresa", null, anyActual, grup, { inclouAjustos: true }),
     needsSapEv
       ? getEvolucioMensual("empresa", null, anyActual, grup, { inclouAjustos: false })
       : Promise.resolve(null),
     vistaInclouRepartiment(vista) ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
+    getMapaNaturaConceptes(),
   ]);
 
   let evEmpresa = evEmpresaRaw;
@@ -97,6 +99,7 @@ async function EmpresaPageContent({
       evFdlc: null,
       evEmpresa,
       infoGestio,
+      naturaByNode,
     }),
   };
 

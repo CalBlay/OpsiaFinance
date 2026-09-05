@@ -10,6 +10,7 @@ import {
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
 import { grupPermetVistaGestio } from "@/lib/grups-empresa";
+import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import type { RangMesos } from "@/lib/periodes";
 import { type VistaCompte, parseVistaCompte, vistaInclouTraspassos } from "@/lib/vista-compte";
 import { type LiniaResumCapa, buildLiniaResumCapa } from "./linia-resum-data";
@@ -29,7 +30,10 @@ export async function carregarLiniaResumCapaAction(input: {
   rang: RangMesos;
   vista: VistaCompte;
 }): Promise<LiniaResumCapa | null> {
-  const grup = await getGrupEmpresaActual();
+  const [grup, naturaByNode] = await Promise.all([
+    getGrupEmpresaActual(),
+    getMapaNaturaConceptes(),
+  ]);
   const potGestio = grupPermetVistaGestio(grup);
   const vista = parseVistaCompte(input.vista, { permetCapesGestio: potGestio });
 
@@ -55,6 +59,7 @@ export async function carregarLiniaResumCapaAction(input: {
       anyActual: input.any,
       rang: input.rang,
       vista,
+      naturaByNode,
     });
   }
 
@@ -67,6 +72,7 @@ export async function carregarLiniaResumCapaAction(input: {
     anyActual: input.any,
     rang: input.rang,
     vista,
+    naturaByNode,
   });
 }
 
@@ -76,7 +82,10 @@ export async function carregarLiniaResumCapesAction(input: {
   rang: RangMesos;
   vistaInicial: VistaCompte;
 }): Promise<Partial<Record<VistaCompte, LiniaResumCapa>>> {
-  const grup = await getGrupEmpresaActual();
+  const [grup, naturaByNode] = await Promise.all([
+    getGrupEmpresaActual(),
+    getMapaNaturaConceptes(),
+  ]);
   const potGestio = grupPermetVistaGestio(grup);
   const vistaInicial = parseVistaCompte(input.vistaInicial, { permetCapesGestio: potGestio });
   const carregaEager = potGestio && vistaInclouTraspassos(vistaInicial);
@@ -103,11 +112,13 @@ export async function carregarLiniaResumCapesAction(input: {
       anyActual: input.any,
       rang: input.rang,
       vista: "sap",
+      naturaByNode,
     }),
     directe: buildLiniaResumCapa(parell.directe, evDirecte, {
       anyActual: input.any,
       rang: input.rang,
       vista: "directe",
+      naturaByNode,
     }),
   };
 
@@ -119,7 +130,7 @@ export async function carregarLiniaResumCapesAction(input: {
     evDirecte && evSap
       ? { ...evDirecte, concepts: restarConceptesPivot(evDirecte.concepts, evSap.concepts) }
       : evDirecte,
-    { anyActual: input.any, rang: input.rang, vista: "ajustos" }
+    { anyActual: input.any, rang: input.rang, vista: "ajustos", naturaByNode }
   );
 
   if (parell.traspassos) {
@@ -127,6 +138,7 @@ export async function carregarLiniaResumCapesAction(input: {
       anyActual: input.any,
       rang: input.rang,
       vista: "traspassos",
+      naturaByNode,
     });
   }
   if (parell.gestio) {
@@ -134,6 +146,7 @@ export async function carregarLiniaResumCapesAction(input: {
       anyActual: input.any,
       rang: input.rang,
       vista: "gestio",
+      naturaByNode,
     });
   }
 

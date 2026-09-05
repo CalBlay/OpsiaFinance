@@ -22,6 +22,8 @@ function refresh() {
   revalidatePath("/settings/compte-resultats");
   revalidatePath("/consultes/centre");
   revalidatePath("/consultes/linia");
+  revalidatePath("/consultes/empresa");
+  revalidatePath("/consultes/evolucio");
 }
 
 function resolveNatura(

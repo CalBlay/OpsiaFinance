@@ -21,6 +21,8 @@ import {
   etiquetaRangMesos,
   etiquetaRangMesosLlarga,
 } from "@/lib/periodes";
+import type { NaturaByNodeRecord } from "@/lib/punt-equilibri";
+import { kpisComitePuntEquilibri, kpisPuntEquilibri } from "@/lib/punt-equilibri";
 import type { InfoGestioConsulta } from "@/lib/repartiment/info-gestio";
 import type { VistaCompte } from "@/lib/vista-compte";
 import { etiquetaVistaCompte, vistaInclouRepartiment } from "@/lib/vista-compte";
@@ -54,15 +56,24 @@ export function buildEmpresaVistaData(opts: {
   evFdlc: EvolucioMensual | null;
   evEmpresa: EvolucioMensual | null;
   infoGestio: InfoGestioConsulta | null;
+  naturaByNode?: NaturaByNodeRecord;
 }): EmpresaVistaData {
-  const { vista, grup, anyActual, rang, isAdmin, comp, evEmpresa, infoGestio } = opts;
+  const { vista, grup, anyActual, rang, isAdmin, comp, evEmpresa, infoGestio, naturaByNode } = opts;
   const unMes = esUnMes(rang);
   const canEdit = isAdmin && vista === "directe";
 
   const findRow = (node: number) => comp.concepts.find((c) => c.node === node);
   const findEvEmpresa = (node: number) => evEmpresa?.concepts.find((c) => c.node === node);
 
-  const kpis = buildKpisEmpresa((node) => findRow(node)?.total ?? 0);
+  const peConcepts = comp.concepts.map((c) => ({
+    node: c.node,
+    total: c.total,
+    esSubtotal: c.esSubtotal,
+  }));
+  const kpis = [
+    ...buildKpisEmpresa((node) => findRow(node)?.total ?? 0),
+    ...(naturaByNode ? kpisPuntEquilibri(peConcepts, naturaByNode) : []),
+  ];
 
   const columns: PivotColumn[] = comp.linies.map((l) => ({
     key: l.id,
@@ -142,6 +153,7 @@ export function buildEmpresaVistaData(opts: {
       pctHint: "s/ ingressos",
       accent: "ebitda",
     },
+    ...(naturaByNode ? kpisComitePuntEquilibri(peConcepts, naturaByNode) : []),
   ];
 
   const tableCaption =

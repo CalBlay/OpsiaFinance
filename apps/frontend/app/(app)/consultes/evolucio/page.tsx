@@ -18,6 +18,7 @@ import {
   grupPermetVistaGestio,
   liniesPerConsultaDetall,
 } from "@/lib/grups-empresa";
+import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import {
   aplicarVistaGestioEvolucioEmpresa,
   aplicarVistaGestioEvolucioLn,
@@ -105,6 +106,8 @@ export default async function EvolucioPage({
     }
   }
 
+  const naturaByNode = await getMapaNaturaConceptes();
+
   return (
     <EvolucioBoard
       linies={linies}
@@ -123,6 +126,7 @@ export default async function EvolucioPage({
       gestio={gestio ? { ...gestio, concepts: slimConceptsForPaint(gestio.concepts) } : null}
       infoGestio={infoGestio}
       potCarregarGestio={potGestio && vista === "directe" && !!evRaw}
+      naturaByNode={naturaByNode}
     />
   );
 }

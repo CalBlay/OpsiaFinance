@@ -21,6 +21,8 @@ import {
 } from "@/lib/kpi-definitions";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import { MESOS_CURTS } from "@/lib/periodes";
+import type { NaturaByNodeRecord } from "@/lib/punt-equilibri";
+import { kpisPuntEquilibri } from "@/lib/punt-equilibri";
 import type { InfoGestioConsulta } from "@/lib/repartiment/service";
 import type { VistaCompte } from "@/lib/vista-compte";
 import { etiquetaVistaCompte } from "@/lib/vista-compte";
@@ -36,12 +38,24 @@ import {
 
 type LnOpt = { id: string; codi: string; nom: string };
 
-function buildKpis(ev: EvolucioMensual | null, scope: AmbitEvolucio): KpiInformeItem[] {
+function buildKpis(
+  ev: EvolucioMensual | null,
+  scope: AmbitEvolucio,
+  naturaByNode?: NaturaByNodeRecord
+): KpiInformeItem[] {
   if (!ev) return [];
   const findRow = (node: number) => ev.concepts.find((c) => c.node === node);
-  return scope === "empresa"
-    ? buildKpisEmpresa((node) => findRow(node)?.total ?? 0)
-    : buildKpisInforme((node) => findRow(node)?.total ?? 0);
+  const base =
+    scope === "empresa"
+      ? buildKpisEmpresa((node) => findRow(node)?.total ?? 0)
+      : buildKpisInforme((node) => findRow(node)?.total ?? 0);
+  if (!naturaByNode) return base;
+  const peConcepts = ev.concepts.map((c) => ({
+    node: c.node,
+    total: c.total,
+    esSubtotal: c.esSubtotal,
+  }));
+  return [...base, ...kpisPuntEquilibri(peConcepts, naturaByNode)];
 }
 
 export function EvolucioBoard({
@@ -61,6 +75,7 @@ export function EvolucioBoard({
   gestio: gestioInicial,
   infoGestio: infoGestioInicial,
   potCarregarGestio = false,
+  naturaByNode,
 }: {
   linies: LnOpt[];
   anys: number[];
@@ -78,6 +93,7 @@ export function EvolucioBoard({
   gestio: EvolucioMensual | null;
   infoGestio: InfoGestioConsulta | null;
   potCarregarGestio?: boolean;
+  naturaByNode?: NaturaByNodeRecord;
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
   const [gestio, setGestio] = useState<EvolucioMensual | null>(gestioInicial);
@@ -159,7 +175,7 @@ export function EvolucioBoard({
   const canEdit = isAdmin && vista === "directe" && scope === "linia" && !!lnId;
   const vistaLabel = etiquetaVistaCompte(vista);
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
-  const kpis = useMemo(() => buildKpis(ev, scope), [ev, scope]);
+  const kpis = useMemo(() => buildKpis(ev, scope, naturaByNode), [ev, scope, naturaByNode]);
   const periodeLabel = `Acumulat ${anyActual}`;
 
   const chartSeries = useMemo(() => {

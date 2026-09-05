@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CompteEditor } from "./CompteEditor";
+import { FormulaPe } from "./FormulaPe";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,8 @@ export default async function CompteResultatsPage() {
           </p>
         </div>
       </div>
+
+      <FormulaPe />
 
       {concepts.length === 0 ? (
         <div className={styles.empty}>

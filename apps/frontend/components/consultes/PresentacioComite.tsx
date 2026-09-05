@@ -38,13 +38,15 @@ export type SeriePerLnComite = {
 /** Dades d’ompliment per a OpsiaKpiCard (spec kpi-card.json). */
 export type KpiComite = {
   label: string;
-  import_: number;
+  import_?: number;
+  /** Si present, substitueix l'import formatat (ex. «1,25×»). */
+  valueText?: string;
   /** % destacat dins la targeta. */
   pct?: number | null;
   pctHint?: string;
   /** Text auxiliar sense % (ex. «Explotació»). */
   hint?: string;
-  accent?: "ingressos" | "cost" | "ebitda";
+  accent?: "ingressos" | "cost" | "ebitda" | "neutral";
 };
 
 function formatEix(v: number): string {
@@ -131,6 +133,7 @@ export function PresentacioComite({
             key={k.label}
             label={k.label}
             import_={k.import_}
+            value={k.valueText}
             pct={k.pct}
             pctHint={k.pctHint ?? "s/ ingressos"}
             pctSigned={k.accent === "ebitda"}

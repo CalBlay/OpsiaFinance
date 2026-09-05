@@ -36,6 +36,33 @@ function accentFromTipus(
 }
 
 function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: string }) {
+  if (k.tipus === "cobertura") {
+    return (
+      <OpsiaKpiCard
+        label={k.label}
+        value={<>{formatNum(k.import_, 2)}×</>}
+        periode={periodeLabel}
+        accent="neutral"
+        hint="Ingressos / PE"
+      />
+    );
+  }
+
+  if (k.tipus === "pe") {
+    return (
+      <OpsiaKpiCard
+        label={k.label}
+        import_={k.import_}
+        periode={periodeLabel}
+        accent="neutral"
+        pct={k.pctVendes}
+        pctHint="MC s/ ingressos"
+        hint={k.nota ?? "Punt d'equilibri"}
+        negImport
+      />
+    );
+  }
+
   return (
     <OpsiaKpiCard
       label={k.label}

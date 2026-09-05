@@ -15,6 +15,8 @@ import {
   NODE_INGRESSOS,
 } from "@/lib/kpi-definitions";
 import { type RangMesos, esAnyComplet, rangToQuery } from "@/lib/periodes";
+import type { NaturaByNodeRecord } from "@/lib/punt-equilibri";
+import { kpisComitePuntEquilibri } from "@/lib/punt-equilibri";
 import type { VistaCompte } from "@/lib/vista-compte";
 import type { FilaResumLinia } from "./LiniaResumPresentacio";
 
@@ -41,9 +43,14 @@ export type LiniaResumCapa = {
 export function buildLiniaResumCapa(
   comp: ComparativaEmpresa,
   evEmpresa: EvolucioMensual | null,
-  opts: { anyActual: number; rang: RangMesos; vista: VistaCompte }
+  opts: {
+    anyActual: number;
+    rang: RangMesos;
+    vista: VistaCompte;
+    naturaByNode?: NaturaByNodeRecord;
+  }
 ): LiniaResumCapa {
-  const { anyActual, rang, vista } = opts;
+  const { anyActual, rang, vista, naturaByNode } = opts;
   const findRow = (node: number) => comp.concepts.find((c) => c.node === node);
   const findEv = (node: number) => evEmpresa?.concepts.find((c) => c.node === node);
 
@@ -83,6 +90,16 @@ export function buildLiniaResumCapa(
       pctHint: "s/ ingressos",
       accent: "ebitda",
     },
+    ...(naturaByNode
+      ? kpisComitePuntEquilibri(
+          comp.concepts.map((c) => ({
+            node: c.node,
+            total: c.total,
+            esSubtotal: c.esSubtotal,
+          })),
+          naturaByNode
+        )
+      : []),
   ];
 
   const mesIni = rang.des - 1;
