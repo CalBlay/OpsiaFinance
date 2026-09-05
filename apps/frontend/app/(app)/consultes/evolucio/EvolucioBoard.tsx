@@ -2,6 +2,7 @@
 
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import { DetallCompteCollapsible } from "@/components/consultes/DetallCompteCollapsible";
+import type { ChartSeries } from "@/components/consultes/EvolucioChart";
 import { GestioAvis } from "@/components/consultes/GestioAvis";
 import { KpiInformeCards } from "@/components/consultes/KpiCards";
 import type { PivotColumn } from "@/components/consultes/PivotTable";
@@ -41,7 +42,9 @@ type LnOpt = { id: string; codi: string; nom: string };
 function buildKpis(
   ev: EvolucioMensual | null,
   scope: AmbitEvolucio,
-  naturaByNode?: NaturaByNodeRecord
+  naturaByNode?: NaturaByNodeRecord,
+  peKpisLn?: KpiInformeItem[],
+  vista?: VistaCompte
 ): KpiInformeItem[] {
   if (!ev) return [];
   const findRow = (node: number) => ev.concepts.find((c) => c.node === node);
@@ -49,6 +52,13 @@ function buildKpis(
     scope === "empresa"
       ? buildKpisEmpresa((node) => findRow(node)?.total ?? 0)
       : buildKpisInforme((node) => findRow(node)?.total ?? 0);
+
+  // PE LN Gestió (amb Estructura Central): només quan la vista activa és Gestió,
+  // així PE i EBITDA comparteixen el mateix compte.
+  if (scope === "linia" && vista === "gestio" && peKpisLn?.length) {
+    return [...base, ...peKpisLn];
+  }
+
   if (!naturaByNode) return base;
   const peConcepts = ev.concepts.map((c) => ({
     node: c.node,
@@ -56,7 +66,11 @@ function buildKpis(
     esSubtotal: c.esSubtotal,
   }));
   const nMesos = nMesosAmbIngressos(findRow(NODE_INGRESSOS)?.valors ?? []);
-  return [...base, ...kpisPuntEquilibri(peConcepts, naturaByNode, { nMesos })];
+  const pe = kpisPuntEquilibri(peConcepts, naturaByNode, { nMesos });
+  // A Directe/Traspassos: PE de la vista + badge d'estructura Central (si ve de peKpisLn).
+  const estructura =
+    scope === "linia" ? (peKpisLn?.filter((k) => k.tipus === "estructura") ?? []) : [];
+  return [...base, ...pe, ...estructura];
 }
 
 export function EvolucioBoard({
@@ -77,6 +91,8 @@ export function EvolucioBoard({
   infoGestio: infoGestioInicial,
   potCarregarGestio = false,
   naturaByNode,
+  peKpisLn,
+  peMensualLn,
 }: {
   linies: LnOpt[];
   anys: number[];
@@ -95,6 +111,9 @@ export function EvolucioBoard({
   infoGestio: InfoGestioConsulta | null;
   potCarregarGestio?: boolean;
   naturaByNode?: NaturaByNodeRecord;
+  /** PE propi precalculat (només scope=línia). */
+  peKpisLn?: KpiInformeItem[];
+  peMensualLn?: (number | null)[];
 }) {
   const [vista, setVista] = useState<VistaCompte>(vistaInicial);
   const [gestio, setGestio] = useState<EvolucioMensual | null>(gestioInicial);
@@ -176,44 +195,56 @@ export function EvolucioBoard({
   const canEdit = isAdmin && vista === "directe" && scope === "linia" && !!lnId;
   const vistaLabel = etiquetaVistaCompte(vista);
   const columns: PivotColumn[] = MESOS_CURTS.map((m, i) => ({ key: String(i), label: m }));
-  const kpis = useMemo(() => buildKpis(ev, scope, naturaByNode), [ev, scope, naturaByNode]);
+  const kpis = useMemo(
+    () => buildKpis(ev, scope, naturaByNode, peKpisLn, vista),
+    [ev, scope, naturaByNode, peKpisLn, vista]
+  );
   const periodeLabel = `Acumulat ${anyActual}`;
 
-  const chartSeries = useMemo(() => {
+  const chartSeries = useMemo((): ChartSeries[] => {
     if (!ev) return [];
     const findRow = (node: number) => ev.concepts.find((c) => c.node === node);
-    const series = [
+    const series: ChartSeries[] = [
       {
         name: "Ingressos",
-        type: "bar" as const,
+        type: "bar",
         color: OPSIA_CHART.ingressos,
         data: findRow(NODE_INGRESSOS)?.valors ?? [],
       },
       {
         name: "EBITDA",
-        type: "line" as const,
+        type: "line",
         color: OPSIA_CHART.ebitda,
         data: findRow(NODE_EBITDA)?.valors ?? [],
+        endLabel: "EBITDA",
+        endLabelDy: -12,
       },
     ];
+    // LN: sèrie peMensualLn (Fixos_mes ÷ MC%_període). Empresa: mateix criteri via calcularPePerMes.
     if (naturaByNode) {
-      const peMes = calcularPePerMes(
-        ev.concepts.map((c) => ({
-          node: c.node,
-          valors: c.valors,
-          esSubtotal: c.esSubtotal,
-        })),
-        naturaByNode
-      );
+      const peMes =
+        scope === "linia" && peMensualLn?.length
+          ? peMensualLn
+          : calcularPePerMes(
+              ev.concepts.map((c) => ({
+                node: c.node,
+                valors: c.valors,
+                esSubtotal: c.esSubtotal,
+              })),
+              naturaByNode
+            );
       series.push({
-        name: "PE mensual",
-        type: "line" as const,
-        color: OPSIA_CHART.ebitda,
-        data: peMes.map((v) => v ?? 0),
+        name: "PE",
+        type: "line",
+        color: OPSIA_CHART.pe,
+        data: peMes,
+        strokeDasharray: "6 4",
+        endLabel: "PE",
+        endLabelDy: 12,
       });
     }
     return series;
-  }, [ev, naturaByNode]);
+  }, [ev, naturaByNode, scope, peMensualLn]);
 
   const ensurePivot = useCallback(async () => {
     const scopeKey = `${scope}:${lnId ?? ""}:${anyActual}:${grup}`;
@@ -322,7 +353,10 @@ export function EvolucioBoard({
           <KpiInformeCards kpis={kpis} periodeLabel={periodeLabel} />
 
           <div className={styles.chartCard}>
-            <h3 className={styles.chartTitle}>Evolució mensual · Ingressos i EBITDA</h3>
+            <h3 className={styles.chartTitle}>
+              Evolució mensual · Ingressos, EBITDA
+              {scope === "linia" && peMensualLn?.length ? " i PE" : naturaByNode ? " i PE" : ""}
+            </h3>
             <EvolucioChart categories={MESOS_CURTS} series={chartSeries} />
           </div>
 

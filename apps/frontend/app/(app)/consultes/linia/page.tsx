@@ -35,7 +35,16 @@ import {
 import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import type { RangMesos } from "@/lib/periodes";
-import { kpisPuntEquilibri, nMesosAmbIngressos } from "@/lib/punt-equilibri";
+import {
+  type ConceptePeInput,
+  type ConceptePeMensualInput,
+  calcularPePerMes,
+  calcularPePropiLnPerMes,
+  kpisPuntEquilibri,
+  kpisPuntEquilibriPropiLn,
+  nMesosAmbIngressos,
+} from "@/lib/punt-equilibri";
+import { importEstructuraCentralLn } from "@/lib/repartiment/estructura-central-ln";
 import { aplicarDeltaPresentacioGestio } from "@/lib/repartiment/gestio-consultes";
 import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import {
@@ -147,12 +156,43 @@ export default async function ConsultaLiniaPage({
     vistaInclouRepartiment(vista) ? getInfoGestioConsulta(anyActual, rang) : Promise.resolve(null),
   ]);
 
-  // Reutilitzem la composiciÃ³ de capes d'EvoluciÃ³: el selector de LN ja no
-  // necessita carregar totes les altres lÃ­nies per reconstruir els KPI.
+  // Base Directe per PE propi (sempre, independent de la vista activa).
+  const evDirecteRaw =
+    vista === "directe"
+      ? evRaw
+      : await getEvolucioMensualPerVista("linia", lnId, anyActual, grup, "directe");
+
+  // Reutilitzem la composició de capes d'Evolució: el selector de LN ja no
+  // necessita carregar totes les altres línies per reconstruir els KPI.
   let ev = evRaw;
   // Les fórmules antigues es conserven més avall temporalment per compatibilitat
   // de codi, però aquesta consulta ja treballa amb la capa compartida.
   const calcularKpisLegacy = false;
+
+  // Capes PE propi: Directe → (+traspassos personal) → Gestió (repartiment).
+  // Amb potGestio sempre calculem les tres capes (PE propi + badge Central).
+  const potGestioLn = grupPermetVistaGestio(grup);
+  const conceptsPeDirecte = evDirecteRaw?.concepts ?? [];
+  let conceptsPeTraspass = conceptsPeDirecte;
+  let conceptsPeGestio: typeof conceptsPeDirecte | undefined;
+  if (evDirecteRaw && potGestioLn) {
+    conceptsPeTraspass = await aplicarBaseGestioPersonalEvolucioLn(
+      lnId,
+      anyActual,
+      conceptsPeDirecte
+    );
+    conceptsPeGestio = await aplicarVistaGestioEvolucioLn(lnId, anyActual, conceptsPeTraspass);
+  } else if (evDirecteRaw && (vistaInclouTraspassos(vista) || vistaInclouRepartiment(vista))) {
+    conceptsPeTraspass = await aplicarBaseGestioPersonalEvolucioLn(
+      lnId,
+      anyActual,
+      conceptsPeDirecte
+    );
+    if (vistaInclouRepartiment(vista)) {
+      conceptsPeGestio = await aplicarVistaGestioEvolucioLn(lnId, anyActual, conceptsPeTraspass);
+    }
+  }
+
   if (ev && vistaInclouTraspassos(vista)) {
     ev = {
       ...ev,
@@ -569,18 +609,82 @@ export default async function ConsultaLiniaPage({
     label: m,
   }));
   const rowsMes = ev ? retallaRang(conceptsTaula, rang) : [];
+
+  const toPeInput = (concepts: typeof conceptsPeDirecte): ConceptePeInput[] =>
+    concepts.map((c) => {
+      const valors = c.valors.slice(rang.des - 1, rang.fins);
+      return {
+        node: c.node,
+        total: valors.reduce((a, b) => a + b, 0),
+        esSubtotal: c.esSubtotal,
+      };
+    });
+
+  const toPeMensual = (concepts: typeof conceptsPeDirecte): ConceptePeMensualInput[] =>
+    concepts.map((c) => ({
+      node: c.node,
+      valors: c.valors.slice(rang.des - 1, rang.fins),
+      esSubtotal: c.esSubtotal,
+    }));
+
   const nMesosPe = nMesosAmbIngressos(
     rowsMes.find((r) => r.node === NODE_INGRESSOS)?.valors ?? [],
     1,
     rowsMes.find((r) => r.node === NODE_INGRESSOS)?.valors.length ?? rang.fins - rang.des + 1
   );
-  const kpis =
-    kpisBase.length && naturaByNode
-      ? [...kpisBase, ...kpisPuntEquilibri(rowsMes, naturaByNode, { nMesos: nMesosPe })]
-      : kpisBase;
+
+  const teTraspassPe = conceptsPeTraspass !== conceptsPeDirecte;
+  const estructuraCentralImputada =
+    potGestioLn && conceptsPeDirecte.length > 0
+      ? await importEstructuraCentralLn(lnId, anyActual, rang)
+      : undefined;
+
+  const peCapes =
+    conceptsPeDirecte.length > 0
+      ? {
+          directe: toPeInput(conceptsPeDirecte),
+          ambTraspassos: teTraspassPe ? toPeInput(conceptsPeTraspass) : undefined,
+          gestio: conceptsPeGestio ? toPeInput(conceptsPeGestio) : undefined,
+          estructuraCentralImputada,
+        }
+      : null;
+
+  const peKpisVista =
+    naturaByNode && peCapes && vistaInclouRepartiment(vista)
+      ? kpisPuntEquilibriPropiLn(peCapes, naturaByNode, { nMesos: nMesosPe })
+      : naturaByNode && ev && !ev.buit
+        ? [
+            ...kpisPuntEquilibri(toPeInput(ev.concepts), naturaByNode, { nMesos: nMesosPe }),
+            ...(peCapes
+              ? kpisPuntEquilibriPropiLn(peCapes, naturaByNode, { nMesos: nMesosPe }).filter(
+                  (k) => k.tipus === "estructura"
+                )
+              : []),
+          ]
+        : [];
+
+  const kpis = kpisBase.length && peKpisVista.length ? [...kpisBase, ...peKpisVista] : kpisBase;
 
   const valorsTaula = (node: number) =>
     conceptsTaula.find((c) => c.node === node)?.valors ?? findEvRow(node)?.valors ?? [];
+
+  // PE_mes = Fixos_mes ÷ MC%_període (Gestió si hi és; si no, vista activa).
+  const peMensualSerie =
+    naturaByNode && conceptsPeDirecte.length > 0
+      ? vistaInclouRepartiment(vista) && conceptsPeGestio
+        ? calcularPePropiLnPerMes(
+            {
+              directe: toPeMensual(conceptsPeDirecte),
+              ambTraspassos: teTraspassPe ? toPeMensual(conceptsPeTraspass) : undefined,
+              gestio: toPeMensual(conceptsPeGestio),
+            },
+            naturaByNode
+          )
+        : calcularPePerMes(
+            toPeMensual(conceptsTaula.length ? conceptsTaula : (ev?.concepts ?? [])),
+            naturaByNode
+          )
+      : [];
 
   const chartSeries = ev
     ? [
@@ -595,7 +699,22 @@ export default async function ConsultaLiniaPage({
           type: "line" as const,
           color: OPSIA_CHART.ebitda,
           data: valorsTaula(NODE_EBITDA).slice(rang.des - 1, rang.fins),
+          endLabel: "EBITDA",
+          endLabelDy: -12,
         },
+        ...(peMensualSerie.length
+          ? [
+              {
+                name: "PE",
+                type: "line" as const,
+                color: OPSIA_CHART.pe,
+                data: peMensualSerie,
+                strokeDasharray: "6 4",
+                endLabel: "PE",
+                endLabelDy: 12,
+              },
+            ]
+          : []),
       ]
     : [];
 
@@ -647,7 +766,8 @@ export default async function ConsultaLiniaPage({
 
           <div className={styles.chartCard}>
             <h3 className={styles.chartTitle}>
-              Evolució de la línia · Ingressos i EBITDA · {periodeLabel}
+              Evolució de la línia · Ingressos, EBITDA
+              {peMensualSerie.length ? " i PE" : ""} · {periodeLabel}
             </h3>
             <EvolucioChart categories={mesosCols} series={chartSeries} height={360} />
           </div>

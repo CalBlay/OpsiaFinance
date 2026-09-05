@@ -87,6 +87,8 @@ export const OPSIA_CHART_SERIES = [
 
 export const OPSIA_CHART = {
   ebitda: OPSIA_GREEN[600],
+  /** Punt d'equilibri: contrast fort vs EBITDA (verd). */
+  pe: OPSIA_ORANGE[600],
   ingressos: OPSIA_GREEN[400],
   vendes: OPSIA_GREEN[400],
   personal: OPSIA_GREEN[500],

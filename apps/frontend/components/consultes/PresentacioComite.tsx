@@ -185,10 +185,10 @@ export function PresentacioComite({
                 <Line
                   type="monotone"
                   dataKey="PE mensual"
-                  stroke="var(--color-muted-foreground)"
-                  strokeWidth={2}
+                  stroke={OPSIA_CHART.pe}
+                  strokeWidth={2.5}
                   strokeDasharray="6 4"
-                  dot={false}
+                  dot={{ r: 3, fill: OPSIA_CHART.pe, strokeWidth: 0 }}
                 />
               ) : null}
             </ComposedChart>

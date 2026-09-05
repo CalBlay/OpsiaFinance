@@ -1,4 +1,4 @@
-export type KpiTipus = "vendes" | "cost" | "ebitda" | "pe" | "cobertura";
+export type KpiTipus = "vendes" | "cost" | "ebitda" | "pe" | "cobertura" | "estructura";
 
 export const NODE_VENDES = 2;
 export const NODE_COMPRES = 11;

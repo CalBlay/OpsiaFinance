@@ -14,6 +14,7 @@ import {
 } from "@/lib/cost-personal-centre/gestio-consultes";
 import type { GrupEmpresa } from "@/lib/grups-empresa";
 import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-empresa";
+import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import {
   aplicarVistaGestioEvolucioEmpresa,
   aplicarVistaGestioEvolucioLn,
@@ -86,14 +87,18 @@ export async function carregarEvolucioGestioAction(input: {
   if (!grupPermetVistaGestio(input.grup)) return null;
   if (input.scope === "linia" && !input.lnId) return null;
 
-  const [gestioFull, infoGestio] = await Promise.all([
+  const [gestioFull, infoGestio, naturaByNode] = await Promise.all([
     evolucioAmbVista({ ...input, vista: "gestio" }),
     getInfoGestioConsulta(input.any, { des: 1, fins: 12 }),
+    getMapaNaturaConceptes(),
   ]);
   if (!gestioFull) return null;
 
   return {
-    gestio: { ...gestioFull, concepts: slimConceptsForPaint(gestioFull.concepts) },
+    gestio: {
+      ...gestioFull,
+      concepts: slimConceptsForPaint(gestioFull.concepts, naturaByNode),
+    },
     infoGestio,
   };
 }
@@ -123,6 +128,6 @@ export async function carregarEvolucioCapaAction(input: {
   vista: VistaCompte;
 }): Promise<EvolucioMensual | null> {
   if (input.scope === "linia" && !input.lnId) return null;
-  const ev = await evolucioAmbVista(input);
-  return ev ? { ...ev, concepts: slimConceptsForPaint(ev.concepts) } : null;
+  const [ev, naturaByNode] = await Promise.all([evolucioAmbVista(input), getMapaNaturaConceptes()]);
+  return ev ? { ...ev, concepts: slimConceptsForPaint(ev.concepts, naturaByNode) } : null;
 }

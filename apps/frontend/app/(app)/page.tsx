@@ -6,6 +6,7 @@ import { etiquetaGrafic } from "@/lib/consultes-grafics";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { etiquetaGrupEmpresa } from "@/lib/grups-empresa";
 import {
+  type KpiInformeItem,
   NODE_COMPRES,
   NODE_COST_GESTIO,
   NODE_COST_SALARIAL,
@@ -13,7 +14,9 @@ import {
   NODE_VENDES,
   buildKpisEmpresa,
 } from "@/lib/kpi-definitions";
+import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import { kpisPuntEquilibri } from "@/lib/punt-equilibri";
 import { potEditar } from "@/lib/roles";
 import { ArrowRight, BarChart3, GitCompareArrows, ShoppingBag, Users } from "lucide-react";
 import Link from "next/link";
@@ -29,7 +32,7 @@ export default async function HomePage() {
   const showDades = potEditar(session?.user?.role);
   const nomEmpresa = etiquetaGrupEmpresa(grup);
 
-  let kpis: ReturnType<typeof buildKpisEmpresa> | null = null;
+  let kpis: KpiInformeItem[] | null = null;
   let periodeLabel = "";
   let buit = true;
   let empresaHref = "/consultes/empresa";
@@ -44,11 +47,29 @@ export default async function HomePage() {
 
     // Una sola comparativa: Directe i Gestió comparteixen totals d'empresa
     // (repartiment zero-sum). Els gràfics d'inici només usen totals, no columnes LN.
-    const comp = await getComparativaEmpresa(darrer.any, rang, "directe", grup);
+    const [comp, naturaByNode] = await Promise.all([
+      getComparativaEmpresa(darrer.any, rang, "directe", grup),
+      getMapaNaturaConceptes(),
+    ]);
 
     buit = comp.buit;
     if (!comp.buit) {
-      kpis = buildKpisEmpresa((node) => comp.concepts.find((c) => c.node === node)?.total ?? 0);
+      const kpisBase = buildKpisEmpresa(
+        (node) => comp.concepts.find((c) => c.node === node)?.total ?? 0
+      );
+      // Un sol mes → PE del mes = PE mensual d'empresa.
+      const peKpis = kpisPuntEquilibri(
+        comp.concepts.map((c) => ({
+          node: c.node,
+          total: c.total,
+          esSubtotal: c.esSubtotal,
+        })),
+        naturaByNode,
+        { nMesos: 1 }
+      ).map((k) =>
+        k.tipus === "pe" ? { ...k, label: "PE mensual", nota: "PE del mes · empresa" } : k
+      );
+      kpis = [...kpisBase, ...peKpis];
 
       const ingressosRow = comp.concepts.find((c) => c.node === NODE_INGRESSOS);
       const vendesRow = comp.concepts.find((c) => c.node === NODE_VENDES);

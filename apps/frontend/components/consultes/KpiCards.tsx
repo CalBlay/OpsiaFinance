@@ -43,7 +43,7 @@ function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: 
         value={<>{formatNum(k.import_, 2)}×</>}
         periode={periodeLabel}
         accent="neutral"
-        hint="Ingressos / PE"
+        hint={k.nota ?? "Ingressos / PE"}
       />
     );
   }
@@ -58,6 +58,21 @@ function KpiCardInforme({ k, periodeLabel }: { k: KpiInformeItem; periodeLabel: 
         pct={k.pctVendes}
         pctHint="MC s/ ingressos"
         hint={k.nota ?? "Punt d'equilibri"}
+        negImport
+      />
+    );
+  }
+
+  if (k.tipus === "estructura") {
+    return (
+      <OpsiaKpiCard
+        label={k.label}
+        import_={k.import_}
+        periode={periodeLabel}
+        accent="cost"
+        pct={k.pctVendes}
+        pctHint="s/ ingressos"
+        hint={k.nota ?? "Repartiment Central"}
         negImport
       />
     );

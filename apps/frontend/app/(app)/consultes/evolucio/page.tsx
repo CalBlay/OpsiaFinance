@@ -108,6 +108,71 @@ export default async function EvolucioPage({
 
   const naturaByNode = await getMapaNaturaConceptes();
 
+  // PE propi LN: Directe + traspassos (var) + estructura Central (informativa).
+  let peKpisLn: import("@/lib/kpi-definitions").KpiInformeItem[] | undefined;
+  let peMensualLn: (number | null)[] | undefined;
+  if (scope === "linia" && lnId && naturaByNode && !necessitaLn) {
+    const { calcularPePropiLnPerMes, kpisPuntEquilibriPropiLn, nMesosAmbIngressos } = await import(
+      "@/lib/punt-equilibri"
+    );
+    const { NODE_INGRESSOS } = await import("@/lib/kpi-definitions");
+
+    const evDirecte =
+      vista === "directe"
+        ? evRaw
+        : await getEvolucioMensualPerVista("linia", lnId, anyActual, grup, "directe");
+
+    if (evDirecte && !evDirecte.buit) {
+      let conceptsTraspass = evDirecte.concepts;
+      let conceptsGestio: typeof evDirecte.concepts | undefined;
+      if (potGestio) {
+        conceptsTraspass = await aplicarBaseGestioPersonalEvolucioLn(
+          lnId,
+          anyActual,
+          evDirecte.concepts
+        );
+        conceptsGestio = await aplicarVistaGestioEvolucioLn(lnId, anyActual, conceptsTraspass);
+      }
+
+      const toPe = (concepts: typeof evDirecte.concepts) =>
+        concepts.map((c) => ({
+          node: c.node,
+          total: c.total,
+          esSubtotal: c.esSubtotal,
+        }));
+      const toPeMes = (concepts: typeof evDirecte.concepts) =>
+        concepts.map((c) => ({
+          node: c.node,
+          valors: c.valors,
+          esSubtotal: c.esSubtotal,
+        }));
+
+      const ingressosValors =
+        evDirecte.concepts.find((c) => c.node === NODE_INGRESSOS)?.valors ?? [];
+      const nMesos = nMesosAmbIngressos(ingressosValors);
+      const { importEstructuraCentralLn } = await import("@/lib/repartiment/estructura-central-ln");
+      const estructuraCentralImputada = potGestio
+        ? await importEstructuraCentralLn(lnId, anyActual, { des: 1, fins: 12 })
+        : undefined;
+      const peCapes = {
+        directe: toPe(evDirecte.concepts),
+        ambTraspassos: potGestio ? toPe(conceptsTraspass) : undefined,
+        gestio: conceptsGestio ? toPe(conceptsGestio) : undefined,
+        estructuraCentralImputada,
+      };
+      peKpisLn = kpisPuntEquilibriPropiLn(peCapes, naturaByNode, { nMesos });
+      // Sèrie gràfica: Fixos_mes ÷ MC%_període (no PE pla).
+      peMensualLn = calcularPePropiLnPerMes(
+        {
+          directe: toPeMes(evDirecte.concepts),
+          ambTraspassos: potGestio ? toPeMes(conceptsTraspass) : undefined,
+          gestio: conceptsGestio ? toPeMes(conceptsGestio) : undefined,
+        },
+        naturaByNode
+      );
+    }
+  }
+
   return (
     <EvolucioBoard
       linies={linies}
@@ -122,11 +187,17 @@ export default async function EvolucioPage({
       isAdmin={session?.user?.role === "ADMIN"}
       grup={grup}
       lnIdsEmpresa={lnIdsEmpresa}
-      directe={evRaw ? { ...evRaw, concepts: slimConceptsForPaint(evRaw.concepts) } : null}
-      gestio={gestio ? { ...gestio, concepts: slimConceptsForPaint(gestio.concepts) } : null}
+      directe={
+        evRaw ? { ...evRaw, concepts: slimConceptsForPaint(evRaw.concepts, naturaByNode) } : null
+      }
+      gestio={
+        gestio ? { ...gestio, concepts: slimConceptsForPaint(gestio.concepts, naturaByNode) } : null
+      }
       infoGestio={infoGestio}
       potCarregarGestio={potGestio && vista === "directe" && !!evRaw}
       naturaByNode={naturaByNode}
+      peKpisLn={peKpisLn}
+      peMensualLn={peMensualLn}
     />
   );
 }
