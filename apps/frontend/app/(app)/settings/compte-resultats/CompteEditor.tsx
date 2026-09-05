@@ -5,6 +5,7 @@ import {
   NATURA_CONCEPTE_LABELS,
   NATURA_CONCEPTE_VALUES,
   type NaturaConcepte,
+  PCT_VARIABLE_MIXTE_DEFECTE,
 } from "@/lib/natura-concepte";
 import { cn } from "@/lib/utils";
 import { Check, ChevronDown, ChevronUp, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
@@ -28,6 +29,7 @@ export interface ConcepteDTO {
   esSubtotal: boolean;
   isActive: boolean;
   natura: NaturaConcepte | null;
+  pctVariable: number | null;
 }
 
 export function CompteEditor({ concepts, canEdit }: { concepts: ConcepteDTO[]; canEdit: boolean }) {
@@ -113,7 +115,57 @@ function NaturaSelect({
   );
 }
 
-function NaturaBadge({ value }: { value: NaturaConcepte | null }) {
+function PctMixteEditor({
+  pctVariable,
+  disabled,
+  onCommit,
+}: {
+  pctVariable: number;
+  disabled?: boolean;
+  onCommit: (pct: number) => void;
+}) {
+  const [txt, setTxt] = useState(String(pctVariable));
+  const pctFix = 100 - pctVariable;
+
+  return (
+    <div className={styles.mixteBox}>
+      <label className={styles.mixteLabel} title="Percentatge variable">
+        <input
+          className={styles.pctInput}
+          type="number"
+          min={0}
+          max={100}
+          step={1}
+          disabled={disabled}
+          value={txt}
+          onChange={(e) => setTxt(e.target.value)}
+          onBlur={() => {
+            const n = Number.parseInt(txt, 10);
+            const pct = Number.isNaN(n)
+              ? PCT_VARIABLE_MIXTE_DEFECTE
+              : Math.min(100, Math.max(0, n));
+            setTxt(String(pct));
+            if (pct !== pctVariable) onCommit(pct);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+          aria-label="Percentatge variable"
+        />
+        <span>% var</span>
+      </label>
+      <span className={styles.mixteFixHint}>{pctFix}% fix</span>
+    </div>
+  );
+}
+
+function NaturaBadge({
+  value,
+  pctVariable,
+}: {
+  value: NaturaConcepte | null;
+  pctVariable: number | null;
+}) {
   if (!value) return <span className={styles.tagNaturaEmpty}>—</span>;
   const cls =
     value === "INGRES"
@@ -122,8 +174,16 @@ function NaturaBadge({ value }: { value: NaturaConcepte | null }) {
         ? styles.naturaVariable
         : value === "FIX"
           ? styles.naturaFix
-          : styles.naturaAlie;
-  return <span className={cn(styles.tagNatura, cls)}>{NATURA_CONCEPTE_LABELS[value]}</span>;
+          : value === "MIXTE"
+            ? styles.naturaMixte
+            : styles.naturaAlie;
+  const extra = value === "MIXTE" && pctVariable != null ? ` · ${pctVariable}% var` : "";
+  return (
+    <span className={cn(styles.tagNatura, cls)}>
+      {NATURA_CONCEPTE_LABELS[value]}
+      {extra}
+    </span>
+  );
 }
 
 function ConcepteRow({
@@ -143,11 +203,20 @@ function ConcepteRow({
   const [desc, setDesc] = useState(concepte.descripcio);
   const [esSubtotal, setEsSubtotal] = useState(concepte.esSubtotal);
   const [natura, setNatura] = useState<NaturaConcepte | null>(concepte.natura);
+  const [pctVariable, setPctVariable] = useState(
+    concepte.pctVariable ?? PCT_VARIABLE_MIXTE_DEFECTE
+  );
   const [isPending, startTransition] = useTransition();
 
   const save = () =>
     startTransition(async () => {
-      const r = await updateConcepteAction(concepte.id, desc, esSubtotal, natura);
+      const r = await updateConcepteAction(
+        concepte.id,
+        desc,
+        esSubtotal,
+        natura,
+        natura === "MIXTE" ? pctVariable : null
+      );
       notify(r);
       if (r.ok) setEditing(false);
     });
@@ -156,8 +225,17 @@ function ConcepteRow({
 
   const onNaturaQuick = (v: NaturaConcepte | null) => {
     setNatura(v);
+    const pct = v === "MIXTE" ? pctVariable || PCT_VARIABLE_MIXTE_DEFECTE : null;
+    if (v === "MIXTE") setPctVariable(pct ?? PCT_VARIABLE_MIXTE_DEFECTE);
     startTransition(async () => {
-      notify(await updateNaturaAction(concepte.id, v));
+      notify(await updateNaturaAction(concepte.id, v, pct));
+    });
+  };
+
+  const onPctQuick = (pct: number) => {
+    setPctVariable(pct);
+    startTransition(async () => {
+      notify(await updateNaturaAction(concepte.id, "MIXTE", pct));
     });
   };
 
@@ -224,11 +302,36 @@ function ConcepteRow({
         {mostrarSubtotal ? (
           <span className={styles.tagNaturaEmpty}>—</span>
         ) : canEdit && !editing ? (
-          <NaturaSelect value={natura} disabled={isPending} onChange={onNaturaQuick} />
+          <div className={styles.naturaCell}>
+            <NaturaSelect value={natura} disabled={isPending} onChange={onNaturaQuick} />
+            {natura === "MIXTE" && (
+              <PctMixteEditor
+                pctVariable={pctVariable}
+                disabled={isPending}
+                onCommit={onPctQuick}
+              />
+            )}
+          </div>
         ) : editing ? (
-          <NaturaSelect value={natura} disabled={esSubtotal || isPending} onChange={setNatura} />
+          <div className={styles.naturaCell}>
+            <NaturaSelect
+              value={natura}
+              disabled={esSubtotal || isPending}
+              onChange={(v) => {
+                setNatura(v);
+                if (v === "MIXTE" && !pctVariable) setPctVariable(PCT_VARIABLE_MIXTE_DEFECTE);
+              }}
+            />
+            {natura === "MIXTE" && !esSubtotal && (
+              <PctMixteEditor
+                pctVariable={pctVariable}
+                disabled={isPending}
+                onCommit={setPctVariable}
+              />
+            )}
+          </div>
         ) : (
-          <NaturaBadge value={concepte.natura} />
+          <NaturaBadge value={concepte.natura} pctVariable={concepte.pctVariable} />
         )}
       </span>
 
@@ -310,13 +413,20 @@ function AddConcepte({
   const [desc, setDesc] = useState("");
   const [esSubtotal, setEsSubtotal] = useState(false);
   const [natura, setNatura] = useState<NaturaConcepte | null>(null);
+  const [pctVariable, setPctVariable] = useState(PCT_VARIABLE_MIXTE_DEFECTE);
   const [isPending, startTransition] = useTransition();
 
   const save = () => {
     const n = Number.parseInt(node, 10);
     if (Number.isNaN(n) || !desc.trim()) return;
     startTransition(async () => {
-      const r = await createConcepteAction(n, desc, esSubtotal, natura);
+      const r = await createConcepteAction(
+        n,
+        desc,
+        esSubtotal,
+        natura,
+        natura === "MIXTE" ? pctVariable : null
+      );
       notify(r);
       if (r.ok) onDone();
     });
@@ -352,7 +462,25 @@ function AddConcepte({
           />
           subtotal
         </label>
-        {!esSubtotal && <NaturaSelect value={natura} disabled={isPending} onChange={setNatura} />}
+        {!esSubtotal && (
+          <>
+            <NaturaSelect
+              value={natura}
+              disabled={isPending}
+              onChange={(v) => {
+                setNatura(v);
+                if (v === "MIXTE") setPctVariable(PCT_VARIABLE_MIXTE_DEFECTE);
+              }}
+            />
+            {natura === "MIXTE" && (
+              <PctMixteEditor
+                pctVariable={pctVariable}
+                disabled={isPending}
+                onCommit={setPctVariable}
+              />
+            )}
+          </>
+        )}
         <button
           type="button"
           className={styles.iconBtn}

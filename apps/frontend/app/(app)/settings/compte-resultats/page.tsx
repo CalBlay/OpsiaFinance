@@ -18,6 +18,7 @@ export default async function CompteResultatsPage() {
         esSubtotal: true,
         isActive: true,
         natura: true,
+        pctVariable: true,
       },
     }),
   ]);
@@ -31,7 +32,8 @@ export default async function CompteResultatsPage() {
         <div>
           <h1 className={styles.title}>Estructura del compte de resultats</h1>
           <p className={styles.subtitle}>
-            Conceptes, ordre i natura (ingrés / variable / fix / aliè) per al punt d&apos;equilibri.
+            Conceptes, ordre i natura (ingrés / variable / fix / mixt / aliè). Amb mixt pots indicar
+            el % variable (la resta és fix).
             {canEdit ? " Editable." : " Consulta."}
           </p>
         </div>

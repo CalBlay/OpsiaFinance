@@ -200,6 +200,8 @@ model ConcepteResultat {
   esSubtotal Boolean         @default(false)
   /// Natura del concepte per al punt d'equilibri (null = subtotal / no aplica).
   natura     NaturaConcepte?
+  /// % del cost que és variable quan natura = MIXTE (0–100). Null si no aplica.
+  pctVariable Int?
   ordre      Int             @default(0)
   isActive   Boolean         @default(true)
   createdAt  DateTime        @default(now())
@@ -710,11 +712,13 @@ model NormaConsolidacioImport {
 }
 
 /// Natura d'un concepte del P&L per al càlcul del punt d'equilibri.
-/// INGRES = ingressos; VARIABLE / FIX = costos; ALIE = financer/excepcional/impost (fora PE explotació).
+/// INGRES = ingressos; VARIABLE / FIX / MIXTE = costos; ALIE = financer/excepcional/impost (fora PE explotació).
+/// MIXTE usa `pctVariable` (0–100); la resta es considera fix.
 enum NaturaConcepte {
   INGRES
   VARIABLE
   FIX
+  MIXTE
   ALIE
 }
 

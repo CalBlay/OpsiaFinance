@@ -2,7 +2,11 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { type NaturaConcepte, parseNaturaConcepte } from "@/lib/natura-concepte";
+import {
+  type NaturaConcepte,
+  parseNaturaConcepte,
+  resolvePctVariable,
+} from "@/lib/natura-concepte";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string };
@@ -30,24 +34,36 @@ function resolveNatura(
   return natura;
 }
 
+function naturaIPct(
+  esSubtotal: boolean,
+  naturaRaw: NaturaConcepte | string | null | undefined,
+  pctRaw: number | null | undefined
+): { natura: NaturaConcepte | null; pctVariable: number | null } {
+  const natura = resolveNatura(esSubtotal, naturaRaw);
+  return { natura, pctVariable: resolvePctVariable(natura, pctRaw) };
+}
+
 export async function createConcepteAction(
   node: number,
   descripcio: string,
   esSubtotal: boolean,
-  natura: NaturaConcepte | string | null = null
+  natura: NaturaConcepte | string | null = null,
+  pctVariable: number | null = null
 ): Promise<Result> {
   if (!(await requireEditor())) return ERR("Sense permisos.");
   if (!Number.isInteger(node)) return ERR("El node ha de ser un número enter.");
   const desc = descripcio.trim();
   if (!desc) return ERR("La descripció és obligatòria.");
   const max = await db.concepteResultat.aggregate({ _max: { ordre: true } });
+  const { natura: n, pctVariable: pct } = naturaIPct(esSubtotal, natura, pctVariable);
   try {
     await db.concepteResultat.create({
       data: {
         node,
         descripcio: desc,
         esSubtotal,
-        natura: resolveNatura(esSubtotal, natura),
+        natura: n,
+        pctVariable: pct,
         ordre: (max._max.ordre ?? -1) + 1,
       },
     });
@@ -62,15 +78,18 @@ export async function updateConcepteAction(
   id: string,
   descripcio: string,
   esSubtotal: boolean,
-  natura: NaturaConcepte | string | null = null
+  natura: NaturaConcepte | string | null = null,
+  pctVariable: number | null = null
 ): Promise<Result> {
   if (!(await requireEditor())) return ERR("Sense permisos.");
+  const { natura: n, pctVariable: pct } = naturaIPct(esSubtotal, natura, pctVariable);
   await db.concepteResultat.update({
     where: { id },
     data: {
       descripcio: descripcio.trim(),
       esSubtotal,
-      natura: resolveNatura(esSubtotal, natura),
+      natura: n,
+      pctVariable: pct,
     },
   });
   refresh();
@@ -79,17 +98,21 @@ export async function updateConcepteAction(
 
 export async function updateNaturaAction(
   id: string,
-  natura: NaturaConcepte | string | null
+  natura: NaturaConcepte | string | null,
+  pctVariable: number | null = null
 ): Promise<Result> {
   if (!(await requireEditor())) return ERR("Sense permisos.");
   const actual = await db.concepteResultat.findUnique({
     where: { id },
-    select: { esSubtotal: true },
+    select: { esSubtotal: true, pctVariable: true },
   });
   if (!actual) return ERR("Concepte no trobat.");
+  const pctIn =
+    pctVariable != null ? pctVariable : actual.pctVariable != null ? actual.pctVariable : null;
+  const { natura: n, pctVariable: pct } = naturaIPct(actual.esSubtotal, natura, pctIn);
   await db.concepteResultat.update({
     where: { id },
-    data: { natura: resolveNatura(actual.esSubtotal, natura) },
+    data: { natura: n, pctVariable: pct },
   });
   refresh();
   return OK("Natura actualitzada.");

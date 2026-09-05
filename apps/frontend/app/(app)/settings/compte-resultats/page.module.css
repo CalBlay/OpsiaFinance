@@ -101,7 +101,7 @@
   min-width: 0;
 }
 .colNatura {
-  width: 8.5rem;
+  width: 14.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -126,7 +126,7 @@
 
 .naturaSelect {
   width: 100%;
-  max-width: 8.2rem;
+  max-width: 7.5rem;
   font-size: 0.75rem;
   font-weight: 600;
   padding: 0.22rem 0.4rem;
@@ -144,6 +144,47 @@
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.naturaCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  width: 100%;
+}
+
+.mixteBox {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+.mixteLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+}
+.pctInput {
+  width: 3.1rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.18rem 0.3rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.35rem;
+  background: var(--color-background);
+  color: var(--color-foreground);
+}
+.pctInput:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.mixteFixHint {
+  font-size: 0.68rem;
+  color: var(--color-muted-foreground);
 }
 
 .tagNatura,
@@ -167,6 +208,10 @@
 .naturaFix {
   background: color-mix(in srgb, var(--color-primary) 14%, transparent);
   color: var(--color-primary);
+}
+.naturaMixte {
+  background: color-mix(in srgb, #7c3aed 14%, transparent);
+  color: #6d28d9;
 }
 .naturaAlie {
   background: var(--color-muted);
