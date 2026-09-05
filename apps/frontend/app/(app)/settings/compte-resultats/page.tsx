@@ -1,7 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { CompteEditor } from "./CompteEditor";
-import { FormulaPe } from "./FormulaPe";
 import styles from "./page.module.css";
 
 export const dynamic = "force-dynamic";
@@ -34,13 +33,11 @@ export default async function CompteResultatsPage() {
           <h1 className={styles.title}>Estructura del compte de resultats</h1>
           <p className={styles.subtitle}>
             Conceptes, ordre i natura (ingrés / variable / fix / mixt / aliè). Amb mixt pots indicar
-            el % variable (la resta és fix).
+            el % variable (la resta és fix). Les fórmules (PE, etc.) són a Fórmules i conceptes.
             {canEdit ? " Editable." : " Consulta."}
           </p>
         </div>
       </div>
-
-      <FormulaPe />
 
       {concepts.length === 0 ? (
         <div className={styles.empty}>

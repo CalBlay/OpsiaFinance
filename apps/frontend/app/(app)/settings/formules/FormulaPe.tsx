@@ -3,15 +3,15 @@ import styles from "./page.module.css";
 /** Explica la fórmula del punt d'equilibri (PE) usada a les consultes. */
 export function FormulaPe() {
   return (
-    <section className={styles.formula} aria-labelledby="pe-formula-title">
-      <h2 id="pe-formula-title" className={styles.formulaTitle}>
+    <section className={styles.card} aria-labelledby="pe-formula-title">
+      <h2 id="pe-formula-title" className={styles.cardTitle}>
         Punt d&apos;equilibri (PE)
       </h2>
-      <p className={styles.formulaLead}>
+      <p className={styles.cardLead}>
         Amb la natura dels conceptes (variable / fix / mixt / aliè) calculem el PE en euros
         d&apos;ingressos del període, a Empresa, Evolució mensual i Per línia.
       </p>
-      <ol className={styles.formulaSteps}>
+      <ol className={styles.steps}>
         <li>
           <strong>Variables</strong> = |costos VARIABLE| + |MIXTE| × (%&nbsp;var / 100)
         </li>
@@ -28,7 +28,7 @@ export function FormulaPe() {
           <strong>Cobertura</strong> = Ingressos / PE
         </li>
       </ol>
-      <p className={styles.formulaNote}>
+      <p className={styles.note}>
         Els conceptes INGRES i ALIE no entren al PE operatiu. Els subtotals s&apos;ignoren. El
         càlcul usa el total del període (no mitjanes mensuals). La natura és la configuració actual
         (no versionada per any).

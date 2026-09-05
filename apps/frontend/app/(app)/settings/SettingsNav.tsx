@@ -2,7 +2,16 @@
 
 import { LinkPending } from "@/components/ui/LinkPending";
 import { cn } from "@/lib/utils";
-import { ArrowLeftRight, GitBranch, Layers, ListTree, Scale, UserCog, Users } from "lucide-react";
+import {
+  ArrowLeftRight,
+  BookOpen,
+  GitBranch,
+  Layers,
+  ListTree,
+  Scale,
+  UserCog,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./layout.module.css";
@@ -20,6 +29,13 @@ const SETTINGS_TABS = [
     href: "/settings/compte-resultats",
     label: "Compte de resultats",
     icon: ListTree,
+    exact: false,
+    adminOnly: false,
+  },
+  {
+    href: "/settings/formules",
+    label: "Fórmules i conceptes",
+    icon: BookOpen,
     exact: false,
     adminOnly: false,
   },
