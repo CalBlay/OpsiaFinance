@@ -8,11 +8,17 @@ import { spawn } from "node:child_process";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { config as loadEnv } from "dotenv";
 import pg from "pg";
 
 const { Client } = pg;
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const migrationsDir = path.join(root, "prisma", "migrations");
+
+// Mateixa font que prisma.config.ts / scripts locals (no cal exportar env al CMD).
+loadEnv({ path: path.join(root, "apps/frontend/.env.local") });
+loadEnv({ path: path.join(root, ".env.local") });
+loadEnv({ path: path.join(root, ".env") });
 
 const directUrl = process.env.DIRECT_URL?.trim();
 const databaseUrl = process.env.DATABASE_URL?.trim();
