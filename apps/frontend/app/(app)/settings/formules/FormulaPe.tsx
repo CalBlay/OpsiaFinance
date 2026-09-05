@@ -27,6 +27,14 @@ export function FormulaPe() {
         <li>
           <strong>Cobertura</strong> = Ingressos / PE
         </li>
+        <li>
+          <strong>PE mensual</strong> = PE del període ÷ n.mesos amb ingressos
+          <br />
+          <span className={styles.note}>
+            Objectiu de vendes d&apos;un mes (p.ex. setembre) per arribar a l&apos;equilibri, amb
+            l&apos;estructura de costos del període.
+          </span>
+        </li>
       </ol>
       <p className={styles.note}>
         Els conceptes INGRES i ALIE no entren al PE operatiu. Els subtotals s&apos;ignoren. El

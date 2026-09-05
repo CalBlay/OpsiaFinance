@@ -41,6 +41,8 @@ export type EmpresaVistaData = {
     personal: number[];
     compres: number[];
     gestio: number[];
+    /** PE de cada mes (€). 0 si no calculable. */
+    pe: number[];
   };
   perLn: {
     etiquetes: string[];

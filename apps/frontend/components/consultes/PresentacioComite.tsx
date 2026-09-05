@@ -24,6 +24,8 @@ export type SerieMensualComite = {
   personal: number[];
   compres: number[];
   gestio: number[];
+  /** PE del mes (€ d'ingressos necessaris). Opcional. */
+  pe?: number[];
 };
 
 export type SeriePerLnComite = {
@@ -99,6 +101,7 @@ export function PresentacioComite({
   mensual: SerieMensualComite;
   perLn: SeriePerLnComite;
 }) {
+  const tePe = (mensual.pe?.length ?? 0) > 0;
   const dataMensual = mensual.mesos.map((mes, i) => ({
     name: mes,
     Ingressos: mensual.ingressos[i] ?? 0,
@@ -106,6 +109,7 @@ export function PresentacioComite({
     Personal: costPositiu(mensual.personal[i] ?? 0),
     Compres: costPositiu(mensual.compres[i] ?? 0),
     Gestió: costPositiu(mensual.gestio[i] ?? 0),
+    ...(tePe ? { "PE mensual": mensual.pe![i] ?? 0 } : {}),
   }));
 
   // Etiquetes curtes de mes (Gen, Feb…) ja venen de MESOS_CURTS
@@ -145,7 +149,7 @@ export function PresentacioComite({
       </OpsiaKpiCardRow>
 
       <div className={styles.grid2}>
-        <ChartCard title="Any · Ingressos i EBITDA">
+        <ChartCard title="Any · Ingressos, EBITDA i PE mensual">
           <ResponsiveContainer width="100%" height={320}>
             <ComposedChart data={dataMensual} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -177,6 +181,16 @@ export function PresentacioComite({
                 strokeWidth={3}
                 dot={{ r: 4, fill: OPSIA_CHART.ebitda }}
               />
+              {tePe ? (
+                <Line
+                  type="monotone"
+                  dataKey="PE mensual"
+                  stroke="var(--color-muted-foreground)"
+                  strokeWidth={2}
+                  strokeDasharray="6 4"
+                  dot={false}
+                />
+              ) : null}
             </ComposedChart>
           </ResponsiveContainer>
         </ChartCard>

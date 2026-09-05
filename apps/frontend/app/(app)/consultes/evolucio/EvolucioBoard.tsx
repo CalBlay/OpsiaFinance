@@ -22,7 +22,7 @@ import {
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import { MESOS_CURTS } from "@/lib/periodes";
 import type { NaturaByNodeRecord } from "@/lib/punt-equilibri";
-import { kpisPuntEquilibri } from "@/lib/punt-equilibri";
+import { calcularPePerMes, kpisPuntEquilibri, nMesosAmbIngressos } from "@/lib/punt-equilibri";
 import type { InfoGestioConsulta } from "@/lib/repartiment/service";
 import type { VistaCompte } from "@/lib/vista-compte";
 import { etiquetaVistaCompte } from "@/lib/vista-compte";
@@ -55,7 +55,8 @@ function buildKpis(
     total: c.total,
     esSubtotal: c.esSubtotal,
   }));
-  return [...base, ...kpisPuntEquilibri(peConcepts, naturaByNode)];
+  const nMesos = nMesosAmbIngressos(findRow(NODE_INGRESSOS)?.valors ?? []);
+  return [...base, ...kpisPuntEquilibri(peConcepts, naturaByNode, { nMesos })];
 }
 
 export function EvolucioBoard({
@@ -181,7 +182,7 @@ export function EvolucioBoard({
   const chartSeries = useMemo(() => {
     if (!ev) return [];
     const findRow = (node: number) => ev.concepts.find((c) => c.node === node);
-    return [
+    const series = [
       {
         name: "Ingressos",
         type: "bar" as const,
@@ -195,7 +196,24 @@ export function EvolucioBoard({
         data: findRow(NODE_EBITDA)?.valors ?? [],
       },
     ];
-  }, [ev]);
+    if (naturaByNode) {
+      const peMes = calcularPePerMes(
+        ev.concepts.map((c) => ({
+          node: c.node,
+          valors: c.valors,
+          esSubtotal: c.esSubtotal,
+        })),
+        naturaByNode
+      );
+      series.push({
+        name: "PE mensual",
+        type: "line" as const,
+        color: OPSIA_CHART.ebitda,
+        data: peMes.map((v) => v ?? 0),
+      });
+    }
+    return series;
+  }, [ev, naturaByNode]);
 
   const ensurePivot = useCallback(async () => {
     const scopeKey = `${scope}:${lnId ?? ""}:${anyActual}:${grup}`;

@@ -16,7 +16,11 @@ import {
 } from "@/lib/kpi-definitions";
 import { type RangMesos, esAnyComplet, rangToQuery } from "@/lib/periodes";
 import type { NaturaByNodeRecord } from "@/lib/punt-equilibri";
-import { kpisComitePuntEquilibri } from "@/lib/punt-equilibri";
+import {
+  calcularPePerMes,
+  kpisComitePuntEquilibri,
+  nMesosAmbIngressos,
+} from "@/lib/punt-equilibri";
 import type { VistaCompte } from "@/lib/vista-compte";
 import type { FilaResumLinia } from "./LiniaResumPresentacio";
 
@@ -90,21 +94,37 @@ export function buildLiniaResumCapa(
       pctHint: "s/ ingressos",
       accent: "ebitda",
     },
-    ...(naturaByNode
-      ? kpisComitePuntEquilibri(
-          comp.concepts.map((c) => ({
-            node: c.node,
-            total: c.total,
-            esSubtotal: c.esSubtotal,
-          })),
-          naturaByNode
-        )
-      : []),
   ];
 
   const mesIni = rang.des - 1;
   const mesFi = rang.fins;
   const sliceMes = <T>(arr: T[]): T[] => (esAnyComplet(rang) ? arr : arr.slice(mesIni, mesFi));
+
+  const nMesosPe = nMesosAmbIngressos(findEv(NODE_INGRESSOS)?.valors ?? [], rang.des, rang.fins);
+  if (naturaByNode) {
+    kpis.push(
+      ...kpisComitePuntEquilibri(
+        comp.concepts.map((c) => ({
+          node: c.node,
+          total: c.total,
+          esSubtotal: c.esSubtotal,
+        })),
+        naturaByNode,
+        { nMesos: nMesosPe }
+      )
+    );
+  }
+
+  const peMensualAll = naturaByNode
+    ? calcularPePerMes(
+        (evEmpresa?.concepts ?? []).map((c) => ({
+          node: c.node,
+          valors: c.valors,
+          esSubtotal: c.esSubtotal,
+        })),
+        naturaByNode
+      )
+    : [];
 
   const perLn: SeriePerLnComite = {
     etiquetes: comp.linies.map(etiquetaGrafic),
@@ -122,6 +142,7 @@ export function buildLiniaResumCapa(
     personal: sliceMes(findEv(NODE_COST_SALARIAL)?.valors ?? []),
     compres: sliceMes(findEv(NODE_COMPRES)?.valors ?? []),
     gestio: sliceMes(findEv(NODE_COST_GESTIO)?.valors ?? []),
+    pe: sliceMes(peMensualAll.map((v: number | null) => v ?? 0)),
   };
 
   const totalIngAbs = Math.abs(ingressosTotal) || 0;

@@ -35,7 +35,7 @@ import {
 import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import type { RangMesos } from "@/lib/periodes";
-import { kpisPuntEquilibri } from "@/lib/punt-equilibri";
+import { kpisPuntEquilibri, nMesosAmbIngressos } from "@/lib/punt-equilibri";
 import { aplicarDeltaPresentacioGestio } from "@/lib/repartiment/gestio-consultes";
 import { aplicarVistaGestioEvolucioLn } from "@/lib/repartiment/gestio-consultes";
 import {
@@ -569,9 +569,14 @@ export default async function ConsultaLiniaPage({
     label: m,
   }));
   const rowsMes = ev ? retallaRang(conceptsTaula, rang) : [];
+  const nMesosPe = nMesosAmbIngressos(
+    rowsMes.find((r) => r.node === NODE_INGRESSOS)?.valors ?? [],
+    1,
+    rowsMes.find((r) => r.node === NODE_INGRESSOS)?.valors.length ?? rang.fins - rang.des + 1
+  );
   const kpis =
     kpisBase.length && naturaByNode
-      ? [...kpisBase, ...kpisPuntEquilibri(rowsMes, naturaByNode)]
+      ? [...kpisBase, ...kpisPuntEquilibri(rowsMes, naturaByNode, { nMesos: nMesosPe })]
       : kpisBase;
 
   const valorsTaula = (node: number) =>

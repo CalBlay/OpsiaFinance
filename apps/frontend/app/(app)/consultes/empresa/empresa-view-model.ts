@@ -22,7 +22,12 @@ import {
   etiquetaRangMesosLlarga,
 } from "@/lib/periodes";
 import type { NaturaByNodeRecord } from "@/lib/punt-equilibri";
-import { kpisComitePuntEquilibri, kpisPuntEquilibri } from "@/lib/punt-equilibri";
+import {
+  calcularPePerMes,
+  kpisComitePuntEquilibri,
+  kpisPuntEquilibri,
+  nMesosAmbIngressos,
+} from "@/lib/punt-equilibri";
 import type { InfoGestioConsulta } from "@/lib/repartiment/info-gestio";
 import type { VistaCompte } from "@/lib/vista-compte";
 import { etiquetaVistaCompte, vistaInclouRepartiment } from "@/lib/vista-compte";
@@ -70,9 +75,12 @@ export function buildEmpresaVistaData(opts: {
     total: c.total,
     esSubtotal: c.esSubtotal,
   }));
+  const ingressosMensuals = findEvEmpresa(NODE_INGRESSOS)?.valors ?? [];
+  const nMesosPe = nMesosAmbIngressos(ingressosMensuals, rang.des, rang.fins);
+  const peOpts = { nMesos: nMesosPe };
   const kpis = [
     ...buildKpisEmpresa((node) => findRow(node)?.total ?? 0),
-    ...(naturaByNode ? kpisPuntEquilibri(peConcepts, naturaByNode) : []),
+    ...(naturaByNode ? kpisPuntEquilibri(peConcepts, naturaByNode, peOpts) : []),
   ];
 
   const columns: PivotColumn[] = comp.linies.map((l) => ({
@@ -153,7 +161,7 @@ export function buildEmpresaVistaData(opts: {
       pctHint: "s/ ingressos",
       accent: "ebitda",
     },
-    ...(naturaByNode ? kpisComitePuntEquilibri(peConcepts, naturaByNode) : []),
+    ...(naturaByNode ? kpisComitePuntEquilibri(peConcepts, naturaByNode, peOpts) : []),
   ];
 
   const tableCaption =
@@ -177,6 +185,17 @@ export function buildEmpresaVistaData(opts: {
         ? `Cal Blay + FDLC · ${etiquetaVistaCompte(vista)} — ${periodePresentacio}`
         : `${etiquetaVistaCompte(vista)} — ${periodePresentacio}`;
 
+  const peMensualAll =
+    naturaByNode && evEmpresa
+      ? calcularPePerMes(
+          evEmpresa.concepts.map((c) => ({
+            node: c.node,
+            valors: c.valors,
+            esSubtotal: c.esSubtotal,
+          })),
+          naturaByNode
+        )
+      : [];
   const mesIni = rang.des - 1;
   const mesFi = rang.fins;
   const sliceMes = <T>(arr: T[]): T[] => (esAnyComplet(rang) ? arr : arr.slice(mesIni, mesFi));
@@ -204,6 +223,7 @@ export function buildEmpresaVistaData(opts: {
       personal: sliceMes(findEvEmpresa(NODE_COST_SALARIAL)?.valors ?? []),
       compres: sliceMes(findEvEmpresa(NODE_COMPRES)?.valors ?? []),
       gestio: sliceMes(findEvEmpresa(NODE_COST_GESTIO)?.valors ?? []),
+      pe: sliceMes(peMensualAll.map((v) => v ?? 0)),
     },
     perLn: {
       etiquetes: comp.linies.map(etiquetaGrafic),
