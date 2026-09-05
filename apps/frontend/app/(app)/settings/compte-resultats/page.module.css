@@ -1,6 +1,6 @@
 .page {
   padding: 1.5rem 2.5rem 3rem;
-  max-width: 900px;
+  max-width: 1100px;
   width: 100%;
 }
 
@@ -100,8 +100,14 @@
   flex: 1;
   min-width: 0;
 }
+.colNatura {
+  width: 8.5rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
 .colTipus {
-  width: 9rem;
+  width: 7.5rem;
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -116,6 +122,55 @@
   gap: 0.15rem;
   opacity: 0;
   transition: opacity 0.12s;
+}
+
+.naturaSelect {
+  width: 100%;
+  max-width: 8.2rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.22rem 0.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.4rem;
+  background: var(--color-background);
+  color: var(--color-foreground);
+  cursor: pointer;
+}
+.naturaSelect:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.naturaSelect:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent);
+}
+
+.tagNatura,
+.tagNaturaEmpty {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+}
+.tagNaturaEmpty {
+  color: var(--color-muted-foreground);
+}
+.naturaIngres {
+  background: color-mix(in srgb, var(--opsia-num-positive, #15803d) 14%, transparent);
+  color: var(--opsia-num-positive, #15803d);
+}
+.naturaVariable {
+  background: color-mix(in srgb, #b45309 14%, transparent);
+  color: #b45309;
+}
+.naturaFix {
+  background: color-mix(in srgb, var(--color-primary) 14%, transparent);
+  color: var(--color-primary);
+}
+.naturaAlie {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
 }
 
 .desc {

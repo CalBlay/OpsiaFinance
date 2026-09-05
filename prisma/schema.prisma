@@ -194,14 +194,16 @@ model ImportRow {
 /// Estructura estable del compte de resultats (una fila per línia del P&L de SAP).
 /// El `node` és l'identificador estable que SAP genera igual a tots els informes.
 model ConcepteResultat {
-  id         String         @id @default(cuid())
-  node       Int            @unique
+  id         String          @id @default(cuid())
+  node       Int             @unique
   descripcio String
-  esSubtotal Boolean        @default(false)
-  ordre      Int            @default(0)
-  isActive   Boolean        @default(true)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
+  esSubtotal Boolean         @default(false)
+  /// Natura del concepte per al punt d'equilibri (null = subtotal / no aplica).
+  natura     NaturaConcepte?
+  ordre      Int             @default(0)
+  isActive   Boolean         @default(true)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
   ajustos    Ajust[]
   dades      DadaResultat[]
 }
@@ -705,6 +707,15 @@ model NormaConsolidacioImport {
 
   @@unique([normaId, any, mes])
   @@index([normaId, any])
+}
+
+/// Natura d'un concepte del P&L per al càlcul del punt d'equilibri.
+/// INGRES = ingressos; VARIABLE / FIX = costos; ALIE = financer/excepcional/impost (fora PE explotació).
+enum NaturaConcepte {
+  INGRES
+  VARIABLE
+  FIX
+  ALIE
 }
 
 enum UserRole {

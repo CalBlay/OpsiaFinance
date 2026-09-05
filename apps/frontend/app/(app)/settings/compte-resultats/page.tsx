@@ -11,7 +11,14 @@ export default async function CompteResultatsPage() {
     auth(),
     db.concepteResultat.findMany({
       orderBy: { ordre: "asc" },
-      select: { id: true, node: true, descripcio: true, esSubtotal: true, isActive: true },
+      select: {
+        id: true,
+        node: true,
+        descripcio: true,
+        esSubtotal: true,
+        isActive: true,
+        natura: true,
+      },
     }),
   ]);
 
@@ -24,7 +31,7 @@ export default async function CompteResultatsPage() {
         <div>
           <h1 className={styles.title}>Estructura del compte de resultats</h1>
           <p className={styles.subtitle}>
-            Els conceptes i el seu ordre. Els subtotals són línies calculades (Total, EBITDA…).
+            Conceptes, ordre i natura (ingrés / variable / fix / aliè) per al punt d&apos;equilibri.
             {canEdit ? " Editable." : " Consulta."}
           </p>
         </div>

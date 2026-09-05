@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { type NaturaConcepte, parseNaturaConcepte } from "@/lib/natura-concepte";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string };
@@ -10,8 +11,7 @@ const ERR = (m: string): Result => ({ ok: false, missatge: m });
 
 async function requireEditor(): Promise<boolean> {
   const session = await auth();
-  const role = session?.user?.role;
-  return role === "ADMIN";
+  return session?.user?.role === "ADMIN";
 }
 
 function refresh() {
@@ -20,10 +20,21 @@ function refresh() {
   revalidatePath("/consultes/linia");
 }
 
+function resolveNatura(
+  esSubtotal: boolean,
+  natura: NaturaConcepte | string | null | undefined
+): NaturaConcepte | null {
+  if (esSubtotal) return null;
+  if (natura == null) return null;
+  if (typeof natura === "string") return parseNaturaConcepte(natura);
+  return natura;
+}
+
 export async function createConcepteAction(
   node: number,
   descripcio: string,
-  esSubtotal: boolean
+  esSubtotal: boolean,
+  natura: NaturaConcepte | string | null = null
 ): Promise<Result> {
   if (!(await requireEditor())) return ERR("Sense permisos.");
   if (!Number.isInteger(node)) return ERR("El node ha de ser un número enter.");
@@ -32,7 +43,13 @@ export async function createConcepteAction(
   const max = await db.concepteResultat.aggregate({ _max: { ordre: true } });
   try {
     await db.concepteResultat.create({
-      data: { node, descripcio: desc, esSubtotal, ordre: (max._max.ordre ?? -1) + 1 },
+      data: {
+        node,
+        descripcio: desc,
+        esSubtotal,
+        natura: resolveNatura(esSubtotal, natura),
+        ordre: (max._max.ordre ?? -1) + 1,
+      },
     });
   } catch {
     return ERR(`Ja existeix un concepte amb el node ${node}.`);
@@ -44,15 +61,38 @@ export async function createConcepteAction(
 export async function updateConcepteAction(
   id: string,
   descripcio: string,
-  esSubtotal: boolean
+  esSubtotal: boolean,
+  natura: NaturaConcepte | string | null = null
 ): Promise<Result> {
   if (!(await requireEditor())) return ERR("Sense permisos.");
   await db.concepteResultat.update({
     where: { id },
-    data: { descripcio: descripcio.trim(), esSubtotal },
+    data: {
+      descripcio: descripcio.trim(),
+      esSubtotal,
+      natura: resolveNatura(esSubtotal, natura),
+    },
   });
   refresh();
   return OK();
+}
+
+export async function updateNaturaAction(
+  id: string,
+  natura: NaturaConcepte | string | null
+): Promise<Result> {
+  if (!(await requireEditor())) return ERR("Sense permisos.");
+  const actual = await db.concepteResultat.findUnique({
+    where: { id },
+    select: { esSubtotal: true },
+  });
+  if (!actual) return ERR("Concepte no trobat.");
+  await db.concepteResultat.update({
+    where: { id },
+    data: { natura: resolveNatura(actual.esSubtotal, natura) },
+  });
+  refresh();
+  return OK("Natura actualitzada.");
 }
 
 export async function toggleConcepteAction(id: string, isActive: boolean): Promise<Result> {

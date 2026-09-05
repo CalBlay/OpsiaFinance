@@ -1,6 +1,11 @@
 "use client";
 
 import { esSubtotalPresentacio } from "@/lib/compte-subtotals";
+import {
+  NATURA_CONCEPTE_LABELS,
+  NATURA_CONCEPTE_VALUES,
+  type NaturaConcepte,
+} from "@/lib/natura-concepte";
 import { cn } from "@/lib/utils";
 import { Check, ChevronDown, ChevronUp, Eye, EyeOff, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useState, useTransition } from "react";
@@ -10,6 +15,7 @@ import {
   moveConcepteAction,
   toggleConcepteAction,
   updateConcepteAction,
+  updateNaturaAction,
 } from "./actions";
 import styles from "./page.module.css";
 
@@ -21,6 +27,7 @@ export interface ConcepteDTO {
   descripcio: string;
   esSubtotal: boolean;
   isActive: boolean;
+  natura: NaturaConcepte | null;
 }
 
 export function CompteEditor({ concepts, canEdit }: { concepts: ConcepteDTO[]; canEdit: boolean }) {
@@ -41,9 +48,10 @@ export function CompteEditor({ concepts, canEdit }: { concepts: ConcepteDTO[]; c
       )}
 
       <div className={styles.list}>
-        <div className={cn(styles.rowHead)}>
+        <div className={styles.rowHead}>
           <span className={styles.colNode}>Node</span>
           <span className={styles.colDesc}>Descripció</span>
+          <span className={styles.colNatura}>Natura</span>
           <span className={styles.colTipus}>Tipus</span>
           {canEdit && <span className={styles.colActions} />}
         </div>
@@ -68,7 +76,7 @@ export function CompteEditor({ concepts, canEdit }: { concepts: ConcepteDTO[]; c
             />
           ) : (
             <div className={styles.addRow}>
-              <button className={styles.addTrigger} onClick={() => setAdding(true)}>
+              <button type="button" className={styles.addTrigger} onClick={() => setAdding(true)}>
                 <Plus size={14} /> Afegir concepte
               </button>
             </div>
@@ -76,6 +84,46 @@ export function CompteEditor({ concepts, canEdit }: { concepts: ConcepteDTO[]; c
       </div>
     </>
   );
+}
+
+function NaturaSelect({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: NaturaConcepte | null;
+  disabled?: boolean;
+  onChange: (v: NaturaConcepte | null) => void;
+}) {
+  return (
+    <select
+      className={styles.naturaSelect}
+      value={value ?? ""}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value === "" ? null : (e.target.value as NaturaConcepte))}
+      aria-label="Natura del concepte"
+    >
+      <option value="">—</option>
+      {NATURA_CONCEPTE_VALUES.map((v) => (
+        <option key={v} value={v}>
+          {NATURA_CONCEPTE_LABELS[v]}
+        </option>
+      ))}
+    </select>
+  );
+}
+
+function NaturaBadge({ value }: { value: NaturaConcepte | null }) {
+  if (!value) return <span className={styles.tagNaturaEmpty}>—</span>;
+  const cls =
+    value === "INGRES"
+      ? styles.naturaIngres
+      : value === "VARIABLE"
+        ? styles.naturaVariable
+        : value === "FIX"
+          ? styles.naturaFix
+          : styles.naturaAlie;
+  return <span className={cn(styles.tagNatura, cls)}>{NATURA_CONCEPTE_LABELS[value]}</span>;
 }
 
 function ConcepteRow({
@@ -94,16 +142,24 @@ function ConcepteRow({
   const [editing, setEditing] = useState(false);
   const [desc, setDesc] = useState(concepte.descripcio);
   const [esSubtotal, setEsSubtotal] = useState(concepte.esSubtotal);
+  const [natura, setNatura] = useState<NaturaConcepte | null>(concepte.natura);
   const [isPending, startTransition] = useTransition();
 
   const save = () =>
     startTransition(async () => {
-      const r = await updateConcepteAction(concepte.id, desc, esSubtotal);
+      const r = await updateConcepteAction(concepte.id, desc, esSubtotal, natura);
       notify(r);
       if (r.ok) setEditing(false);
     });
 
   const run = (fn: () => Promise<Result>) => startTransition(async () => notify(await fn()));
+
+  const onNaturaQuick = (v: NaturaConcepte | null) => {
+    setNatura(v);
+    startTransition(async () => {
+      notify(await updateNaturaAction(concepte.id, v));
+    });
+  };
 
   const mostrarSubtotal = esSubtotalPresentacio(concepte.node, concepte.esSubtotal);
 
@@ -123,7 +179,6 @@ function ConcepteRow({
             <input
               className={styles.editInput}
               value={desc}
-              autoFocus
               onChange={(e) => setDesc(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Enter") save();
@@ -134,14 +189,24 @@ function ConcepteRow({
               <input
                 type="checkbox"
                 checked={esSubtotal}
-                onChange={(e) => setEsSubtotal(e.target.checked)}
+                onChange={(e) => {
+                  setEsSubtotal(e.target.checked);
+                  if (e.target.checked) setNatura(null);
+                }}
               />
               subtotal
             </label>
-            <button className={styles.iconBtn} onClick={save} disabled={isPending} title="Desa">
+            <button
+              type="button"
+              className={styles.iconBtn}
+              onClick={save}
+              disabled={isPending}
+              title="Desa"
+            >
               <Check size={15} className="text-green-700" />
             </button>
             <button
+              type="button"
               className={styles.iconBtn}
               onClick={() => setEditing(false)}
               disabled={isPending}
@@ -155,6 +220,18 @@ function ConcepteRow({
         <span className={cn(styles.colDesc, styles.desc)}>{concepte.descripcio}</span>
       )}
 
+      <span className={styles.colNatura}>
+        {mostrarSubtotal ? (
+          <span className={styles.tagNaturaEmpty}>—</span>
+        ) : canEdit && !editing ? (
+          <NaturaSelect value={natura} disabled={isPending} onChange={onNaturaQuick} />
+        ) : editing ? (
+          <NaturaSelect value={natura} disabled={esSubtotal || isPending} onChange={setNatura} />
+        ) : (
+          <NaturaBadge value={concepte.natura} />
+        )}
+      </span>
+
       {!editing && (
         <span className={styles.colTipus}>
           <span className={mostrarSubtotal ? styles.tagSubtotal : styles.tagDetall}>
@@ -167,6 +244,7 @@ function ConcepteRow({
       {canEdit && !editing && (
         <span className={styles.colActions}>
           <button
+            type="button"
             className={styles.iconBtn}
             title="Puja"
             disabled={isFirst || isPending}
@@ -175,6 +253,7 @@ function ConcepteRow({
             <ChevronUp size={15} />
           </button>
           <button
+            type="button"
             className={styles.iconBtn}
             title="Baixa"
             disabled={isLast || isPending}
@@ -183,6 +262,7 @@ function ConcepteRow({
             <ChevronDown size={15} />
           </button>
           <button
+            type="button"
             className={styles.iconBtn}
             title="Edita"
             onClick={() => setEditing(true)}
@@ -191,6 +271,7 @@ function ConcepteRow({
             <Pencil size={13} />
           </button>
           <button
+            type="button"
             className={styles.iconBtn}
             title={concepte.isActive ? "Desactiva" : "Activa"}
             onClick={() => run(() => toggleConcepteAction(concepte.id, !concepte.isActive))}
@@ -199,6 +280,7 @@ function ConcepteRow({
             {concepte.isActive ? <Eye size={14} /> : <EyeOff size={14} />}
           </button>
           <button
+            type="button"
             className={cn(styles.iconBtn, styles.iconDanger)}
             title="Elimina"
             onClick={() => {
@@ -219,17 +301,22 @@ function AddConcepte({
   onCancel,
   onDone,
   notify,
-}: { onCancel: () => void; onDone: () => void; notify: (r: Result) => void }) {
+}: {
+  onCancel: () => void;
+  onDone: () => void;
+  notify: (r: Result) => void;
+}) {
   const [node, setNode] = useState("");
   const [desc, setDesc] = useState("");
   const [esSubtotal, setEsSubtotal] = useState(false);
+  const [natura, setNatura] = useState<NaturaConcepte | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const save = () => {
     const n = Number.parseInt(node, 10);
     if (Number.isNaN(n) || !desc.trim()) return;
     startTransition(async () => {
-      const r = await createConcepteAction(n, desc, esSubtotal);
+      const r = await createConcepteAction(n, desc, esSubtotal, natura);
       notify(r);
       if (r.ok) onDone();
     });
@@ -248,7 +335,6 @@ function AddConcepte({
           className={styles.editInput}
           placeholder="Descripció del concepte"
           value={desc}
-          autoFocus
           onChange={(e) => setDesc(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") save();
@@ -259,14 +345,25 @@ function AddConcepte({
           <input
             type="checkbox"
             checked={esSubtotal}
-            onChange={(e) => setEsSubtotal(e.target.checked)}
+            onChange={(e) => {
+              setEsSubtotal(e.target.checked);
+              if (e.target.checked) setNatura(null);
+            }}
           />
           subtotal
         </label>
-        <button className={styles.iconBtn} onClick={save} disabled={isPending} title="Afegeix">
+        {!esSubtotal && <NaturaSelect value={natura} disabled={isPending} onChange={setNatura} />}
+        <button
+          type="button"
+          className={styles.iconBtn}
+          onClick={save}
+          disabled={isPending}
+          title="Afegeix"
+        >
           <Check size={15} className="text-green-700" />
         </button>
         <button
+          type="button"
           className={styles.iconBtn}
           onClick={onCancel}
           disabled={isPending}

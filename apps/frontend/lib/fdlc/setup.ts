@@ -32,12 +32,19 @@ export async function ensureFdlcSetup(): Promise<{ lnId: string; centreId: strin
 
   await db.concepteResultat.upsert({
     where: { node: FDLC_NODE_NETEJA },
-    update: { descripcio: "NETEJA", esSubtotal: false, isActive: true, ordre: ordre46 },
+    update: {
+      descripcio: "NETEJA",
+      esSubtotal: false,
+      isActive: true,
+      ordre: ordre46,
+      natura: "FIX",
+    },
     create: {
       node: FDLC_NODE_NETEJA,
       descripcio: "NETEJA",
       esSubtotal: false,
       ordre: ordre46,
+      natura: "FIX",
     },
   });
 
@@ -48,12 +55,14 @@ export async function ensureFdlcSetup(): Promise<{ lnId: string; centreId: strin
       esSubtotal: false,
       isActive: true,
       ordre: ordre47,
+      natura: "FIX",
     },
     create: {
       node: FDLC_NODE_SOFTWARE,
       descripcio: "SOFTWARE I SUBSCRIPCIONS",
       esSubtotal: false,
       ordre: ordre47,
+      natura: "FIX",
     },
   });
 
