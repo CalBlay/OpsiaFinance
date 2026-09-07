@@ -6,7 +6,7 @@ import type { UserRole } from "@/types";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import styles from "../nou/page.module.css";
+import styles from "./nou/page.module.css";
 
 export type DeptOpt = { id: string; codi: string; nom: string };
 
