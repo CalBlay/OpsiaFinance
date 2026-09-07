@@ -107,15 +107,27 @@ export function normalitzaMesos(raw: unknown): number[] {
 }
 
 export function importAnualLinia(importUnitari: number, mesos: number[]): number {
-  const u = Math.round(Math.abs(importUnitari) * 100) / 100;
-  return Math.round(u * mesos.length * 100) / 100;
+  const u = Math.round(Math.abs(Number(importUnitari)) * 100) / 100;
+  if (!Number.isFinite(u)) return 0;
+  const n = normalitzaMesos(mesos).length;
+  return Math.round(u * n * 100) / 100;
+}
+
+/** Suma dels imports anuals de totes les línies Tipus B. */
+export function totalAnualLinies(linies: { importUnitari: number; mesos: number[] }[]): number {
+  let s = 0;
+  for (const l of linies) {
+    s += importAnualLinia(l.importUnitari, l.mesos);
+  }
+  return Math.round(s * 100) / 100;
 }
 
 export function distribucioMensual(importUnitari: number, mesos: number[]): number[] {
   const out = Array.from({ length: 12 }, () => 0);
-  const u = Math.round(Math.abs(importUnitari) * 100) / 100;
-  for (const m of mesos) {
-    if (m >= 1 && m <= 12) out[m - 1] = u;
+  const u = Math.round(Math.abs(Number(importUnitari)) * 100) / 100;
+  if (!Number.isFinite(u)) return out;
+  for (const m of normalitzaMesos(mesos)) {
+    out[m - 1] = u;
   }
   return out;
 }
