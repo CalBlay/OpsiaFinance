@@ -20,11 +20,13 @@ export default auth((req) => {
   const isLoggedIn = !!req.auth?.user;
   const isLogin = pathname === "/login";
   const isApiAuth = pathname.startsWith("/api/auth");
+  /** APIs M2M (Cal Blay, etc.): auth per Bearer a la route, sense sessió. */
+  const isExternalApi = pathname.startsWith("/api/external/");
   const isDevCalcul =
     process.env.NODE_ENV !== "production" &&
     (pathname === "/api/dev/calcul-ajust-central" || pathname === "/api/dev/proposta-central-pct");
 
-  if (isApiAuth || isDevCalcul) return NextResponse.next();
+  if (isApiAuth || isExternalApi || isDevCalcul) return NextResponse.next();
 
   if (isLogin) {
     if (isLoggedIn) return NextResponse.redirect(new URL("/", url));
