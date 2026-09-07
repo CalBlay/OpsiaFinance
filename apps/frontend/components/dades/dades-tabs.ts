@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeftRight,
+  ClipboardList,
   FileSpreadsheet,
   Scale,
   ShoppingBag,
@@ -16,7 +17,8 @@ export type DadesTabId =
   | "cost-personal-centre"
   | "cost-salarial"
   | "vendes-restaurants"
-  | "ajustos";
+  | "ajustos"
+  | "pressupost-categories";
 
 export type DadesTab = {
   id: DadesTabId;
@@ -38,6 +40,8 @@ const OTHER_PREFIXES = [
   "/dades/cost-salarial",
   "/dades/vendes-restaurants",
   "/dades/ajustos",
+  "/dades/pressupost-categories",
+  "/dades/pressupost-partides",
 ] as const;
 
 function isImportacionsPath(pathname: string): boolean {
@@ -114,6 +118,17 @@ export const DADES_TABS: DadesTab[] = [
     description: "Correccions manuals que se sumen a les dades SAP a les consultes.",
     icon: SlidersHorizontal,
     match: (p) => p.startsWith("/dades/ajustos"),
+  },
+  {
+    id: "pressupost-categories",
+    href: "/dades/pressupost-categories",
+    label: "Categories press.",
+    title: "Categories del pressupost",
+    description:
+      "Categories Tipus B i en quins departaments són actives. Al pressupost tries la categoria i defines la partida (descripció, import, calendari).",
+    icon: ClipboardList,
+    match: (p) =>
+      p.startsWith("/dades/pressupost-categories") || p.startsWith("/dades/pressupost-partides"),
   },
 ];
 

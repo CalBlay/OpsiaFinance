@@ -9,6 +9,7 @@ import {
   classificacioDesDelNomFitxer,
   codiLnDelNomFitxer,
 } from "@/lib/nom-fitxer";
+import { opcionsMesos } from "@/lib/periodes";
 import { TIPUS_INFORME_LABELS, type TipusInforme } from "@/types";
 import {
   AlertTriangle,
@@ -30,20 +31,7 @@ export type LnOption = { id: string; codi: string; nom: string };
 const TIPUS_OPTIONS = Object.entries(TIPUS_INFORME_LABELS) as [TipusInforme, string][];
 
 const ANYS = Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - i);
-const MESOS = [
-  [1, "Gener"],
-  [2, "Febrer"],
-  [3, "Març"],
-  [4, "Abril"],
-  [5, "Maig"],
-  [6, "Juny"],
-  [7, "Juliol"],
-  [8, "Agost"],
-  [9, "Setembre"],
-  [10, "Octubre"],
-  [11, "Novembre"],
-  [12, "Desembre"],
-] as [number, string][];
+const MESOS = opcionsMesos("llarg").map((o) => [o.value, o.label] as [number, string]);
 const MES_NOMS = MESOS.map(([, n]) => n);
 
 const EXT_OK = ["xlsx", "xls"];

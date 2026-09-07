@@ -1,0 +1,435 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.back {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.back a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.back a:hover {
+  text-decoration: underline;
+}
+
+.deptMeta {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--color-muted-foreground);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem 1rem;
+}
+
+.field,
+.fieldWide {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 8rem;
+}
+
+.fieldWide {
+  min-width: 16rem;
+  flex: 1;
+}
+
+.fieldLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.select,
+.input {
+  height: 2.15rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  background: var(--color-background);
+  font-size: 0.875rem;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.estatBlock {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+
+.totalChip {
+  font-size: 0.85rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.badgeDraft,
+.badgeOk {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badgeDraft {
+  background: color-mix(in srgb, var(--color-muted-foreground) 12%, transparent);
+  color: var(--color-muted-foreground);
+}
+
+.badgeOk {
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+}
+
+.btnPrimary,
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border-radius: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.btnGhost {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-foreground);
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-muted-foreground) 8%, transparent);
+}
+
+.btnPrimary:disabled,
+.btnGhost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hintInline {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--color-muted-foreground);
+}
+
+.error {
+  margin: 0.65rem 0 0;
+  color: var(--color-destructive, #b91c1c);
+  font-size: 0.85rem;
+}
+
+.ok {
+  margin: 0.65rem 0 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.85rem;
+}
+
+.notes {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  background: var(--color-background);
+  font: inherit;
+  font-size: 0.875rem;
+  resize: vertical;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.tab,
+.tabActive {
+  height: 2.1rem;
+  padding: 0 0.9rem;
+  border-radius: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-foreground);
+}
+
+.tabActive {
+  border-color: transparent;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+}
+
+.formGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+}
+
+.mesosPick {
+  margin-top: 0.85rem;
+}
+
+.mesosRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.mesOn,
+.mesOff {
+  min-width: 2.6rem;
+  height: 1.9rem;
+  border-radius: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.mesOn {
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+}
+
+.mesOff {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted-foreground);
+}
+
+.liniesWrap {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+}
+
+.liniesTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.liniesTable th,
+.liniesTable td {
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.liniesTable th {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+}
+
+.num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.descCell {
+  font-weight: 550;
+}
+
+.premissa {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+}
+
+.calShort {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+  max-width: 10rem;
+}
+
+.rowActions {
+  white-space: nowrap;
+  text-align: right !important;
+}
+
+.linkBtn,
+.linkBtnDanger {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0 0.35rem;
+}
+
+.linkBtn {
+  color: var(--color-primary);
+}
+
+.linkBtnDanger {
+  color: var(--color-destructive, #b91c1c);
+}
+
+.calWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.calMes {
+  border: 1px solid var(--color-border);
+  border-radius: 0.65rem;
+  background: var(--color-card);
+  overflow: hidden;
+}
+
+.calMesHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+  background: color-mix(in srgb, var(--color-muted-foreground) 5%, var(--color-card));
+}
+
+.calMesHead h3 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.calMesHead span {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.calList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.calList li {
+  display: grid;
+  grid-template-columns: 8.5rem 1fr auto;
+  gap: 0.65rem;
+  padding: 0.45rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.82rem;
+  align-items: baseline;
+}
+
+.calList li:last-child {
+  border-bottom: none;
+}
+
+.calCat {
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.calDesc {
+  font-weight: 500;
+}
+
+.gridWrap {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+}
+
+.grid {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.grid th,
+.grid td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.28rem 0.35rem;
+  white-space: nowrap;
+}
+
+.grid thead th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+}
+
+.colDesc {
+  min-width: 9rem;
+  text-align: left;
+  font-weight: 600;
+}
+
+.colMes {
+  width: 4.2rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.colTotal {
+  width: 5rem;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.rowTotal td {
+  font-weight: 650;
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-card));
+}

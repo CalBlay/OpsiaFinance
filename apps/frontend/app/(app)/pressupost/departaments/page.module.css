@@ -1,0 +1,184 @@
+.hint {
+  margin: 0 0 1.25rem;
+  max-width: 40rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-muted-foreground);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.anyField {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.anyLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.anyLinks {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.anyChip,
+.anyChipActive {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border-radius: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.anyChip {
+  border: 1px solid var(--color-border);
+  color: var(--color-foreground);
+  background: transparent;
+}
+
+.anyChip:hover {
+  background: color-mix(in srgb, var(--color-muted-foreground) 8%, transparent);
+}
+
+.anyChipActive {
+  border: 1px solid transparent;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+}
+
+.hintInline {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--color-muted-foreground);
+}
+
+.section {
+  margin-bottom: 1.5rem;
+  max-width: 40rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+  overflow: hidden;
+}
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.sectionMeta {
+  font-size: 0.75rem;
+  color: var(--color-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.itemLink {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s ease;
+}
+
+.itemLink:hover {
+  background: color-mix(in srgb, var(--color-primary) 6%, transparent);
+}
+
+li:last-child .itemLink {
+  border-bottom: none;
+}
+
+.codi {
+  flex: 0 0 5.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+.nom {
+  flex: 1;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.badgeStart,
+.badgeDraft,
+.badgeOk {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+}
+
+.badgeStart {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+}
+
+.badgeDraft {
+  color: var(--color-muted-foreground);
+  background: color-mix(in srgb, var(--color-muted-foreground) 12%, transparent);
+}
+
+.badgeOk {
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+}
+
+.empty {
+  margin: 1rem 0;
+  font-size: 0.875rem;
+  color: var(--color-muted-foreground);
+}
+
+.back {
+  margin-top: 1.5rem;
+  font-size: 0.875rem;
+}
+
+.back a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.back a:hover {
+  text-decoration: underline;
+}

@@ -2,7 +2,7 @@
 
 import { FILTRE } from "@/components/consultes/consulta-filtres";
 import styles from "@/components/consultes/report.module.css";
-import { MESOS_LLARGS, type RangMesos, normalitzaRangMesos } from "@/lib/periodes";
+import { type RangMesos, normalitzaRangMesos, opcionsMesos } from "@/lib/periodes";
 
 /** Selector Des de / Fins a + dreceres «Tot l'any» / «Fins ara». */
 export function PeriodRangSelectors({
@@ -30,7 +30,7 @@ export function PeriodRangSelectors({
   }
 
   return (
-    <>
+    <div lang="ca" translate="no" style={{ display: "contents" }}>
       <div className={styles.field}>
         <label className={styles.fieldLabel} htmlFor={fromSelectId}>
           {FILTRE.desDe}
@@ -44,9 +44,9 @@ export function PeriodRangSelectors({
           onChange={(e) => setDes(Number(e.target.value))}
           aria-label={FILTRE.desDe}
         >
-          {MESOS_LLARGS.map((m, i) => (
-            <option key={`${i + 1}-${m}`} value={i + 1}>
-              {m}
+          {opcionsMesos("llarg").map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>
@@ -64,9 +64,9 @@ export function PeriodRangSelectors({
           onChange={(e) => setFins(Number(e.target.value))}
           aria-label={FILTRE.finsA}
         >
-          {MESOS_LLARGS.map((m, i) => (
-            <option key={`${i + 1}-${m}`} value={i + 1}>
-              {m}
+          {opcionsMesos("llarg").map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
             </option>
           ))}
         </select>
@@ -96,6 +96,6 @@ export function PeriodRangSelectors({
           ) : null}
         </div>
       </div>
-    </>
+    </div>
   );
 }

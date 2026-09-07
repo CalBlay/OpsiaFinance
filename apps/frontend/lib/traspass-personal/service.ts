@@ -9,20 +9,9 @@ import {
 import { periodeDesDelNomFitxerHores } from "@/lib/traspass-personal/nom-fitxer";
 import { parseExcelHoresTreball } from "@/lib/traspass-personal/parser";
 
-const MESOS: Record<number, string> = {
-  1: "Gener",
-  2: "Febrer",
-  3: "Març",
-  4: "Abril",
-  5: "Maig",
-  6: "Juny",
-  7: "Juliol",
-  8: "Agost",
-  9: "Setembre",
-  10: "Octubre",
-  11: "Novembre",
-  12: "Desembre",
-};
+import { MESOS_PER_NUM } from "@/lib/periodes";
+
+const MESOS = MESOS_PER_NUM;
 
 export async function ensureConfigTraspassPersonal(): Promise<number> {
   const cfg = await db.configTraspassPersonal.upsert({

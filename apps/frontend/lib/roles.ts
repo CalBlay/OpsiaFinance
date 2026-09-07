@@ -19,3 +19,17 @@ export function potConfigurar(role: UserRole | string | undefined | null): boole
 export function esAdmin(role: UserRole | string | undefined | null): boolean {
   return role === "ADMIN";
 }
+
+/**
+ * Mòdul Pressupost (creació LN / departaments).
+ * De moment tots els usuaris autenticats; més endavant es podrà acotar
+ * per rol o per unitat (LN / departament).
+ */
+export function potPressupost(role: UserRole | string | undefined | null): boolean {
+  return role === "ADMIN" || role === "EDICIO" || role === "CONSULTA";
+}
+
+/** Pot editar cel·les / crear esborranys de pressupost. */
+export function potEditarPressupost(role: UserRole | string | undefined | null): boolean {
+  return role === "ADMIN" || role === "EDICIO";
+}

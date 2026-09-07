@@ -1,0 +1,288 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.85rem 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 10rem;
+}
+
+.fieldLabel {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+
+.select {
+  height: 2.15rem;
+  padding: 0 0.55rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  background: var(--color-background);
+  font-size: 0.875rem;
+}
+
+.estatBlock {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-left: auto;
+}
+
+.badgeDraft,
+.badgeOk {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.badgeDraft {
+  background: color-mix(in srgb, var(--color-muted-foreground) 12%, transparent);
+  color: var(--color-muted-foreground);
+}
+
+.badgeOk {
+  background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  color: var(--color-primary);
+}
+
+.btnPrimary,
+.btnGhost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.15rem;
+  padding: 0 0.85rem;
+  border-radius: 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btnPrimary {
+  border: none;
+  background: var(--color-primary);
+  color: var(--color-primary-foreground, #fff);
+}
+
+.btnPrimary:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.btnGhost {
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-foreground);
+}
+
+.btnGhost:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-muted-foreground) 8%, transparent);
+}
+
+.btnPrimary:disabled,
+.btnGhost:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0.65rem 0 0;
+  color: var(--color-destructive, #b91c1c);
+  font-size: 0.85rem;
+}
+
+.ok {
+  margin: 0.65rem 0 0;
+  color: var(--color-muted-foreground);
+  font-size: 0.85rem;
+}
+
+.notes {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.45rem;
+  background: var(--color-background);
+  font: inherit;
+  font-size: 0.875rem;
+  resize: vertical;
+}
+
+.modeRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.nivellRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem 1rem;
+  min-height: 2.15rem;
+  align-items: center;
+}
+
+.syncRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.modeOpt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  color: var(--color-muted-foreground);
+  line-height: 1.4;
+}
+
+.gridWrap {
+  overflow: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  background: var(--color-card);
+  max-height: min(70vh, 900px);
+}
+
+.grid {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.grid th,
+.grid td {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.28rem 0.35rem;
+  white-space: nowrap;
+}
+
+.grid thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--color-card);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted-foreground);
+}
+
+.colDesc {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--color-card);
+  min-width: 9.5rem;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+  font-weight: 600;
+}
+
+thead .colDesc {
+  z-index: 3;
+}
+
+.colMes {
+  width: 4.6rem;
+  text-align: right;
+}
+
+.colTotal {
+  width: 5rem;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.colRef {
+  width: 5.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+}
+
+.rowRef td {
+  background: color-mix(in srgb, var(--color-muted-foreground) 5%, var(--color-card));
+  color: var(--color-muted-foreground);
+  font-weight: 500;
+}
+
+.rowRef .colDesc {
+  background: color-mix(in srgb, var(--color-muted-foreground) 5%, var(--color-card));
+  font-weight: 500;
+}
+
+.rowEbitda td {
+  font-weight: 650;
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-card));
+}
+
+.rowEbitda .colDesc {
+  background: color-mix(in srgb, var(--color-primary) 6%, var(--color-card));
+}
+
+.refCell {
+  display: inline-block;
+  min-width: 3.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  opacity: 0.9;
+}
+
+.celInput {
+  width: 4.2rem;
+  box-sizing: border-box;
+  padding: 0.2rem 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  background: transparent;
+  text-align: right;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.celInput:hover,
+.celInput:focus {
+  border-color: var(--color-border);
+  background: var(--color-background);
+  outline: none;
+}
+
+.readonly {
+  display: inline-block;
+  min-width: 3.5rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}

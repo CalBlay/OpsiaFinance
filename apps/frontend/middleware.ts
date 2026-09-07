@@ -1,7 +1,7 @@
 import { authConfig } from "@/lib/auth.config";
 import { GRUP_COOKIE_NAME } from "@/lib/grup-cookie-name";
 import { parseGrupEmpresa } from "@/lib/grups-empresa";
-import { potConfigurar, potEditar } from "@/lib/roles";
+import { potConfigurar, potEditar, potPressupost } from "@/lib/roles";
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -38,11 +38,31 @@ export default auth((req) => {
   }
 
   const role = req.auth?.user?.role;
+
+  // Catàleg: partides → categories
+  if (
+    pathname === "/dades/pressupost-partides" ||
+    pathname.startsWith("/dades/pressupost-partides/")
+  ) {
+    return NextResponse.redirect(new URL(`/dades/pressupost-categories${url.search}`, url));
+  }
+
+  // Rutes antigues del pressupost → mòdul independent (abans del check /dades)
+  if (pathname === "/dades/pressupost" || pathname.startsWith("/dades/pressupost/")) {
+    return NextResponse.redirect(new URL(`/pressupost/ln${url.search}`, url));
+  }
+  if (pathname === "/consultes/pressupost" || pathname.startsWith("/consultes/pressupost/")) {
+    return NextResponse.redirect(new URL("/pressupost", url));
+  }
+
   // EDICIO: Dades (import/ajustos). Configuració: només ADMIN.
   if (pathname.startsWith("/dades") && role && !potEditar(role)) {
     return NextResponse.redirect(new URL("/", url));
   }
   if (pathname.startsWith("/settings") && role && !potConfigurar(role)) {
+    return NextResponse.redirect(new URL("/", url));
+  }
+  if (pathname.startsWith("/pressupost") && role && !potPressupost(role)) {
     return NextResponse.redirect(new URL("/", url));
   }
 

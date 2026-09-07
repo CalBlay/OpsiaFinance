@@ -1,10 +1,10 @@
 "use client";
 
 import { LinkPending } from "@/components/ui/LinkPending";
-import { potConfigurar, potEditar } from "@/lib/roles";
+import { potConfigurar, potEditar, potPressupost } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
-import { BarChart3, Database, Home, Settings, ShoppingBag } from "lucide-react";
+import { BarChart3, CalendarRange, Database, Home, Settings, ShoppingBag } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./Sidebar.module.css";
@@ -30,6 +30,7 @@ function isRestaurantsActive(pathname: string): boolean {
 
 export function Sidebar({ role }: { role: UserRole }) {
   const pathname = usePathname();
+  const showPressupost = potPressupost(role);
   const showDades = potEditar(role);
   const showConfig = potConfigurar(role);
   const adminNav = [...(showDades ? [DADES_NAV] : []), ...(showConfig ? [CONFIG_NAV] : [])];
@@ -70,6 +71,26 @@ export function Sidebar({ role }: { role: UserRole }) {
             <span>Restaurants</span>
           </Link>
         </li>
+        {showPressupost ? (
+          <li>
+            <Link
+              href="/pressupost"
+              className={cn(
+                styles.navItem,
+                (pathname === "/pressupost" || pathname.startsWith("/pressupost/")) && styles.active
+              )}
+              aria-current={
+                pathname === "/pressupost" || pathname.startsWith("/pressupost/")
+                  ? "page"
+                  : undefined
+              }
+            >
+              <LinkPending />
+              <CalendarRange size={17} strokeWidth={1.9} className={styles.icon} />
+              <span>Pressupost</span>
+            </Link>
+          </li>
+        ) : null}
       </ul>
 
       {adminNav.length > 0 && (

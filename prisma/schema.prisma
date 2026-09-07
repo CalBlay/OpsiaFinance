@@ -18,6 +18,8 @@ model User {
   ajustos         Ajust[]
   carreguesFitxer CarregaFitxer[]
   imports         Importacio[]
+  pressupostosLn   PressupostLn[]
+  pressupostosDept PressupostDept[]
 }
 
 /// Dimensió 1 — Línia de negoci (LN00000, LN00001, …)
@@ -42,6 +44,7 @@ model LiniaNegoci {
   configPersonalLn              ConfigPersonalLn?
   configPersonalDept            ConfigPersonalDept[]
   pesDefectePersonalComercial   PesDefectePersonalComercial?
+  pressupostosLn                PressupostLn[]
 }
 
 /// Dimensió 2 — Centre de cost (CCR00001, CCC00003, …)
@@ -65,6 +68,7 @@ model Centre {
   mapeigsTextCentre       MapeigTextCentreTreball[]
   movimentsTraspassDesti  MovimentTraspassPersonal[] @relation("TraspassDesti")
   movimentsTraspassOrigen MovimentTraspassPersonal[] @relation("TraspassOrigen")
+  pressupostCelsCentre    PressupostCelCentre[]
   vendesArticles          VendaArticleRestaurant[]
   vendesDiaries           VendaDiariaRestaurant[]
 
@@ -91,6 +95,8 @@ model Departament {
   configPersonalDept        ConfigPersonalDept[]
   movimentsTraspassOrigen   MovimentTraspassPersonal[] @relation("TraspassDeptOrigen")
   movimentsTraspassDesti    MovimentTraspassPersonal[] @relation("TraspassDeptDesti")
+  pressupostosDept          PressupostDept[]
+  partidesCatalogVisible    PressupostPartidaCatalogDept[]
 
   @@unique([centreId, codi])
   @@index([centreId])
@@ -206,8 +212,170 @@ model ConcepteResultat {
   isActive   Boolean         @default(true)
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @updatedAt
-  ajustos    Ajust[]
-  dades      DadaResultat[]
+  ajustos         Ajust[]
+  dades           DadaResultat[]
+  pressupostCels       PressupostCelLn[]
+  pressupostCelsCentre PressupostCelCentre[]
+}
+
+/// Capçalera del pressupost anual d'una línia de negoci (1 document = any × LN).
+/// El general (cels) i el detall per centre (celsCentre) conviuen; es pot
+/// opcionalment copiar la suma de centres al general (`generalDesDeCentres`).
+model PressupostLn {
+  id                   String               @id @default(cuid())
+  any                  Int
+  liniaNegociId        String
+  estat                PressupostEstat      @default(ESBORRANY)
+  notes                String?
+  /// True si el general s'ha omplert aplicant la suma dels centres (es pot desvincular).
+  generalDesDeCentres  Boolean              @default(false)
+  creatPer             String?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  liniaNegoci          LiniaNegoci          @relation(fields: [liniaNegociId], references: [id], onDelete: Cascade)
+  creatPerUser         User?                @relation(fields: [creatPer], references: [id])
+  cels                 PressupostCelLn[]
+  celsCentre           PressupostCelCentre[]
+
+  @@unique([any, liniaNegociId])
+  @@index([any])
+  @@index([liniaNegociId])
+}
+
+/// Cel·la del pressupost general LN: concepte × mes.
+model PressupostCelLn {
+  id                 String           @id @default(cuid())
+  pressupostId       String
+  mes                Int
+  concepteResultatId String
+  import_            Decimal          @map("import") @db.Decimal(18, 2)
+  updatedAt          DateTime         @updatedAt
+  pressupost         PressupostLn     @relation(fields: [pressupostId], references: [id], onDelete: Cascade)
+  concepteResultat   ConcepteResultat @relation(fields: [concepteResultatId], references: [id])
+
+  @@unique([pressupostId, mes, concepteResultatId])
+  @@index([pressupostId])
+  @@index([concepteResultatId])
+}
+
+/// Cel·la del pressupost detallat per centre (p.ex. cada restaurant de LN00001).
+model PressupostCelCentre {
+  id                 String           @id @default(cuid())
+  pressupostId       String
+  centreId           String
+  mes                Int
+  concepteResultatId String
+  import_            Decimal          @map("import") @db.Decimal(18, 2)
+  updatedAt          DateTime         @updatedAt
+  pressupost         PressupostLn     @relation(fields: [pressupostId], references: [id], onDelete: Cascade)
+  centre             Centre           @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  concepteResultat   ConcepteResultat @relation(fields: [concepteResultatId], references: [id])
+
+  @@unique([pressupostId, centreId, mes, concepteResultatId])
+  @@index([pressupostId])
+  @@index([centreId])
+  @@index([concepteResultatId])
+}
+
+/// Capçalera del pressupost anual d'un departament Central (Tipus B: any × dim-3).
+model PressupostDept {
+  id             String            @id @default(cuid())
+  any            Int
+  departamentId  String
+  estat          PressupostEstat   @default(ESBORRANY)
+  notes          String?
+  creatPer       String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  departament    Departament       @relation(fields: [departamentId], references: [id], onDelete: Cascade)
+  creatPerUser   User?             @relation(fields: [creatPer], references: [id])
+  cels           PressupostCelDept[]
+  linies         PressupostLiniaDept[]
+
+  @@unique([any, departamentId])
+  @@index([any])
+  @@index([departamentId])
+}
+
+/// Cel·la agregada Tipus B (categoria × mes), regenerada des de les línies.
+model PressupostCelDept {
+  id           String         @id @default(cuid())
+  pressupostId String
+  mes          Int
+  /// Categoria agregada: personal | publicitat | serveis | …
+  partida      String
+  import_      Decimal        @map("import") @db.Decimal(18, 2)
+  updatedAt    DateTime       @updatedAt
+  pressupost   PressupostDept @relation(fields: [pressupostId], references: [id], onDelete: Cascade)
+
+  @@unique([pressupostId, mes, partida])
+  @@index([pressupostId])
+}
+
+/// Línia pressupostària Tipus B (partida amb descripció, periodicitat i calendari).
+model PressupostLiniaDept {
+  id               String                    @id @default(cuid())
+  pressupostId     String
+  /// Referència opcional al catàleg (Dades).
+  partidaCatalogId String?
+  /// personal | publicitat | … (còpia / agrupació)
+  categoria        String
+  descripcio       String
+  /// Premissa / justificant (reunions de control).
+  premissa         String?
+  periodicitat     PressupostPeriodicitatDept @default(MENSUAL)
+  /// Import aplicat a cada mes seleccionat (positiu a UI; agregat a cels en negatiu).
+  importUnitari    Decimal                   @db.Decimal(18, 2)
+  /// Mesos de desemborsament 1–12 (JSON array).
+  mesos            Json
+  ordre            Int                       @default(0)
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  pressupost       PressupostDept            @relation(fields: [pressupostId], references: [id], onDelete: Cascade)
+  partidaCatalog   PressupostPartidaCatalog? @relation(fields: [partidaCatalogId], references: [id], onDelete: SetNull)
+
+  @@index([pressupostId])
+  @@index([partidaCatalogId])
+}
+
+/// Catàleg mestre de partides Tipus B (Dades). Visibilitat per departament.
+model PressupostPartidaCatalog {
+  id               String                         @id @default(cuid())
+  codi             String                         @unique
+  nom              String
+  /// Etiqueta de agrupació (ex. Publicitat, Personal).
+  categoria        String                         @default("altres")
+  notes            String?
+  /// Si true, visible a tots els depts Central; si false, només `depts`.
+  totsDepartaments Boolean                        @default(false)
+  isActive         Boolean                        @default(true)
+  ordre            Int                            @default(0)
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+  depts            PressupostPartidaCatalogDept[]
+  linies           PressupostLiniaDept[]
+
+  @@index([isActive])
+  @@index([categoria])
+}
+
+model PressupostPartidaCatalogDept {
+  id            String                   @id @default(cuid())
+  partidaId     String
+  departamentId String
+  partida       PressupostPartidaCatalog @relation(fields: [partidaId], references: [id], onDelete: Cascade)
+  departament   Departament              @relation(fields: [departamentId], references: [id], onDelete: Cascade)
+
+  @@unique([partidaId, departamentId])
+  @@index([departamentId])
+}
+
+enum PressupostPeriodicitatDept {
+  MENSUAL
+  TRIMESTRAL
+  ANUAL
+  PUNTUAL
+  PERSONALITZAT
 }
 
 /// Fet financer: valor d'un concepte per un centre (o LN) en un període concret.
@@ -726,6 +894,11 @@ enum UserRole {
   ADMIN
   EDICIO
   CONSULTA
+}
+
+enum PressupostEstat {
+  ESBORRANY
+  CONFIRMAT
 }
 
 enum TipusInforme {

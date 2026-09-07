@@ -5,20 +5,9 @@ import { FDLC_LN_CODI, ensureFdlcSetup } from "@/lib/fdlc/setup";
 import { codiLnDelNomFitxer } from "@/lib/nom-fitxer";
 import { revalidatePath } from "next/cache";
 
-const MESOS_NOMS: Record<number, string> = {
-  1: "Gener",
-  2: "Febrer",
-  3: "Març",
-  4: "Abril",
-  5: "Maig",
-  6: "Juny",
-  7: "Juliol",
-  8: "Agost",
-  9: "Setembre",
-  10: "Octubre",
-  11: "Novembre",
-  12: "Desembre",
-};
+import { MESOS_PER_NUM } from "@/lib/periodes";
+
+const MESOS_NOMS = MESOS_PER_NUM;
 
 type ImportWithRelations = {
   id: string;
