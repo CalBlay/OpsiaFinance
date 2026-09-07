@@ -32,10 +32,10 @@ export const MESOS: readonly MesDef[] = [
 ] as const;
 
 /** Abreviatures (índex 0 = gener). Preferir `nomMes` / `etiquetaMesos`. */
-export const MESOS_CURTS: readonly string[] = MESOS.map((m) => m.curt);
+export const MESOS_CURTS: string[] = MESOS.map((m) => m.curt);
 
 /** Noms complets (índex 0 = gener). Preferir als `<select>`. */
-export const MESOS_LLARGS: readonly string[] = MESOS.map((m) => m.llarg);
+export const MESOS_LLARGS: string[] = MESOS.map((m) => m.llarg);
 
 export type FormaMes = "curt" | "llarg";
 

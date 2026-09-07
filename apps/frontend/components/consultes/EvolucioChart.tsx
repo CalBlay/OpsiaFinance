@@ -97,7 +97,7 @@ export function EvolucioChart({
   height = 300,
   tickAngle,
 }: {
-  categories: string[];
+  categories: readonly string[];
   series: ChartSeries[];
   height?: number;
   /** Inclinar etiquetes de l'eix X (p. ex. noms de centre). */
