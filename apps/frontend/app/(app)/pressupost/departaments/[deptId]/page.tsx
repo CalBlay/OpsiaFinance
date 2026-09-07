@@ -1,14 +1,17 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import styles from "@/components/consultes/report.module.css";
 import { auth } from "@/lib/auth";
+import {
+  potEditarPressupostDepartament,
+  potVeurePressupostDepartament,
+} from "@/lib/pressupost/access";
 import { listCategoriesCatalogPerDept } from "@/lib/pressupost/partida-catalog";
 import {
   getDepartamentPressupost,
   getPressupostDept,
   listAnysPressupostDept,
 } from "@/lib/pressupost/pressupost-dept";
-import { potEditarPressupost } from "@/lib/roles";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
 import { PressupostDeptManager } from "../PressupostDeptManager";
 
@@ -24,6 +27,18 @@ async function DeptPageContent({
   searchParams: Promise<Search>;
 }) {
   const sp = await searchParams;
+  const session = await auth();
+  const role = session?.user?.role;
+  const userId = session?.user?.id;
+  if (!userId) redirect("/login");
+
+  const potVeure = await potVeurePressupostDepartament({
+    userId,
+    role,
+    departamentId,
+  });
+  if (!potVeure) redirect("/pressupost/departaments");
+
   const dept = await getDepartamentPressupost(departamentId);
   if (!dept) notFound();
 
@@ -32,8 +47,8 @@ async function DeptPageContent({
   const any =
     Number.isInteger(anyParam) && anyParam >= 2000 && anyParam <= 2100 ? anyParam : anyNow;
 
-  const [session, { capcalera, linies }, anysExistents, catalogCategories] = await Promise.all([
-    auth(),
+  const [canEdit, { capcalera, linies }, anysExistents, catalogCategories] = await Promise.all([
+    potEditarPressupostDepartament({ userId, role, departamentId }),
     getPressupostDept(any, dept.id),
     listAnysPressupostDept(),
     listCategoriesCatalogPerDept(dept.id),
@@ -52,7 +67,7 @@ async function DeptPageContent({
         linies={linies}
         catalogCategories={catalogCategories}
         anysExistents={anysExistents}
-        canEdit={potEditarPressupost(session?.user?.role)}
+        canEdit={canEdit}
       />
     </div>
   );

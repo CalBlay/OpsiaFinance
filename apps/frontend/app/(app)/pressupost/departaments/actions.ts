@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { potEditarPressupostDepartament } from "@/lib/pressupost/access";
 import { regenerarCelsDesDeLinies } from "@/lib/pressupost/pressupost-dept";
 import {
   type PeriodicitatTipusB,
@@ -17,12 +18,32 @@ type Result = { ok: boolean; missatge: string; id?: string };
 const OK = (m = "", id?: string): Result => ({ ok: true, missatge: m, id });
 const ERR = (m: string): Result => ({ ok: false, missatge: m });
 
-async function requireEditor(): Promise<{ ok: true; userId: string } | { ok: false }> {
+async function requireEditorForDept(
+  departamentId: string
+): Promise<{ ok: true; userId: string } | { ok: false; missatge: string }> {
+  const session = await auth();
+  const role = session?.user?.role;
+  const userId = session?.user?.id;
+  if (!potEditarPressupost(role) || !userId) {
+    return { ok: false, missatge: "Sense permisos." };
+  }
+  const allowed = await potEditarPressupostDepartament({
+    userId,
+    role,
+    departamentId,
+  });
+  if (!allowed) return { ok: false, missatge: "Sense permisos per a aquest departament." };
+  return { ok: true, userId };
+}
+
+async function requireEditor(): Promise<
+  { ok: true; userId: string; role: string } | { ok: false }
+> {
   const session = await auth();
   const role = session?.user?.role;
   const userId = session?.user?.id;
   if (!potEditarPressupost(role) || !userId) return { ok: false };
-  return { ok: true, userId };
+  return { ok: true, userId, role: String(role) };
 }
 
 function refresh(departamentId?: string) {
@@ -35,18 +56,35 @@ function refresh(departamentId?: string) {
 }
 
 async function requirePressupostEditable(pressupostId: string) {
+  const session = await auth();
+  const role = session?.user?.role;
+  const userId = session?.user?.id;
+  if (!potEditarPressupost(role) || !userId) {
+    return { ok: false as const, missatge: "Sense permisos." };
+  }
+
   const cap = await db.pressupostDept.findUnique({
     where: { id: pressupostId },
     select: { id: true, estat: true, departamentId: true },
   });
   if (!cap) return { ok: false as const, missatge: "Pressupost no trobat." };
+
+  const allowed = await potEditarPressupostDepartament({
+    userId,
+    role,
+    departamentId: cap.departamentId,
+  });
+  if (!allowed) {
+    return { ok: false as const, missatge: "Sense permisos per a aquest departament." };
+  }
+
   if (cap.estat === "CONFIRMAT") {
     return {
       ok: false as const,
       missatge: "El pressupost està confirmat; desbloqueja’l per editar.",
     };
   }
-  return { ok: true as const, cap };
+  return { ok: true as const, cap, userId };
 }
 
 function resolveMesos(
@@ -66,8 +104,8 @@ export async function crearPressupostDeptAction(
   any: number,
   departamentId: string
 ): Promise<Result> {
-  const authz = await requireEditor();
-  if (!authz.ok) return ERR("Sense permisos.");
+  const authz = await requireEditorForDept(departamentId);
+  if (!authz.ok) return ERR(authz.missatge);
   if (!Number.isInteger(any) || any < 2000 || any > 2100) return ERR("Any no vàlid.");
   if (!departamentId) return ERR("Cal seleccionar un departament.");
 
@@ -212,14 +250,14 @@ export async function setEstatPressupostDeptAction(
   pressupostId: string,
   estat: "ESBORRANY" | "CONFIRMAT"
 ): Promise<Result> {
-  const authz = await requireEditor();
-  if (!authz.ok) return ERR("Sense permisos.");
-
   const cap = await db.pressupostDept.findUnique({
     where: { id: pressupostId },
     select: { id: true, departamentId: true },
   });
   if (!cap) return ERR("Pressupost no trobat.");
+
+  const authz = await requireEditorForDept(cap.departamentId);
+  if (!authz.ok) return ERR(authz.missatge);
 
   await db.pressupostDept.update({
     where: { id: pressupostId },

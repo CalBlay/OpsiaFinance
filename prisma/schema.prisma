@@ -20,6 +20,7 @@ model User {
   imports         Importacio[]
   pressupostosLn   PressupostLn[]
   pressupostosDept PressupostDept[]
+  deptsPressupost  UserDepartament[]
 }
 
 /// Dimensió 1 — Línia de negoci (LN00000, LN00001, …)
@@ -97,9 +98,24 @@ model Departament {
   movimentsTraspassDesti    MovimentTraspassPersonal[] @relation("TraspassDeptDesti")
   pressupostosDept          PressupostDept[]
   partidesCatalogVisible    PressupostPartidaCatalogDept[]
+  usuarisPressupost         UserDepartament[]
 
   @@unique([centreId, codi])
   @@index([centreId])
+}
+
+/// Assignació d’un usuari a departaments Tipus B (rol PRESSUPOST_DEPT).
+model UserDepartament {
+  id            String      @id @default(cuid())
+  userId        String
+  departamentId String
+  createdAt     DateTime    @default(now())
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departament   Departament @relation(fields: [departamentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, departamentId])
+  @@index([departamentId])
+  @@index([userId])
 }
 
 /// Periode comptable: any + mes
@@ -894,6 +910,8 @@ enum UserRole {
   ADMIN
   EDICIO
   CONSULTA
+  /// Només pressupost Tipus B dels departaments assignats.
+  PRESSUPOST_DEPT
 }
 
 enum PressupostEstat {

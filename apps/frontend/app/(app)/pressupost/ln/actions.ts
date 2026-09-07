@@ -13,7 +13,7 @@ import {
   NODE_EBITDA,
   NODE_VENDES,
 } from "@/lib/repartiment/nodes";
-import { potEditarPressupost } from "@/lib/roles";
+import { potEditarPressupostLn } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string; id?: string };
@@ -24,7 +24,7 @@ async function requireEditor(): Promise<{ ok: true; userId: string } | { ok: fal
   const session = await auth();
   const role = session?.user?.role;
   const userId = session?.user?.id;
-  if (!potEditarPressupost(role) || !userId) return { ok: false };
+  if (!potEditarPressupostLn(role) || !userId) return { ok: false };
   return { ok: true, userId };
 }
 

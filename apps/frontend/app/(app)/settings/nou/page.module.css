@@ -1,6 +1,6 @@
 .page {
   padding: var(--opsia-space-8) var(--opsia-space-10);
-  max-width: 600px;
+  max-width: 720px;
 }
 
 .title {
@@ -57,6 +57,33 @@
   font-size: var(--opsia-font-size-xs);
   color: var(--opsia-ink-soft);
   margin-top: var(--opsia-space-1);
+}
+
+.deptGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 16rem;
+  overflow: auto;
+  padding: 0.55rem;
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-bg-card);
+}
+
+.deptRow {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: var(--opsia-font-size-sm);
+  cursor: pointer;
+}
+
+.deptCodi {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--opsia-ink-soft);
+  min-width: 4.5rem;
 }
 
 /* ─── Error ──────────────────────────────────────────────────────────────────── */

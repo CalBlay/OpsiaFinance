@@ -65,6 +65,16 @@ export default auth((req) => {
   if (pathname.startsWith("/pressupost") && role && !potPressupost(role)) {
     return NextResponse.redirect(new URL("/", url));
   }
+  // Responsable dept: només Tipus B
+  if (
+    role === "PRESSUPOST_DEPT" &&
+    (pathname === "/pressupost/ln" ||
+      pathname.startsWith("/pressupost/ln/") ||
+      pathname === "/pressupost/aprovacio" ||
+      pathname.startsWith("/pressupost/aprovacio/"))
+  ) {
+    return NextResponse.redirect(new URL("/pressupost/departaments", url));
+  }
 
   const res = NextResponse.next();
   const grupParam = url.searchParams.get("grup");

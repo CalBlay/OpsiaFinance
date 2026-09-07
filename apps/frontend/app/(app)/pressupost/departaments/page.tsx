@@ -1,9 +1,17 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import styles from "@/components/consultes/report.module.css";
+import { auth } from "@/lib/auth";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import {
+  esPressupostDeptOnly,
+  listDepartamentIdsUsuari,
+  potVeureTotsDepartamentsPressupost,
+} from "@/lib/pressupost/access";
 import { mapEstatPressupostDeptAny } from "@/lib/pressupost/pressupost-dept";
 import { carregarArbreDeptSc } from "@/lib/repartiment/personal-departaments-data";
+import type { UserRole } from "@/types";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import local from "./page.module.css";
 
@@ -19,6 +27,9 @@ type DeptRow = { id: string; codi: string; nom: string };
 async function CatalogContent({ searchParams }: { searchParams: Promise<Search> }) {
   const sp = await searchParams;
   const grup = await getGrupEmpresaActual();
+  const session = await auth();
+  const role = (session?.user?.role ?? "CONSULTA") as UserRole;
+  const userId = session?.user?.id;
 
   if (grup === "fdlc") {
     return (
@@ -43,13 +54,30 @@ async function CatalogContent({ searchParams }: { searchParams: Promise<Search> 
   const any =
     Number.isInteger(anyParam) && anyParam >= 2000 && anyParam <= 2100 ? anyParam : anyNow;
 
+  const allowedIds = potVeureTotsDepartamentsPressupost(role)
+    ? null
+    : userId
+      ? new Set(await listDepartamentIdsUsuari(userId))
+      : new Set<string>();
+
   const arbre = await carregarArbreDeptSc();
-  const oficines = arbre.find((c) => c.centreCodi === CODI_OFICINES);
-  const cuina = arbre.find((c) => c.centreCodi === CODI_CUINA);
-  const altres = arbre.filter(
+  const filterDepts = (depts: DeptRow[]) =>
+    allowedIds == null ? depts : depts.filter((d) => allowedIds.has(d.id));
+
+  const oficinesRaw = arbre.find((c) => c.centreCodi === CODI_OFICINES);
+  const cuinaRaw = arbre.find((c) => c.centreCodi === CODI_CUINA);
+  const altresRaw = arbre.filter(
     (c) =>
       c.centreCodi !== CODI_OFICINES && c.centreCodi !== CODI_CUINA && c.departaments.length > 0
   );
+
+  const oficines = oficinesRaw
+    ? { ...oficinesRaw, departaments: filterDepts(oficinesRaw.departaments) }
+    : null;
+  const cuina = cuinaRaw ? { ...cuinaRaw, departaments: filterDepts(cuinaRaw.departaments) } : null;
+  const altres = altresRaw
+    .map((c) => ({ ...c, departaments: filterDepts(c.departaments) }))
+    .filter((c) => c.departaments.length > 0);
 
   const totsIds = [
     ...(oficines?.departaments.map((d) => d.id) ?? []),
@@ -60,11 +88,20 @@ async function CatalogContent({ searchParams }: { searchParams: Promise<Search> 
 
   const anysOpts = [anyNow + 1, anyNow, anyNow - 1].filter((a, i, arr) => arr.indexOf(a) === i);
 
+  // Un sol dept assignat → anar-hi directament
+  if (esPressupostDeptOnly(role) && totsIds.length === 1) {
+    redirect(`/pressupost/departaments/${totsIds[0]}?any=${any}`);
+  }
+
   return (
     <div className={styles.report}>
       <ConsultaHeader
         title="Pressupost per departament"
-        subtitle="Tipus B — despesa detallada (dim-3). Escull un departament per començar."
+        subtitle={
+          esPressupostDeptOnly(role)
+            ? "Els teus departaments assignats."
+            : "Tipus B — despesa detallada (dim-3). Escull un departament per començar."
+        }
       />
 
       <div className={local.toolbar}>
@@ -113,9 +150,11 @@ async function CatalogContent({ searchParams }: { searchParams: Promise<Search> 
         />
       ))}
 
-      {!oficines && !cuina && altres.length === 0 ? (
+      {!oficines?.departaments.length && !cuina?.departaments.length && altres.length === 0 ? (
         <p className={local.empty}>
-          No s’han trobat departaments de Central. Importa l’arbre de dimensions a Configuració.
+          {esPressupostDeptOnly(role)
+            ? "No tens cap departament assignat. Demana-ho a un administrador."
+            : "No s’han trobat departaments de Central. Importa l’arbre de dimensions a Configuració."}
         </p>
       ) : null}
 

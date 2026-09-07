@@ -1,11 +1,25 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
 import styles from "@/components/consultes/report.module.css";
+import { auth } from "@/lib/auth";
+import { esPressupostDeptOnly } from "@/lib/pressupost/access";
+import { potVeurePressupostGlobal } from "@/lib/roles";
+import type { UserRole } from "@/types";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import local from "./page.module.css";
 
 export const metadata = { title: "Pressupost — OpsiaFinance" };
 
-export default function PressupostResumPage() {
+export default async function PressupostResumPage() {
+  const session = await auth();
+  const role = (session?.user?.role ?? "CONSULTA") as UserRole;
+
+  if (esPressupostDeptOnly(role)) {
+    redirect("/pressupost/departaments");
+  }
+
+  const showGlobal = potVeurePressupostGlobal(role);
+
   return (
     <div className={styles.report}>
       <ConsultaHeader
@@ -14,13 +28,15 @@ export default function PressupostResumPage() {
       />
 
       <div className={local.cards}>
-        <Link href="/pressupost/ln" className={local.card}>
-          <span className={local.cardTitle}>Per línia (vendes)</span>
-          <span className={local.cardText}>
-            Tipus A — vendes / EBITDA per LN. Restaurants: general o per centre, amb opció d’aplicar
-            la suma al general.
-          </span>
-        </Link>
+        {showGlobal ? (
+          <Link href="/pressupost/ln" className={local.card}>
+            <span className={local.cardTitle}>Per línia (vendes)</span>
+            <span className={local.cardText}>
+              Tipus A — vendes / EBITDA per LN. Restaurants: general o per centre, amb opció
+              d’aplicar la suma al general.
+            </span>
+          </Link>
+        ) : null}
         <Link href="/pressupost/departaments" className={local.card}>
           <span className={local.cardTitle}>Per departament</span>
           <span className={local.cardText}>
@@ -28,12 +44,14 @@ export default function PressupostResumPage() {
             control.
           </span>
         </Link>
-        <Link href="/pressupost/aprovacio" className={local.card}>
-          <span className={local.cardTitle}>Aprovació</span>
-          <span className={local.cardText}>
-            Consolidar i confirmar plans. Desviacions vs real: més endavant.
-          </span>
-        </Link>
+        {showGlobal ? (
+          <Link href="/pressupost/aprovacio" className={local.card}>
+            <span className={local.cardTitle}>Aprovació</span>
+            <span className={local.cardText}>
+              Consolidar i confirmar plans. Desviacions vs real: més endavant.
+            </span>
+          </Link>
+        ) : null}
       </div>
     </div>
   );

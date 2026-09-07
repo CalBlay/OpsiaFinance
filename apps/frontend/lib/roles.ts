@@ -21,15 +21,27 @@ export function esAdmin(role: UserRole | string | undefined | null): boolean {
 }
 
 /**
- * Mòdul Pressupost (creació LN / departaments).
- * De moment tots els usuaris autenticats; més endavant es podrà acotar
- * per rol o per unitat (LN / departament).
+ * Mòdul Pressupost.
+ * PRESSUPOST_DEPT: només Tipus B dels departaments assignats.
  */
 export function potPressupost(role: UserRole | string | undefined | null): boolean {
-  return role === "ADMIN" || role === "EDICIO" || role === "CONSULTA";
+  return role === "ADMIN" || role === "EDICIO" || role === "CONSULTA" || role === "PRESSUPOST_DEPT";
 }
 
-/** Pot editar cel·les / crear esborranys de pressupost. */
+/**
+ * Pot editar cel·les / crear esborranys de pressupost (àmbit global de rol).
+ * El scope per departament es comprova amb `potEditarPressupostDepartament`.
+ */
 export function potEditarPressupost(role: UserRole | string | undefined | null): boolean {
+  return role === "ADMIN" || role === "EDICIO" || role === "PRESSUPOST_DEPT";
+}
+
+/** Pot editar pressupost Tipus A (LN / centres). */
+export function potEditarPressupostLn(role: UserRole | string | undefined | null): boolean {
   return role === "ADMIN" || role === "EDICIO";
+}
+
+/** Veu pestanyes Tipus A / aprovació al mòdul Pressupost. */
+export function potVeurePressupostGlobal(role: UserRole | string | undefined | null): boolean {
+  return role === "ADMIN" || role === "EDICIO" || role === "CONSULTA";
 }

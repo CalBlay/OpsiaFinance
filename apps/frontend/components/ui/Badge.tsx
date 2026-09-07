@@ -41,12 +41,14 @@ const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Administrador",
   EDICIO: "Editor",
   CONSULTA: "Consultor",
+  PRESSUPOST_DEPT: "Pressupost dept.",
 };
 
 const ROLE_VARIANTS: Record<UserRole, BadgeVariant> = {
   ADMIN: "destructive",
   EDICIO: "warning",
   CONSULTA: "secondary",
+  PRESSUPOST_DEPT: "default",
 };
 
 export function RoleBadge({ role }: { role: UserRole }) {
