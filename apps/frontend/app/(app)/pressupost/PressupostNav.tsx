@@ -9,9 +9,14 @@ import styles from "../consultes/layout.module.css";
 
 const TABS = [
   { href: "/pressupost", label: "Vista general", icon: LayoutList, exact: true },
-  { href: "/pressupost/ln", label: "Per línia (vendes)", icon: Layers },
-  { href: "/pressupost/departaments", label: "Per departament", icon: Building2 },
-  { href: "/pressupost/aprovacio", label: "Aprovació", icon: CheckSquare },
+  { href: "/pressupost/ln", label: "Per línia (vendes)", icon: Layers, exact: false },
+  {
+    href: "/pressupost/departaments",
+    label: "Per departament",
+    icon: Building2,
+    exact: false,
+  },
+  { href: "/pressupost/aprovacio", label: "Aprovació", icon: CheckSquare, exact: false },
 ] as const;
 
 export function PressupostNav() {
