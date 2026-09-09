@@ -45,10 +45,18 @@ export default async function PressupostResumPage() {
           </span>
         </Link>
         {showGlobal ? (
+          <Link href="/pressupost/seguiment" className={local.card}>
+            <span className={local.cardTitle}>Seguiment vendes</span>
+            <span className={local.cardText}>
+              Desviació pressupost vs real: per mes (totes les LN) o per LN (tots els mesos).
+            </span>
+          </Link>
+        ) : null}
+        {showGlobal ? (
           <Link href="/pressupost/aprovacio" className={local.card}>
             <span className={local.cardTitle}>Aprovació</span>
             <span className={local.cardText}>
-              Consolidar i confirmar plans. Desviacions vs real: més endavant.
+              Consolidar i confirmar plans. Desviacions de departaments: més endavant.
             </span>
           </Link>
         ) : null}

@@ -1,0 +1,20 @@
+USUARIS OPSIA
+
+
+Usuari: admin@opsia.local
+Contrasenya: Admin1234!
+
+Email: Jordina@calblay.com
+Contrasenya: Jordina2026
+
+Email:gloria@calblay.com
+Contrasenya: Gloria2026
+
+Email:comptabilitat@calblay.com
+Contrasenya: comptabilitat2026
+
+Email:david@calblay.com
+Contrasenya: David2026
+
+Email:Oriol@calblay.com
+Contrasenya: Oriol2026

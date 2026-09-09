@@ -35,12 +35,6 @@ export { assertExternalApiKey };
 /** Centres ja imputats als pots gestió/prep/rentat de CalBlapp. */
 const CENTRES_EXCLOSOS_POTS = new Set(["CCC00004", "CCC00007"]);
 
-/**
- * En aquestes LN el personal indirecte ja és un import fix distribuït per
- * departaments a Opsia; no s'ha de recalcular com un residual del compte.
- */
-const LN_PERSONAL_FIX_PER_DEPARTAMENTS = new Set(["LN00001", "LN00005", "LN00006"]);
-
 export type PersonalIndirecteMode = "FIX_DEPARTAMENTS" | "RESIDUAL_LN";
 
 export type ExecucioEstatEstructura = "CONFIRMAT" | "LIVE_FALLBACK" | "SENSE_DADES";
@@ -55,6 +49,8 @@ export type CostEstructuraLnRow = {
   /** Total de personal del compte d'explotacio de la LN en vista Gestio. */
   personalTotalLn: number;
   personalIndirecteMode: PersonalIndirecteMode;
+  /** Import fix mensual configurat a Opsia; s'exporta tal qual. */
+  personalIndirecteFixConfigurat: number | null;
   /** Part provinent de Logística + Cuina Central. */
   personalExclosLogisticaCuina: number;
   /** Personal SC imputat sense L+C (referència; no és el pot indirecte final). */
@@ -96,6 +92,15 @@ function esMovimentAdminRestGreenVita(
 
 type AccByLn = Map<string, { 11: number; 17: number; 30: number }>;
 type PersonalSplit = { brut: number; exclos: number; net: number };
+type PersonalConfig = Awaited<ReturnType<typeof carregarConfigPersonal>>;
+
+function fixedPersonnelByLn(config: PersonalConfig): Map<string, number> {
+  return new Map(
+    config.configsLn
+      .filter((row) => row.mode === "FIX_TOTAL")
+      .map((row) => [row.liniaNegociId, round2(Math.abs(row.importFixTotal ?? 0))])
+  );
+}
 
 async function loadPersonalTotalByLn(
   lns: Array<{ id: string; codi: string }>,
@@ -210,16 +215,16 @@ async function loadLiveGestioByLn(
 async function personalSplitPerLn(
   periodId: string,
   year: number,
-  month: number
+  month: number,
+  configPers: PersonalConfig
 ): Promise<{
   byLnId: Map<string, PersonalSplit>;
   logisticaCuinaPersonal: number;
   personalCentralSap: number;
 }> {
-  const [directe, costs, configPers, lns, central] = await Promise.all([
+  const [directe, costs, lns, central] = await Promise.all([
     getDirectePerLnNode(periodId),
     carregarCostPersonalDeptSc(year, month),
-    carregarConfigPersonal(),
     db.liniaNegoci.findMany({ select: { id: true, codi: true } }),
     db.liniaNegoci.findUnique({
       where: { codi: CODI_LN_CENTRAL },
@@ -275,6 +280,7 @@ function toRow(
   gestioAcc: { 11: number; 17: number; 30: number } | undefined,
   personal: PersonalSplit | undefined,
   personalTotalLn: number,
+  personalIndirecteFixConfigurat: number | null,
   execucioEstat: ExecucioEstatEstructura
 ): CostEstructuraLnRow {
   const g = gestioAcc ?? emptyAcc();
@@ -296,9 +302,9 @@ function toRow(
     compresImputades,
     personalImputat,
     personalTotalLn: round2(personalTotalLn),
-    personalIndirecteMode: LN_PERSONAL_FIX_PER_DEPARTAMENTS.has(ln.codi)
-      ? "FIX_DEPARTAMENTS"
-      : "RESIDUAL_LN",
+    personalIndirecteMode:
+      personalIndirecteFixConfigurat != null ? "FIX_DEPARTAMENTS" : "RESIDUAL_LN",
+    personalIndirecteFixConfigurat,
     personalExclosLogisticaCuina,
     personalImputatNet,
     gestioImputada,
@@ -312,7 +318,7 @@ export async function buildCostEstructuraLn(
   year: number,
   month: number
 ): Promise<CostEstructuraLnResponse> {
-  const [period, central, lns] = await Promise.all([
+  const [period, central, lns, configPersonal] = await Promise.all([
     db.period.findFirst({
       where: { any: year, mes: month },
       select: { id: true, any: true, mes: true },
@@ -322,11 +328,13 @@ export async function buildCostEstructuraLn(
       select: { id: true },
     }),
     db.liniaNegoci.findMany({
-      where: { isActive: true, codi: { not: CODI_LN_CENTRAL } },
+      where: { isActive: true },
       orderBy: [{ ordre: "asc" }, { codi: "asc" }],
       select: { id: true, codi: true, nom: true },
     }),
+    carregarConfigPersonal(),
   ]);
+  const fixedPersonnel = fixedPersonnelByLn(configPersonal);
 
   if (!period || !central) {
     return {
@@ -337,13 +345,15 @@ export async function buildCostEstructuraLn(
       logisticaCuinaPersonal: 0,
       personalCentralSap: 0,
       ratioLogisticaCuina: 0,
-      lines: lns.map((ln) => toRow(ln, undefined, undefined, 0, "SENSE_DADES")),
+      lines: lns.map((ln) =>
+        toRow(ln, undefined, undefined, 0, fixedPersonnel.get(ln.id) ?? null, "SENSE_DADES")
+      ),
     };
   }
 
   const [confirmed, personalSplit, personalTotalByLn] = await Promise.all([
     loadConfirmedByLn(period.id, central.id),
-    personalSplitPerLn(period.id, year, month),
+    personalSplitPerLn(period.id, year, month, configPersonal),
     loadPersonalTotalByLn(lns, year, month),
   ]);
 
@@ -379,6 +389,7 @@ export async function buildCostEstructuraLn(
         gestioAcc.get(ln.id),
         personalSplit.byLnId.get(ln.id),
         personalTotalByLn.get(ln.id) ?? 0,
+        fixedPersonnel.get(ln.id) ?? null,
         execucioEstat
       )
     ),

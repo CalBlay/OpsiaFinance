@@ -151,6 +151,7 @@ export function primerHrefModul(
     if (potVeureSub(role, "pressupost", "departaments", extra)) return "/pressupost/departaments";
     if (potVeureSub(role, "pressupost", "resum", extra)) return "/pressupost";
     if (potVeureSub(role, "pressupost", "ln", extra)) return "/pressupost/ln";
+    if (potVeureSub(role, "pressupost", "seguiment", extra)) return "/pressupost/seguiment";
     if (potVeureSub(role, "pressupost", "aprovacio", extra)) return "/pressupost/aprovacio";
     return "/pressupost/departaments";
   }

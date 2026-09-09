@@ -5,7 +5,7 @@ import { potVeureSub } from "@/lib/nav-access";
 import type { NavExtra } from "@/lib/nav-catalog";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
-import { Building2, CheckSquare, Layers, LayoutList } from "lucide-react";
+import { Building2, CheckSquare, Layers, LayoutList, LineChart } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "../consultes/layout.module.css";
@@ -19,6 +19,13 @@ const TABS_ALL = [
     icon: Building2,
     exact: false,
     sub: "departaments",
+  },
+  {
+    href: "/pressupost/seguiment",
+    label: "Seguiment vendes",
+    icon: LineChart,
+    exact: false,
+    sub: "seguiment",
   },
   {
     href: "/pressupost/aprovacio",

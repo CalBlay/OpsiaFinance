@@ -14,7 +14,7 @@ export type ResultatsSub =
 
 export type RestaurantsSub = "quadre-mando" | "vendes" | "cost-salarial";
 
-export type PressupostSub = "resum" | "ln" | "departaments" | "aprovacio";
+export type PressupostSub = "resum" | "ln" | "departaments" | "seguiment" | "aprovacio";
 
 export type DadesSub =
   | "importacions"
@@ -73,6 +73,7 @@ export const PRESSUPOST_SUBS: { id: PressupostSub; label: string; href: string }
   { id: "resum", label: "Vista general", href: "/pressupost" },
   { id: "ln", label: "Per línia (vendes)", href: "/pressupost/ln" },
   { id: "departaments", label: "Per departament", href: "/pressupost/departaments" },
+  { id: "seguiment", label: "Seguiment vendes", href: "/pressupost/seguiment" },
   { id: "aprovacio", label: "Aprovació", href: "/pressupost/aprovacio" },
 ];
 
@@ -158,6 +159,7 @@ export function resolvePressupostSub(pathname: string): PressupostSub | null {
   if (pathname === "/pressupost" || pathname === "/pressupost/") return "resum";
   if (pathname.startsWith("/pressupost/ln")) return "ln";
   if (pathname.startsWith("/pressupost/departaments")) return "departaments";
+  if (pathname.startsWith("/pressupost/seguiment")) return "seguiment";
   if (pathname.startsWith("/pressupost/aprovacio")) return "aprovacio";
   return null;
 }
