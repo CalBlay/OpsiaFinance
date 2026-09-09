@@ -35,6 +35,14 @@ export { assertExternalApiKey };
 /** Centres ja imputats als pots gestió/prep/rentat de CalBlapp. */
 const CENTRES_EXCLOSOS_POTS = new Set(["CCC00004", "CCC00007"]);
 
+/**
+ * En aquestes LN el personal indirecte ja és un import fix distribuït per
+ * departaments a Opsia; no s'ha de recalcular com un residual del compte.
+ */
+const LN_PERSONAL_FIX_PER_DEPARTAMENTS = new Set(["LN00001", "LN00005", "LN00006"]);
+
+export type PersonalIndirecteMode = "FIX_DEPARTAMENTS" | "RESIDUAL_LN";
+
 export type ExecucioEstatEstructura = "CONFIRMAT" | "LIVE_FALLBACK" | "SENSE_DADES";
 
 export type CostEstructuraLnRow = {
@@ -46,6 +54,7 @@ export type CostEstructuraLnRow = {
   personalImputat: number;
   /** Total de personal del compte d'explotacio de la LN en vista Gestio. */
   personalTotalLn: number;
+  personalIndirecteMode: PersonalIndirecteMode;
   /** Part provinent de Logística + Cuina Central. */
   personalExclosLogisticaCuina: number;
   /** Personal SC imputat sense L+C (referència; no és el pot indirecte final). */
@@ -287,6 +296,9 @@ function toRow(
     compresImputades,
     personalImputat,
     personalTotalLn: round2(personalTotalLn),
+    personalIndirecteMode: LN_PERSONAL_FIX_PER_DEPARTAMENTS.has(ln.codi)
+      ? "FIX_DEPARTAMENTS"
+      : "RESIDUAL_LN",
     personalExclosLogisticaCuina,
     personalImputatNet,
     gestioImputada,

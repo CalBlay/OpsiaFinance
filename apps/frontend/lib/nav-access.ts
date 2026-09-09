@@ -1,11 +1,4 @@
-import type {
-  DadesSub,
-  NavExtra,
-  NavModul,
-  RestaurantsSub,
-  ResultatsSub,
-  SettingsSub,
-} from "@/lib/nav-catalog";
+import type { DadesSub, NavExtra, NavModul, ResultatsSub, SettingsSub } from "@/lib/nav-catalog";
 import {
   isRestaurantsPath,
   parseNavExtra,
@@ -131,7 +124,7 @@ export function homeHrefPerRol(
 ): string {
   if (role === "PRESSUPOST_DEPT") return "/pressupost/departaments";
   if (role === "RESTAURACIO") {
-    const subs = allowedSubs(role, "restaurants", extra) as RestaurantsSub[];
+    const subs = allowedSubs(role, "restaurants", extra);
     if (subs.includes("quadre-mando") || subs.includes("*")) return "/consultes/quadre-mando";
     if (subs.includes("vendes")) return "/consultes/vendes-restaurants";
     if (subs.includes("cost-salarial")) return "/consultes/cost-salarial";
