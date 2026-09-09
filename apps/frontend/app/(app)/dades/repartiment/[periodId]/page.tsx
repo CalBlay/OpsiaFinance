@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { decimalToNumber } from "@/lib/repartiment/serialize";
+import { esSuperOAdmin } from "@/lib/roles";
 import { notFound } from "next/navigation";
 import { RepartimentExecucioPanel } from "../RepartimentExecucioPanel";
 
@@ -13,7 +14,8 @@ export default async function RepartimentDetallPage({
 }) {
   const { periodId } = await params;
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const role = session?.user?.role;
+  const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
   const period = await db.period.findUnique({
     where: { id: periodId },

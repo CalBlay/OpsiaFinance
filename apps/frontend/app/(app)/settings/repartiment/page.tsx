@@ -11,6 +11,7 @@ import {
   desactivarNormesPersonalObsoletes,
   ensureConfigPersonalInicial,
 } from "@/lib/repartiment/personal-departaments-data";
+import { esSuperOAdmin } from "@/lib/roles";
 import { RepartimentSubNav } from "./RepartimentSubNav";
 import styles from "./page.module.css";
 import { PersonalRepartimentPanel } from "./personal/PersonalRepartimentPanel";
@@ -20,7 +21,7 @@ export const metadata = { title: "Repartiment personal SC — OpsiaFinance" };
 
 export default async function RepartimentSettingsPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN";
+  const canEdit = esSuperOAdmin(session?.user?.role);
 
   await syncGrupsRepartiment();
   await ensureConfigPersonalInicial();

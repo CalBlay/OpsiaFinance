@@ -1,5 +1,6 @@
 import { authConfig } from "@/lib/auth.config";
 import { db } from "@/lib/db";
+import { parseNavExtra } from "@/lib/nav-catalog";
 import bcrypt from "bcryptjs";
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
@@ -29,6 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: true,
             isActive: true,
             passwordHash: true,
+            navExtra: true,
           },
         });
 
@@ -45,6 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           role: user.role,
+          navExtra: parseNavExtra(user.navExtra),
         };
       },
     }),

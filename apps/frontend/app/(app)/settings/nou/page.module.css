@@ -86,6 +86,43 @@
   min-width: 4.5rem;
 }
 
+.extraStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-4);
+  margin-top: var(--opsia-space-2);
+  padding: var(--opsia-space-4);
+  border: 1px solid var(--opsia-line-soft);
+  border-radius: var(--opsia-radius-sm);
+  background: var(--opsia-bg-card);
+}
+
+.extraModul {
+  display: flex;
+  flex-direction: column;
+  gap: var(--opsia-space-2);
+}
+
+.extraModulTitle {
+  font-size: var(--opsia-font-size-sm);
+  font-weight: 600;
+  color: var(--opsia-ink-strong);
+}
+
+.extraSubs {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.35rem;
+  padding-left: 1.4rem;
+}
+
+.hintInline {
+  font-size: var(--opsia-font-size-xs);
+  color: var(--opsia-ink-soft);
+  font-weight: 400;
+  margin-left: 0.25rem;
+}
+
 /* ─── Error ──────────────────────────────────────────────────────────────────── */
 .error {
   padding: var(--opsia-space-3) var(--opsia-space-4);

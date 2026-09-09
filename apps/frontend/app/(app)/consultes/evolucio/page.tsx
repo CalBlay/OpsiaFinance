@@ -24,6 +24,7 @@ import {
   aplicarVistaGestioEvolucioLn,
 } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
+import { esSuperOAdmin } from "@/lib/roles";
 import {
   parseVistaCompte,
   vistaInclouRepartiment,
@@ -184,7 +185,7 @@ export default async function EvolucioPage({
       nomesEmpresa={false}
       mostraVistaGestio={potGestio}
       potGestio={potGestio}
-      isAdmin={session?.user?.role === "ADMIN"}
+      isAdmin={esSuperOAdmin(session?.user?.role)}
       grup={grup}
       lnIdsEmpresa={lnIdsEmpresa}
       directe={

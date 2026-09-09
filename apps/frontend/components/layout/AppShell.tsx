@@ -1,5 +1,7 @@
 import { auth } from "@/lib/auth";
+import { clampGrupEmpresa, resolveGrupsPermitits } from "@/lib/consulta-scope";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
+import { homeHrefPerRol, parseNavExtra } from "@/lib/nav-access";
 import type { ReactNode } from "react";
 import styles from "./AppShell.module.css";
 import { Sidebar } from "./Sidebar";
@@ -15,17 +17,24 @@ interface AppShellProps {
  * La seva estructura NO canvia entre pàgines.
  */
 export async function AppShell({ children }: AppShellProps) {
-  const [session, grup] = await Promise.all([auth(), getGrupEmpresaActual()]);
+  const [session, grupCookie] = await Promise.all([auth(), getGrupEmpresaActual()]);
   const role = session?.user?.role ?? "CONSULTA";
+  const navExtra = parseNavExtra(session?.user?.navExtra);
+  const grupsPermitits = resolveGrupsPermitits(role, navExtra);
+  const grup = clampGrupEmpresa(grupCookie, grupsPermitits);
   const user = session?.user
-    ? { name: session.user.name ?? "Usuari", role: session.user.role }
+    ? {
+        name: session.user.name ?? "Usuari",
+        role: session.user.role,
+        homeHref: homeHrefPerRol(session.user.role, navExtra),
+      }
     : null;
 
   return (
     <div className={styles.root}>
-      <Topbar user={user} grup={grup} />
+      <Topbar user={user} grup={grup} grupsPermitits={grupsPermitits} />
       <div className={styles.body}>
-        <Sidebar role={role} />
+        <Sidebar role={role} navExtra={navExtra} />
         <main className={styles.content}>{children}</main>
       </div>
     </div>

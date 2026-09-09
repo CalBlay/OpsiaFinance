@@ -6,10 +6,10 @@ import {
   previsualitzaAjustPctVendes,
   whereAmbitAjust,
 } from "@/lib/ajustos/pct-vendes";
-import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import { requireDadesEditorId } from "@/lib/require-access";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string };
@@ -24,10 +24,7 @@ function logAjustError(scope: string, error: unknown, extra?: Record<string, unk
 }
 
 async function getEditor() {
-  const session = await auth();
-  const role = session?.user?.role;
-  if (role === "ADMIN" || role === "EDICIO") return session?.user?.id ?? null;
-  return null;
+  return requireDadesEditorId();
 }
 
 function refresh() {

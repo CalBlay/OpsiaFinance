@@ -5,6 +5,7 @@ import { esSubtotalPresentacio, recalcularSubtotalsDetallImport } from "@/lib/co
 import { getArbreSeleccio } from "@/lib/consultes";
 import { db } from "@/lib/db";
 import { codiLnDelNomFitxer } from "@/lib/nom-fitxer";
+import { esSuperOAdmin } from "@/lib/roles";
 import { formatDateShort } from "@/lib/utils";
 import type { EstatImport } from "@/types";
 import { Calendar, FileText, Tag, User } from "lucide-react";
@@ -90,8 +91,8 @@ export default async function ImportDetailPage({
     );
   }
 
-  const _isAdmin = session?.user?.role === "ADMIN";
-  const isEditor = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const _isAdmin = esSuperOAdmin(session?.user?.role);
+  const isEditor = esSuperOAdmin(session?.user?.role) || session?.user?.role === "EDICIO";
 
   const dadesCalc = recalcularSubtotalsDetallImport(
     concepts,

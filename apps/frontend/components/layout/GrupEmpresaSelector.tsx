@@ -4,31 +4,47 @@ import { GRUP_CHANGE_EVENT, setGrupEmpresaClient } from "@/lib/grup-cookie-clien
 import { prefetchGrupIniciAction } from "@/lib/grup-prefetch";
 import { GRUP_EMPRESA_LABELS, GRUP_EMPRESA_OPCIONS, type GrupEmpresa } from "@/lib/grups-empresa";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import styles from "./GrupEmpresaSelector.module.css";
 
-export function GrupEmpresaSelector({ value }: { value: GrupEmpresa }) {
+export function GrupEmpresaSelector({
+  value,
+  allowed,
+}: {
+  value: GrupEmpresa;
+  /** Si és null/undefined, totes les empreses. */
+  allowed?: GrupEmpresa[] | null;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [isPending, startTransition] = useTransition();
-  const [local, setLocal] = useState<GrupEmpresa>(value);
+  const opcions = useMemo(() => {
+    if (!allowed?.length) return GRUP_EMPRESA_OPCIONS;
+    return GRUP_EMPRESA_OPCIONS.filter((g) => allowed.includes(g));
+  }, [allowed]);
+  const [local, setLocal] = useState<GrupEmpresa>(
+    opcions.includes(value) ? value : (opcions[0] ?? value)
+  );
 
   useEffect(() => {
-    setLocal(value);
-  }, [value]);
+    const next = opcions.includes(value) ? value : (opcions[0] ?? value);
+    setLocal(next);
+    if (next !== value) {
+      setGrupEmpresaClient(next);
+    }
+  }, [value, opcions]);
 
   useEffect(() => {
     const onGrup = (e: Event) => {
       const detail = (e as CustomEvent<GrupEmpresa>).detail;
-      if (detail) setLocal(detail);
+      if (detail && opcions.includes(detail)) setLocal(detail);
     };
     window.addEventListener(GRUP_CHANGE_EVENT, onGrup);
     return () => window.removeEventListener(GRUP_CHANGE_EVENT, onGrup);
-  }, []);
+  }, [opcions]);
 
-  // Escalfa Cal Blay / FDLC / Consolidat en idle perquè el canvi sigui ràpid.
   useEffect(() => {
-    const altres = GRUP_EMPRESA_OPCIONS.filter((g) => g !== value);
+    const altres = opcions.filter((g) => g !== local);
     const run = () => {
       for (const g of altres) {
         void prefetchGrupIniciAction(g).catch(() => {});
@@ -41,7 +57,19 @@ export function GrupEmpresaSelector({ value }: { value: GrupEmpresa }) {
     }
     const t = window.setTimeout(run, 400);
     return () => window.clearTimeout(t);
-  }, [value]);
+  }, [local, opcions]);
+
+  if (opcions.length <= 1) {
+    const only = opcions[0] ?? local;
+    return (
+      <div className={styles.wrap}>
+        <span className={styles.label}>Empresa</span>
+        <span className={styles.select} style={{ display: "inline-flex", alignItems: "center" }}>
+          {GRUP_EMPRESA_LABELS[only]}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.wrap}>
@@ -57,10 +85,10 @@ export function GrupEmpresaSelector({ value }: { value: GrupEmpresa }) {
         onChange={(e) => {
           const next = e.target.value as GrupEmpresa;
           if (next === local) return;
+          if (!opcions.includes(next)) return;
           setLocal(next);
           setGrupEmpresaClient(next);
           startTransition(() => {
-            // Sempre Inici amb KPIs de l'últim mes d'aquell àmbit.
             if (pathname === "/") {
               router.refresh();
             } else {
@@ -69,7 +97,7 @@ export function GrupEmpresaSelector({ value }: { value: GrupEmpresa }) {
           });
         }}
       >
-        {GRUP_EMPRESA_OPCIONS.map((val) => (
+        {opcions.map((val) => (
           <option key={val} value={val}>
             {GRUP_EMPRESA_LABELS[val]}
           </option>

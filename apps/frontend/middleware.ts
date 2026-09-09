@@ -1,7 +1,9 @@
 import { authConfig } from "@/lib/auth.config";
+import { clampGrupEmpresa, resolveGrupsPermitits } from "@/lib/consulta-scope";
 import { GRUP_COOKIE_NAME } from "@/lib/grup-cookie-name";
 import { parseGrupEmpresa } from "@/lib/grups-empresa";
-import { potConfigurar, potEditar, potPressupost } from "@/lib/roles";
+import { homeHrefPerRol, parseNavExtra, potAccedirPath } from "@/lib/nav-access";
+import type { NavExtra } from "@/lib/nav-catalog";
 import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
 
@@ -28,8 +30,14 @@ export default auth((req) => {
 
   if (isApiAuth || isExternalApi || isDevCalcul) return NextResponse.next();
 
+  const role = req.auth?.user?.role;
+  const navExtra = parseNavExtra((req.auth?.user as { navExtra?: NavExtra } | undefined)?.navExtra);
+  const homeHref = homeHrefPerRol(role, navExtra);
+
   if (isLogin) {
-    if (isLoggedIn) return NextResponse.redirect(new URL("/", url));
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL(homeHref, url));
+    }
     return NextResponse.next();
   }
 
@@ -38,8 +46,6 @@ export default auth((req) => {
     loginUrl.searchParams.set("callbackUrl", `${pathname}${url.search}`);
     return NextResponse.redirect(loginUrl);
   }
-
-  const role = req.auth?.user?.role;
 
   // Catàleg: partides → categories
   if (
@@ -57,39 +63,34 @@ export default auth((req) => {
     return NextResponse.redirect(new URL("/pressupost", url));
   }
 
-  // EDICIO: Dades (import/ajustos). Configuració: només ADMIN.
-  if (pathname.startsWith("/dades") && role && !potEditar(role)) {
-    return NextResponse.redirect(new URL("/", url));
-  }
-  if (pathname.startsWith("/settings") && role && !potConfigurar(role)) {
-    return NextResponse.redirect(new URL("/", url));
-  }
-  if (pathname.startsWith("/pressupost") && role && !potPressupost(role)) {
-    return NextResponse.redirect(new URL("/", url));
-  }
-  // Responsable dept: només Tipus B
   if (
-    role === "PRESSUPOST_DEPT" &&
-    (pathname === "/pressupost/ln" ||
-      pathname.startsWith("/pressupost/ln/") ||
-      pathname === "/pressupost/aprovacio" ||
-      pathname.startsWith("/pressupost/aprovacio/"))
+    pathname.startsWith("/dades") ||
+    pathname.startsWith("/settings") ||
+    pathname.startsWith("/pressupost") ||
+    pathname.startsWith("/consultes") ||
+    pathname === "/"
   ) {
-    return NextResponse.redirect(new URL("/pressupost/departaments", url));
+    if (role && !potAccedirPath(role, pathname, navExtra)) {
+      return NextResponse.redirect(new URL(homeHref, url));
+    }
   }
 
   const res = NextResponse.next();
+  const permitits = resolveGrupsPermitits(role, navExtra);
   const grupParam = url.searchParams.get("grup");
+  const currentRaw = req.cookies.get(GRUP_COOKIE_NAME)?.value;
+  const current = parseGrupEmpresa(currentRaw);
+  let nextGrup = current;
   if (grupParam === "calblay" || grupParam === "fdlc" || grupParam === "consolidat") {
-    const current = req.cookies.get(GRUP_COOKIE_NAME)?.value;
-    const nextGrup = parseGrupEmpresa(grupParam);
-    if (current !== nextGrup) {
-      res.cookies.set(GRUP_COOKIE_NAME, nextGrup, {
-        path: "/",
-        maxAge: 60 * 60 * 24 * 365,
-        sameSite: "lax",
-      });
-    }
+    nextGrup = parseGrupEmpresa(grupParam);
+  }
+  nextGrup = clampGrupEmpresa(nextGrup, permitits);
+  if (currentRaw !== nextGrup) {
+    res.cookies.set(GRUP_COOKIE_NAME, nextGrup, {
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365,
+      sameSite: "lax",
+    });
   }
 
   return res;

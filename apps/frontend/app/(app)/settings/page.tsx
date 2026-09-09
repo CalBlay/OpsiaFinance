@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/Table";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseNavExtra, primerHrefModul } from "@/lib/nav-access";
+import { esAdmin } from "@/lib/roles";
 import { formatDateShort } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import { UserRowActions } from "./UserRowActions";
@@ -33,8 +35,9 @@ export default async function SettingsPage() {
     }),
   ]);
 
-  if (session?.user?.role !== "ADMIN") {
-    redirect("/");
+  if (!esAdmin(session?.user?.role)) {
+    const navExtra = parseNavExtra(session?.user?.navExtra);
+    redirect(primerHrefModul(session?.user?.role, "settings", navExtra) ?? "/");
   }
 
   const currentUserId = session?.user.id;

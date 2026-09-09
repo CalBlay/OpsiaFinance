@@ -2,9 +2,16 @@
 
 import { type DeptOpt, UserForm } from "@/app/(app)/settings/UserForm";
 import { createUserAction } from "@/app/(app)/settings/actions";
+import type { ArbreScopeOpt } from "@/lib/consulta-scope";
 import { useActionState } from "react";
 
-export function NouUsuariClient({ departaments }: { departaments: DeptOpt[] }) {
+export function NouUsuariClient({
+  departaments,
+  arbre,
+}: {
+  departaments: DeptOpt[];
+  arbre: ArbreScopeOpt[];
+}) {
   const [error, formAction, isPending] = useActionState(createUserAction, null);
 
   return (
@@ -14,6 +21,7 @@ export function NouUsuariClient({ departaments }: { departaments: DeptOpt[] }) {
       error={error}
       pending={isPending}
       departaments={departaments}
+      arbre={arbre}
     />
   );
 }

@@ -13,6 +13,7 @@ import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-
 import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import { aplicarVistaGestioEvolucioEmpresa } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
+import { esSuperOAdmin } from "@/lib/roles";
 import {
   type VistaCompte,
   parseVistaCompte,
@@ -60,7 +61,7 @@ export async function carregarEmpresaCapaAction(input: {
   if ((vista === "traspassos" || vista === "gestio") && !potGestio) return null;
 
   const session = await auth();
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = esSuperOAdmin(session?.user?.role);
 
   const [comp, evEmpresaRaw, infoGestio, naturaByNode] = await Promise.all([
     getComparativaEmpresa(input.any, input.rang, vista, input.grup),

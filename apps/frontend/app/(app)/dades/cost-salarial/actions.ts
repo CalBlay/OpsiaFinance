@@ -1,10 +1,9 @@
 "use server";
-
-import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { importarCostSalarialDesDeBuffer } from "@/lib/cost-salarial/import";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import { requireDadesEditorId } from "@/lib/require-access";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string; errors?: string[] };
@@ -12,10 +11,7 @@ const OK = (m = "", errors?: string[]): Result => ({ ok: true, missatge: m, erro
 const ERR = (m: string, errors?: string[]): Result => ({ ok: false, missatge: m, errors });
 
 async function getEditor() {
-  const session = await auth();
-  const role = session?.user?.role;
-  if ((role === "ADMIN" || role === "EDICIO") && session?.user) return session.user.id;
-  return null;
+  return requireDadesEditorId();
 }
 
 function refresh() {

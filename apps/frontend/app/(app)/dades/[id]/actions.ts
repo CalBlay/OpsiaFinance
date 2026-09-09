@@ -1,10 +1,10 @@
 "use server";
 
-import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { esborrarFitxerDisc } from "@/lib/import-file-storage";
 import { processarImportExcel } from "@/lib/processar-import";
+import { requireDadesEditor } from "@/lib/require-access";
 import type { EstatImport } from "@/types";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -14,10 +14,8 @@ export async function updateDadaResultatImportAction(
   dadaId: string,
   nouValor: number
 ): Promise<{ ok: boolean; missatge: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { ok: false, missatge: "No autenticat." };
-  if (!["ADMIN", "EDICIO"].includes(session.user.role ?? ""))
-    return { ok: false, missatge: "Sense permís." };
+  const user = await requireDadesEditor();
+  if (!user) return { ok: false, missatge: "Sense permís." };
   if (!Number.isFinite(nouValor)) return { ok: false, missatge: "Valor no vàlid." };
 
   const dada = await db.dadaResultat.findUnique({
@@ -43,8 +41,8 @@ export async function eliminarImportAction(
   importId: string,
   options: { redirect: boolean } = { redirect: true }
 ): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) return;
+  const user = await requireDadesEditor();
+  if (!user) return;
 
   const imp = await db.importacio.findUnique({
     where: { id: importId },
@@ -68,8 +66,8 @@ export async function updateEstatImportAction(
   importId: string,
   nouEstat: EstatImport
 ): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) return;
+  const user = await requireDadesEditor();
+  if (!user) return;
 
   const data: Record<string, unknown> = { estat: nouEstat };
   if (nouEstat === "CONFIRMAT") data.confirmatAt = new Date();
@@ -82,9 +80,7 @@ export async function updateEstatImportAction(
 export async function processarExcelAction(
   importId: string
 ): Promise<{ ok: boolean; missatge: string }> {
-  const session = await auth();
-  if (!session?.user?.id) return { ok: false, missatge: "No autenticat." };
-  if (!["ADMIN", "EDICIO"].includes(session.user.role ?? ""))
-    return { ok: false, missatge: "Sense permís." };
+  const user = await requireDadesEditor();
+  if (!user) return { ok: false, missatge: "Sense permís." };
   return processarImportExcel(importId);
 }

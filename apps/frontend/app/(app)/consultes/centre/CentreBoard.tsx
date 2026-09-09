@@ -53,6 +53,7 @@ export function CentreBoard({
   centreId,
   anyActual,
   vistaInicial,
+  vistesOpcions,
   isAdmin,
   capesInicials,
   potCarregarCapes = false,
@@ -65,6 +66,8 @@ export function CentreBoard({
   centreId: string | null;
   anyActual: number;
   vistaInicial: VistaCompte;
+  /** Si es passa, limita el selector de vista (p.ex. només Gestió). */
+  vistesOpcions?: readonly VistaCompte[] | null;
   isAdmin: boolean;
   capesInicials: Partial<Record<VistaCompte, CompteExplotacioCentre>>;
   potCarregarCapes?: boolean;
@@ -205,6 +208,7 @@ export function CentreBoard({
               vista={vista}
               vistesCarregades={vistesCarregades}
               onVistaLocal={onVistaLocal}
+              vistesOpcions={vistesOpcions}
             />
             {centreId ? (
               <span onPointerEnter={() => void ensurePivot()}>

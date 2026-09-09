@@ -28,6 +28,7 @@ export function LiniaResumBoard({
   rang,
   grup,
   vistaInicial,
+  vistesOpcions,
   capesInicials,
   potPrecarregarVistes = false,
 }: {
@@ -37,6 +38,7 @@ export function LiniaResumBoard({
   rang: RangMesos;
   grup: GrupEmpresa;
   vistaInicial: VistaCompte;
+  vistesOpcions?: readonly VistaCompte[] | null;
   capesInicials: Partial<Record<VistaCompte, LiniaResumCapa>>;
   potPrecarregarVistes?: boolean;
 }) {
@@ -106,6 +108,7 @@ export function LiniaResumBoard({
             vistesCarregades={vistesCarregades}
             onVistaLocal={onVistaLocal}
             mostraCapesGestio={grupPermetVistaGestio(grup)}
+            vistesOpcions={vistesOpcions}
           />
         }
       />

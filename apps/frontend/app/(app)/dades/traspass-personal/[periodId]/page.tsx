@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { esSuperOAdmin } from "@/lib/roles";
 import { getExecucioTraspassPerPeriode } from "@/lib/traspass-personal/service";
 import { TraspassExecucioPanel } from "../TraspassExecucioPanel";
 
@@ -11,7 +12,8 @@ export default async function TraspassPersonalDetallPage({
 }) {
   const { periodId } = await params;
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const role = session?.user?.role;
+  const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
   const execucioRaw = await getExecucioTraspassPerPeriode(periodId);
 

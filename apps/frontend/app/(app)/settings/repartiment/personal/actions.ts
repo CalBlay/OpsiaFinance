@@ -3,14 +3,15 @@
 import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { parseNavExtra } from "@/lib/nav-catalog";
+import { potConfigurar } from "@/lib/roles";
 import type { ModeRepartimentPersonalLn } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
 async function requireEditor() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return null;
-  }
+  if (!session?.user) return null;
+  if (!potConfigurar(session.user.role, parseNavExtra(session.user.navExtra))) return null;
   return session.user;
 }
 

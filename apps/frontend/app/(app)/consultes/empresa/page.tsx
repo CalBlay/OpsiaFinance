@@ -14,6 +14,7 @@ import { grupAplicaConsolidacioInter, grupPermetVistaGestio } from "@/lib/grups-
 import { getMapaNaturaConceptes } from "@/lib/natura-map";
 import { aplicarVistaGestioEvolucioEmpresa } from "@/lib/repartiment/gestio-consultes";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
+import { esSuperOAdmin } from "@/lib/roles";
 import {
   type VistaCompte,
   parseVistaCompte,
@@ -50,7 +51,7 @@ async function EmpresaPageContent({
   const rang = parseRangMesosFromSearchParams(sp);
   const potGestio = grupPermetVistaGestio(grup);
   const vista = parseVistaCompte(sp.vista, { permetCapesGestio: potGestio });
-  const isAdmin = session?.user?.role === "ADMIN";
+  const isAdmin = esSuperOAdmin(session?.user?.role);
   const needsSapEv = vista === "sap" || vista === "ajustos";
 
   const [comp, evEmpresaRaw, evEmpresaSap, infoGestio, naturaByNode] = await Promise.all([

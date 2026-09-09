@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { esSuperOAdmin } from "@/lib/roles";
 import { CompteEditor } from "./CompteEditor";
 import styles from "./page.module.css";
 
@@ -24,7 +25,7 @@ export default async function CompteResultatsPage() {
   ]);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN";
+  const canEdit = esSuperOAdmin(role);
 
   return (
     <div className={styles.page}>

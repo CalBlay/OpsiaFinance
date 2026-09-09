@@ -1,18 +1,19 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { parseNavExtra } from "@/lib/nav-catalog";
 import {
   ensureNormesRepartimentInicials,
   reiniciarAmbNormesSeed,
   resetNormesRepartiment,
 } from "@/lib/repartiment/normes-default";
+import { potConfigurar } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
 async function requireEditor() {
   const session = await auth();
-  if (!session?.user || session.user.role !== "ADMIN") {
-    return null;
-  }
+  if (!session?.user) return null;
+  if (!potConfigurar(session.user.role, parseNavExtra(session.user.navExtra))) return null;
   return session.user;
 }
 

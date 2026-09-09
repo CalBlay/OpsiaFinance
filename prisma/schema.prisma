@@ -13,6 +13,8 @@ model User {
   role            UserRole        @default(CONSULTA)
   isActive        Boolean         @default(true)
   passwordHash    String?
+  /// Pestanyes / subpestanyes addicionals (rols restringits: PRESSUPOST_DEPT, RESTAURACIO).
+  navExtra        Json?
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
   ajustos         Ajust[]
@@ -908,10 +910,14 @@ enum NaturaConcepte {
 
 enum UserRole {
   ADMIN
+  /// Com ADMIN, sense crear/editar usuaris.
+  SUPER_USUARI
   EDICIO
   CONSULTA
-  /// Només pressupost Tipus B dels departaments assignats.
+  /// Només pressupost Tipus B dels departaments assignats (+ extras opcionals).
   PRESSUPOST_DEPT
+  /// Només mòdul Restaurants (+ extras opcionals).
+  RESTAURACIO
 }
 
 enum PressupostEstat {

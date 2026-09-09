@@ -6,6 +6,7 @@ import { type DetallCellaParams, type DetallCellaResult, getDetallCella } from "
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { MESOS_LLARGS } from "@/lib/periodes";
+import { esSuperOAdmin } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
 export async function fetchDetallCellaAction(
@@ -46,8 +47,8 @@ export async function ajustarImportConsultaAction(
 ): Promise<Result> {
   const session = await auth();
   const userId = session?.user?.id;
-  if (!userId || session?.user?.role !== "ADMIN") {
-    return ERR("Sense permisos. Cal rol ADMIN.");
+  if (!userId || !esSuperOAdmin(session?.user?.role)) {
+    return ERR("Sense permisos. Cal rol ADMIN o Super usuari.");
   }
 
   const motiu = input.motiu.trim();

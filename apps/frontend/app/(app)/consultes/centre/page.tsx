@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { filtrarArbrePerScope, resolveConsultaScope } from "@/lib/consulta-scope";
 import {
   getAnysAmbDades,
   getArbreSeleccio,
@@ -12,8 +13,14 @@ import { getInformeCostPersonalCentres } from "@/lib/cost-personal-centre/consul
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { NODE_COMPRES, NODE_COST_SALARIAL, NODE_EBITDA, NODE_VENDES } from "@/lib/kpi-definitions";
+import { parseNavExtra } from "@/lib/nav-catalog";
 import { MESOS_CURTS } from "@/lib/periodes";
-import { parseVistaCompte, vistaInclouTraspassos } from "@/lib/vista-compte";
+import { esSuperOAdmin } from "@/lib/roles";
+import {
+  parseVistaComptePerRol,
+  vistaInclouTraspassos,
+  vistesComptePerUsuari,
+} from "@/lib/vista-compte";
 import { CentreBoard } from "./CentreBoard";
 import type { FilaResumCentre, MesCostCentre } from "./CentreResumPresentacio";
 
@@ -34,8 +41,16 @@ export default async function ConsultaCentrePage({
   ]);
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
-  const vista = parseVistaCompte(sp.vista);
-  const arbre = liniesPerConsultaDetall(arbreRaw, grup);
+  const role = session?.user?.role;
+  const navExtra = parseNavExtra(session?.user?.navExtra);
+  const vista = parseVistaComptePerRol(sp.vista, role, { navExtra });
+  const vistesPermeses = vistesComptePerUsuari(role, navExtra);
+  const scope = resolveConsultaScope({
+    role: session?.user?.role,
+    navExtra,
+    arbre: arbreRaw,
+  });
+  const arbre = filtrarArbrePerScope(liniesPerConsultaDetall(arbreRaw, grup), scope);
   let lnId = sp.ln ?? null;
   let centreId = sp.centre ?? null;
 
@@ -56,6 +71,11 @@ export default async function ConsultaCentrePage({
   if (centreId && lnId) {
     const ln = arbre.find((l) => l.id === lnId);
     if (ln && !ln.centres.some((c) => c.id === centreId)) centreId = null;
+  }
+
+  // Una sola LN a l’àmbit i sense centre: mostrar resum d’aquesta LN
+  if (!centreId && scope && arbre.length === 1 && !lnId) {
+    lnId = arbre[0].id;
   }
 
   // Directe/SAP primer; capes amb traspassos eager si ja s'han demanat a la URL.
@@ -230,7 +250,8 @@ export default async function ConsultaCentrePage({
       centreId={centreId}
       anyActual={anyActual}
       vistaInicial={vista}
-      isAdmin={session?.user?.role === "ADMIN"}
+      vistesOpcions={vistesPermeses}
+      isAdmin={esSuperOAdmin(session?.user?.role)}
       capesInicials={{
         ...(parell?.sap
           ? { sap: { ...parell.sap, concepts: slimConceptsForPaint(parell.sap.concepts) } }

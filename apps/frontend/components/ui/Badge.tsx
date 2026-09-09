@@ -39,16 +39,20 @@ export function Badge({ children, className, variant = "default" }: BadgeProps) 
 
 const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: "Administrador",
+  SUPER_USUARI: "Super usuari",
   EDICIO: "Editor",
   CONSULTA: "Consultor",
   PRESSUPOST_DEPT: "Pressupost dept.",
+  RESTAURACIO: "Restauració",
 };
 
 const ROLE_VARIANTS: Record<UserRole, BadgeVariant> = {
   ADMIN: "destructive",
+  SUPER_USUARI: "warning",
   EDICIO: "warning",
   CONSULTA: "secondary",
   PRESSUPOST_DEPT: "default",
+  RESTAURACIO: "default",
 };
 
 export function RoleBadge({ role }: { role: UserRole }) {

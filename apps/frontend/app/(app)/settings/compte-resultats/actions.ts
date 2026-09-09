@@ -7,6 +7,8 @@ import {
   parseNaturaConcepte,
   resolvePctVariable,
 } from "@/lib/natura-concepte";
+import { parseNavExtra } from "@/lib/nav-catalog";
+import { potConfigurar } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
 type Result = { ok: boolean; missatge: string };
@@ -15,7 +17,8 @@ const ERR = (m: string): Result => ({ ok: false, missatge: m });
 
 async function requireEditor(): Promise<boolean> {
   const session = await auth();
-  return session?.user?.role === "ADMIN";
+  if (!session?.user) return false;
+  return potConfigurar(session.user.role, parseNavExtra(session.user.navExtra));
 }
 
 function refresh() {

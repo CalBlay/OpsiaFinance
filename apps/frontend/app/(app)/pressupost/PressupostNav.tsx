@@ -1,7 +1,8 @@
 "use client";
 
 import { LinkPending } from "@/components/ui/LinkPending";
-import { potVeurePressupostGlobal } from "@/lib/roles";
+import { potVeureSub } from "@/lib/nav-access";
+import type { NavExtra } from "@/lib/nav-catalog";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import { Building2, CheckSquare, Layers, LayoutList } from "lucide-react";
@@ -10,22 +11,33 @@ import { usePathname } from "next/navigation";
 import styles from "../consultes/layout.module.css";
 
 const TABS_ALL = [
-  { href: "/pressupost", label: "Vista general", icon: LayoutList, exact: true },
-  { href: "/pressupost/ln", label: "Per línia (vendes)", icon: Layers, exact: false },
+  { href: "/pressupost", label: "Vista general", icon: LayoutList, exact: true, sub: "resum" },
+  { href: "/pressupost/ln", label: "Per línia (vendes)", icon: Layers, exact: false, sub: "ln" },
   {
     href: "/pressupost/departaments",
     label: "Per departament",
     icon: Building2,
     exact: false,
+    sub: "departaments",
   },
-  { href: "/pressupost/aprovacio", label: "Aprovació", icon: CheckSquare, exact: false },
+  {
+    href: "/pressupost/aprovacio",
+    label: "Aprovació",
+    icon: CheckSquare,
+    exact: false,
+    sub: "aprovacio",
+  },
 ] as const;
 
-export function PressupostNav({ role }: { role: UserRole }) {
+export function PressupostNav({
+  role,
+  navExtra,
+}: {
+  role: UserRole;
+  navExtra?: NavExtra | null;
+}) {
   const pathname = usePathname();
-  const tabs = potVeurePressupostGlobal(role)
-    ? TABS_ALL
-    : TABS_ALL.filter((t) => t.href === "/pressupost/departaments");
+  const tabs = TABS_ALL.filter((t) => potVeureSub(role, "pressupost", t.sub, navExtra));
 
   return (
     <header className={styles.moduleHeader}>

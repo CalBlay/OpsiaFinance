@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { llistaMapeigsCostPersonal } from "@/lib/cost-personal-centre/service";
 import { db } from "@/lib/db";
+import { esSuperOAdmin } from "@/lib/roles";
 import styles from "../traspass-personal/page.module.css";
 import { CostPersonalCentreSettingsPanel } from "./CostPersonalCentreSettingsPanel";
 
@@ -9,7 +10,7 @@ export const metadata = { title: "Cost personal centre — OpsiaFinance" };
 
 export default async function CostPersonalCentreSettingsPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN";
+  const canEdit = esSuperOAdmin(session?.user?.role);
 
   const [mapeigs, arbre] = await Promise.all([
     llistaMapeigsCostPersonal(),

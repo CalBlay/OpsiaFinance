@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { getNodeLabels } from "@/lib/consolidacio/labels-server";
 import { ensureNormesConsolidacio } from "@/lib/consolidacio/normes-default";
 import { db } from "@/lib/db";
+import { esSuperOAdmin } from "@/lib/roles";
 import styles from "../repartiment/page.module.css";
 import { ConsolidacioPanel } from "./ConsolidacioPanel";
 
@@ -12,7 +13,7 @@ export default async function ConsolidacioSettingsPage() {
   await ensureNormesConsolidacio();
 
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN";
+  const canEdit = esSuperOAdmin(session?.user?.role);
 
   const [normesRaw, nodeLabels] = await Promise.all([
     db.normaConsolidacio.findMany({

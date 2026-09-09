@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { esSuperOAdmin } from "@/lib/roles";
 import { DimensionsTree } from "./DimensionsTree";
 import { ImportarArbreButton } from "./ImportarArbreButton";
 import styles from "./page.module.css";
@@ -24,7 +25,7 @@ export default async function DimensionsPage() {
   ]);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN";
+  const canEdit = esSuperOAdmin(role);
   const hasData = linies.length > 0;
 
   return (

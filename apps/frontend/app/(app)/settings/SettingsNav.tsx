@@ -17,67 +17,72 @@ import { usePathname } from "next/navigation";
 import styles from "./layout.module.css";
 
 const SETTINGS_TABS = [
-  { href: "/settings", label: "Usuaris", icon: Users, exact: true, adminOnly: true },
+  { href: "/settings", label: "Usuaris", icon: Users, exact: true, sub: "usuaris" },
   {
     href: "/settings/dimensions",
     label: "Dimensions",
     icon: GitBranch,
     exact: false,
-    adminOnly: false,
+    sub: "dimensions",
   },
   {
     href: "/settings/compte-resultats",
     label: "Compte de resultats",
     icon: ListTree,
     exact: false,
-    adminOnly: false,
+    sub: "compte-resultats",
   },
   {
     href: "/settings/formules",
     label: "Fórmules i conceptes",
     icon: BookOpen,
     exact: false,
-    adminOnly: false,
+    sub: "formules",
   },
   {
     href: "/settings/repartiment",
     label: "Repartiment",
     icon: Scale,
     exact: false,
-    adminOnly: false,
+    sub: "repartiment",
   },
   {
     href: "/settings/traspass-personal",
     label: "Traspassos personal",
     icon: ArrowLeftRight,
     exact: false,
-    adminOnly: false,
+    sub: "traspass-personal",
   },
   {
     href: "/settings/cost-personal-centre",
     label: "Cost personal",
     icon: UserCog,
     exact: false,
-    adminOnly: false,
+    sub: "cost-personal-centre",
   },
   {
     href: "/settings/consolidacio",
     label: "Consolidació",
     icon: Layers,
     exact: false,
-    adminOnly: false,
+    sub: "consolidacio",
   },
 ] as const;
 
 export function SettingsNav({
   children,
   showUsuaris,
+  allowedSubs,
 }: {
   children: React.ReactNode;
   showUsuaris: boolean;
+  allowedSubs: string[];
 }) {
   const pathname = usePathname();
-  const tabs = SETTINGS_TABS.filter((t) => showUsuaris || !t.adminOnly);
+  const tabs = SETTINGS_TABS.filter((t) => {
+    if (t.sub === "usuaris") return showUsuaris;
+    return allowedSubs.includes(t.sub);
+  });
 
   return (
     <div className={styles.container}>

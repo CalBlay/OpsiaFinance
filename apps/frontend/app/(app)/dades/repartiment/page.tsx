@@ -5,6 +5,7 @@ import { RouteLoading } from "@/components/ui/RouteLoading";
 import { auth } from "@/lib/auth";
 import { getRepartimentPeriodsLlista } from "@/lib/dades-list";
 import { periodesToExportInforme } from "@/lib/export/dades";
+import { esSuperOAdmin } from "@/lib/roles";
 import { Suspense } from "react";
 import { RepartimentLlista } from "./RepartimentLlista";
 
@@ -16,7 +17,7 @@ async function RepartimentContent() {
   const [session, items] = await Promise.all([auth(), getRepartimentPeriodsLlista()]);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN" || role === "EDICIO";
+  const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
   return (
     <DadesPageShell

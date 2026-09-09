@@ -15,6 +15,7 @@ import {
   buildKpisEmpresa,
 } from "@/lib/kpi-definitions";
 import { getMapaNaturaConceptes } from "@/lib/natura-map";
+import { parseNavExtra } from "@/lib/nav-catalog";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { kpisPuntEquilibri } from "@/lib/punt-equilibri";
 import { potEditar } from "@/lib/roles";
@@ -29,7 +30,7 @@ export default async function HomePage() {
   const [session, grup] = await Promise.all([auth(), getGrupEmpresaActual()]);
   const darrer = await getDarrerPeriodAmbDades(grup);
 
-  const showDades = potEditar(session?.user?.role);
+  const showDades = potEditar(session?.user?.role, parseNavExtra(session?.user?.navExtra));
   const nomEmpresa = etiquetaGrupEmpresa(grup);
 
   let kpis: KpiInformeItem[] | null = null;

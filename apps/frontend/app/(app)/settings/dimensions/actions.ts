@@ -4,6 +4,8 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { parseNavExtra } from "@/lib/nav-catalog";
+import { potConfigurar } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 import * as XLSX from "xlsx";
 
@@ -14,8 +16,8 @@ const ERR = (missatge: string): Result => ({ ok: false, missatge });
 
 async function requireEditor(): Promise<boolean> {
   const session = await auth();
-  const role = session?.user?.role;
-  return role === "ADMIN";
+  if (!session?.user) return false;
+  return potConfigurar(session.user.role, parseNavExtra(session.user.navExtra));
 }
 
 function refresh() {

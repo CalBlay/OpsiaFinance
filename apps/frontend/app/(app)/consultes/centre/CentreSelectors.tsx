@@ -25,6 +25,7 @@ export function CentreSelectors({
   vista,
   vistesCarregades,
   onVistaLocal,
+  vistesOpcions,
 }: {
   arbre: LnOpt[];
   anys: number[];
@@ -34,6 +35,7 @@ export function CentreSelectors({
   vista: VistaCompte;
   vistesCarregades?: VistaCompte[];
   onVistaLocal?: (vista: VistaCompte) => boolean | undefined;
+  vistesOpcions?: readonly VistaCompte[] | null;
 }) {
   const router = useRouter();
   const lnSelectId = "centre-select-ln";
@@ -142,7 +144,14 @@ export function CentreSelectors({
           </div>
         </>
       }
-      vista={<ConsultaVistaSelect id={vistaSelectId} value={vista} onChange={goVista} />}
+      vista={
+        <ConsultaVistaSelect
+          id={vistaSelectId}
+          value={vista}
+          onChange={goVista}
+          opcions={vistesOpcions ?? undefined}
+        />
+      }
     />
   );
 }

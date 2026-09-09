@@ -7,6 +7,8 @@ import {
 } from "@/lib/consolidacio/normes-default";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { parseNavExtra } from "@/lib/nav-catalog";
+import { potConfigurar } from "@/lib/roles";
 import type { GrupConsolidacio, TipusNormaConsolidacio } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 
@@ -16,8 +18,8 @@ const ERR = (m: string): Result => ({ ok: false, missatge: m });
 
 async function requireEditor(): Promise<boolean> {
   const session = await auth();
-  const role = session?.user?.role;
-  return role === "ADMIN";
+  if (!session?.user) return false;
+  return potConfigurar(session.user.role, parseNavExtra(session.user.navExtra));
 }
 
 function refresh() {

@@ -3,6 +3,7 @@
 import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { requireDadesEditorId } from "@/lib/require-access";
 import { importarVendesDesDeBuffer } from "@/lib/vendes-restaurants/import";
 import { teTaxonomiaVendesArticle } from "@/lib/vendes-restaurants/prisma-fields";
 import { revalidatePath } from "next/cache";
@@ -18,10 +19,7 @@ const ERR = (m: string, errors?: string[]): Result => ({ ok: false, missatge: m,
 const OK = (m: string): Result => ({ ok: true, missatge: m });
 
 async function getEditor() {
-  const session = await auth();
-  const role = session?.user?.role;
-  if (role === "ADMIN" || role === "EDICIO") return session?.user?.id ?? null;
-  return null;
+  return requireDadesEditorId();
 }
 
 function refresh() {

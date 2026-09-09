@@ -10,6 +10,7 @@ import {
   getVendesRestaurantsResums,
 } from "@/lib/dades-list";
 import { vendesResumsToExportInforme } from "@/lib/export/dades";
+import { esSuperOAdmin } from "@/lib/roles";
 import { Suspense } from "react";
 import { HistorialVendes } from "./HistorialVendes";
 import { VendesRestaurantsManager } from "./VendesRestaurantsManager";
@@ -38,7 +39,7 @@ async function VendesRestaurantsContent({
   const resums = await getVendesRestaurantsResums(anyFiltre, mesFiltre);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN" || role === "EDICIO";
+  const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
   const meta = `${resums.length} període${resums.length !== 1 ? "s" : ""}/centre · ${anyFiltre}${
     mesFiltre ? `/${mesFiltre}` : ""

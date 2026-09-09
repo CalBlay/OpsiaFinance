@@ -4,6 +4,7 @@ import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { getAjustosPageData } from "@/lib/ajustos/ajustos-list";
 import { auth } from "@/lib/auth";
 import { ajustosToExportInforme } from "@/lib/export/dades";
+import { esSuperOAdmin } from "@/lib/roles";
 import { Suspense } from "react";
 import { AjustosManager } from "./AjustosManager";
 import { AjustosSkeleton, PropostaCentralPctSkeleton } from "./AjustosSkeleton";
@@ -17,7 +18,7 @@ async function AjustosPageContent() {
   const [{ arbre, concepts, ajustos }, session] = await Promise.all([getAjustosPageData(), auth()]);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN" || role === "EDICIO";
+  const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
   return (
     <DadesPageShell

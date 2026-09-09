@@ -9,6 +9,7 @@ import {
   ensureConfigPersonalInicial,
 } from "@/lib/repartiment/personal-departaments-data";
 import { decimalToNumber } from "@/lib/repartiment/serialize";
+import { esSuperOAdmin } from "@/lib/roles";
 import { NormesRepartimentPanel } from "../NormesRepartimentPanel";
 import { RepartimentSubNav } from "../RepartimentSubNav";
 import styles from "../page.module.css";
@@ -18,7 +19,7 @@ export const metadata = { title: "Normes compres i gestió — OpsiaFinance" };
 
 export default async function RepartimentNormesPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN";
+  const canEdit = esSuperOAdmin(session?.user?.role);
 
   await syncGrupsRepartiment();
   await ensureConfigPersonalInicial();

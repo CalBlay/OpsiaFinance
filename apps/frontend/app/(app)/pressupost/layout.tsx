@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { parseNavExtra } from "@/lib/nav-access";
 import type { UserRole } from "@/types";
 import type { ReactNode } from "react";
 import { Suspense } from "react";
@@ -8,7 +9,8 @@ import { PressupostNav } from "./PressupostNav";
 async function Nav() {
   const session = await auth();
   const role = (session?.user?.role ?? "CONSULTA") as UserRole;
-  return <PressupostNav role={role} />;
+  const navExtra = parseNavExtra(session?.user?.navExtra);
+  return <PressupostNav role={role} navExtra={navExtra} />;
 }
 
 export default function PressupostLayout({ children }: { children: ReactNode }) {

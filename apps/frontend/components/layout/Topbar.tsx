@@ -6,17 +6,18 @@ import styles from "./Topbar.module.css";
 import { UserMenu } from "./UserMenu";
 
 interface TopbarProps {
-  user: { name: string; role: UserRole } | null;
+  user: { name: string; role: UserRole; homeHref: string } | null;
   grup: GrupEmpresa;
+  grupsPermitits?: GrupEmpresa[] | null;
 }
 
 /** Topbar síncron: sessió i grup venen de l'AppShell (un sol await). */
-export function Topbar({ user, grup }: TopbarProps) {
+export function Topbar({ user, grup, grupsPermitits }: TopbarProps) {
   return (
     <header className={styles.topbar}>
-      <GrupEmpresaSelector value={grup} />
+      <GrupEmpresaSelector value={grup} allowed={grupsPermitits} />
 
-      <Link href="/" className={styles.brand} aria-label="OpsiaFinance — Inici">
+      <Link href={user?.homeHref ?? "/"} className={styles.brand} aria-label="OpsiaFinance — Inici">
         <span className={styles.brandOpsia}>Opsia</span>
         <span className={styles.brandFinance}>Finance</span>
       </Link>

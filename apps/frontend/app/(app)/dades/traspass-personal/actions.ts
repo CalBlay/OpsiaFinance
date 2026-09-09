@@ -1,8 +1,7 @@
 "use server";
-
-import { auth } from "@/lib/auth";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { requireDadesEditor } from "@/lib/require-access";
 import {
   confirmarExecucioTraspassPersonal,
   processarFitxerHoresTreball,
@@ -11,11 +10,7 @@ import {
 import { revalidatePath } from "next/cache";
 
 async function requireEditor() {
-  const session = await auth();
-  if (!session?.user || (session.user.role !== "ADMIN" && session.user.role !== "EDICIO")) {
-    return null;
-  }
-  return session.user;
+  return requireDadesEditor();
 }
 
 function refreshConsultesTraspass() {

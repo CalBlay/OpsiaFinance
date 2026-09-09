@@ -301,7 +301,10 @@ function FitxaRestaurant({
           Cost salarial
           <ArrowRight size={14} />
         </Link>
-        <Link href={`/consultes/centre?centre=${fila.centre.id}`} className={styles.fitxaLink}>
+        <Link
+          href={`/consultes/centre?centre=${fila.centre.id}&vista=gestio`}
+          className={styles.fitxaLink}
+        >
           Compte centre
           <ArrowRight size={14} />
         </Link>

@@ -1,7 +1,10 @@
 "use client";
 
 import { LinkPending } from "@/components/ui/LinkPending";
+import { potVeureSub } from "@/lib/nav-access";
+import type { NavExtra } from "@/lib/nav-catalog";
 import { cn } from "@/lib/utils";
+import type { UserRole } from "@/types";
 import {
   Building2,
   GitCompareArrows,
@@ -19,18 +22,33 @@ import { useEffect, useMemo } from "react";
 import styles from "./layout.module.css";
 
 const RESULTATS_TABS = [
-  { href: "/consultes/empresa", label: "Empresa", icon: Landmark },
-  { href: "/consultes/evolucio", label: "Evolució mensual", icon: TrendingUp },
-  { href: "/consultes/linia", label: "Per línia", icon: Layers },
-  { href: "/consultes/centre", label: "Per centre", icon: Building2 },
-  { href: "/consultes/comparativa", label: "Comparativa temporal", icon: GitCompareArrows },
-  { href: "/consultes/cost-personal", label: "Cost de personal", icon: UserRound },
+  { href: "/consultes/empresa", label: "Empresa", icon: Landmark, sub: "empresa" },
+  { href: "/consultes/evolucio", label: "Evolució mensual", icon: TrendingUp, sub: "evolucio" },
+  { href: "/consultes/linia", label: "Per línia", icon: Layers, sub: "linia" },
+  { href: "/consultes/centre", label: "Per centre", icon: Building2, sub: "centre" },
+  {
+    href: "/consultes/comparativa",
+    label: "Comparativa temporal",
+    icon: GitCompareArrows,
+    sub: "comparativa",
+  },
+  {
+    href: "/consultes/cost-personal",
+    label: "Cost de personal",
+    icon: UserRound,
+    sub: "cost-personal",
+  },
 ] as const;
 
 const RESTAURANTS_TABS = [
-  { href: "/consultes/quadre-mando", label: "Quadre de comandament", icon: LayoutDashboard },
-  { href: "/consultes/vendes-restaurants", label: "Vendes", icon: ShoppingBag },
-  { href: "/consultes/cost-salarial", label: "Cost salarial", icon: Users },
+  {
+    href: "/consultes/quadre-mando",
+    label: "Quadre de comandament",
+    icon: LayoutDashboard,
+    sub: "quadre-mando",
+  },
+  { href: "/consultes/vendes-restaurants", label: "Vendes", icon: ShoppingBag, sub: "vendes" },
+  { href: "/consultes/cost-salarial", label: "Cost salarial", icon: Users, sub: "cost-salarial" },
 ] as const;
 
 function isRestaurantsPath(pathname: string): boolean {
@@ -41,7 +59,6 @@ function isRestaurantsPath(pathname: string): boolean {
   );
 }
 
-/** Conserva any/vista (i rang si n'hi ha) en canviar de pestanya. */
 function tabHref(
   base: string,
   params: { any: string | null; vista: string | null; des: string | null; fins: string | null }
@@ -55,13 +72,21 @@ function tabHref(
   return q ? `${base}?${q}` : base;
 }
 
-export function ConsultesNav() {
+export function ConsultesNav({
+  role,
+  navExtra,
+}: {
+  role: UserRole;
+  navExtra?: NavExtra | null;
+}) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const restaurants = isRestaurantsPath(pathname);
-  const tabs = restaurants ? RESTAURANTS_TABS : RESULTATS_TABS;
+  const modul = restaurants ? "restaurants" : "resultats";
+  const allTabs = restaurants ? RESTAURANTS_TABS : RESULTATS_TABS;
+  const tabs = allTabs.filter((tab) => potVeureSub(role, modul, tab.sub, navExtra));
   const title = restaurants ? "Restaurants" : "Resultats";
   const navLabel = restaurants ? "Consultes de restaurants" : "Consultes de resultats";
 
@@ -75,7 +100,6 @@ export function ConsultesNav() {
     [searchParams]
   );
 
-  // Prefetch només pestanyes veïnes en idle (evita stampede de totes les consultes).
   useEffect(() => {
     const idx = tabs.findIndex((tab) => pathname.startsWith(tab.href));
     if (idx < 0) return;

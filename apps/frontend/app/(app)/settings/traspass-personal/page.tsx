@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { esSuperOAdmin } from "@/lib/roles";
 import { ensureConfigTraspassPersonal } from "@/lib/traspass-personal/service";
 import { TraspassPersonalSettingsPanel } from "./TraspassPersonalSettingsPanel";
 import styles from "./page.module.css";
@@ -9,7 +10,7 @@ export const metadata = { title: "Traspassos de personal — OpsiaFinance" };
 
 export default async function TraspassPersonalSettingsPage() {
   const session = await auth();
-  const canEdit = session?.user?.role === "ADMIN";
+  const canEdit = esSuperOAdmin(session?.user?.role);
 
   const tarifaHora = await ensureConfigTraspassPersonal();
 

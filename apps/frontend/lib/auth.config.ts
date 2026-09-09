@@ -1,3 +1,5 @@
+import type { NavExtra } from "@/lib/nav-catalog";
+import { parseNavExtra } from "@/lib/nav-catalog";
 import type { NextAuthConfig } from "next-auth";
 import type { UserRole } from "@/types";
 
@@ -20,14 +22,15 @@ export const authConfig: NextAuthConfig = {
       if (user) {
         token.id = user.id;
         token.role = (user as { id: string; role: UserRole }).role;
+        token.navExtra = parseNavExtra((user as { navExtra?: NavExtra }).navExtra);
       }
       return token;
     },
     session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        (session.user as { role: UserRole } & typeof session.user).role =
-          token.role as UserRole;
+        session.user.role = token.role as UserRole;
+        session.user.navExtra = parseNavExtra(token.navExtra);
       }
       return session;
     },

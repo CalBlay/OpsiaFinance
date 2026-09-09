@@ -4,7 +4,13 @@
  * aquí viuen els transversals a tota l'aplicació.
  */
 
-export type UserRole = "ADMIN" | "EDICIO" | "CONSULTA" | "PRESSUPOST_DEPT";
+export type UserRole =
+  | "ADMIN"
+  | "SUPER_USUARI"
+  | "EDICIO"
+  | "CONSULTA"
+  | "PRESSUPOST_DEPT"
+  | "RESTAURACIO";
 
 export interface User {
   id: string;

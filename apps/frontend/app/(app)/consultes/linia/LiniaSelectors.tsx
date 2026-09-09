@@ -41,6 +41,7 @@ export function LiniaSelectors({
   vistesCarregades,
   onVistaLocal,
   mostraCapesGestio = true,
+  vistesOpcions,
 }: {
   linies: LnOpt[];
   anys: number[];
@@ -51,13 +52,15 @@ export function LiniaSelectors({
   vistesCarregades?: VistaCompte[];
   onVistaLocal?: (vista: VistaCompte) => boolean | undefined;
   mostraCapesGestio?: boolean;
+  vistesOpcions?: readonly VistaCompte[] | null;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const lineSelectId = "linia-line";
   const yearSelectId = "linia-year";
   const viewSelectId = "linia-view";
-  const opcions = mostraCapesGestio ? VISTA_COMPTE_CADENA : VISTA_COMPTE_SENSE_GESTIO;
+  const opcions =
+    vistesOpcions ?? (mostraCapesGestio ? VISTA_COMPTE_CADENA : VISTA_COMPTE_SENSE_GESTIO);
 
   const [localLn, setLocalLn] = useState(lnId ?? "");
   const [localAny, setLocalAny] = useState(any);

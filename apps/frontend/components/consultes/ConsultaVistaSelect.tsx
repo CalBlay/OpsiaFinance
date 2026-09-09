@@ -23,6 +23,17 @@ export function ConsultaVistaSelect({
 }) {
   const valueEfectiu = opcions.includes(value) ? value : (opcions[0] ?? "directe");
 
+  if (opcions.length <= 1) {
+    return (
+      <div className={styles.field}>
+        <span className={styles.fieldLabel}>{FILTRE.vista}</span>
+        <span className={styles.select} style={{ display: "inline-flex", alignItems: "center" }}>
+          {VISTA_OPCIONS[valueEfectiu] ?? etiquetaVistaCompte(valueEfectiu)}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.field}>
       <label className={styles.fieldLabel} htmlFor={id}>

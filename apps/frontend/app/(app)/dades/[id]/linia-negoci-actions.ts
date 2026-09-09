@@ -2,6 +2,7 @@
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { esSuperOAdmin } from "@/lib/roles";
 import { revalidatePath } from "next/cache";
 
 export async function updateLiniaNegociImportAction(
@@ -10,7 +11,7 @@ export async function updateLiniaNegociImportAction(
 ): Promise<{ ok: boolean; missatge: string }> {
   const session = await auth();
   if (!session?.user?.id) return { ok: false, missatge: "No autenticat." };
-  if (!["ADMIN", "EDICIO"].includes(session.user.role ?? ""))
+  if (!(esSuperOAdmin(session.user.role) || session.user.role === "EDICIO"))
     return { ok: false, missatge: "Sense permís." };
 
   const ln = await db.liniaNegoci.findUnique({

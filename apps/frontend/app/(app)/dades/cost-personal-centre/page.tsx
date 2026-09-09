@@ -10,6 +10,7 @@ import {
   getCostPersonalCentreRegistres,
   getDarrerMesCostPersonalCentre,
 } from "@/lib/dades-list";
+import { esSuperOAdmin } from "@/lib/roles";
 import { Suspense } from "react";
 import { ComparativaPersonalPanel } from "./ComparativaPersonalPanel";
 import { CostPersonalCentrePanel } from "./CostPersonalCentrePanel";
@@ -38,7 +39,7 @@ async function CostPersonalCentreContent({
     mesUrl ?? (vista === "registres" ? await getDarrerMesCostPersonalCentre(anyFiltre) : null);
 
   const role = session?.user?.role;
-  const canEdit = role === "ADMIN" || role === "EDICIO";
+  const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
   const [comparativa, registresRaw] = await Promise.all([
     vista === "comparativa" && mesFiltre

@@ -10,6 +10,11 @@ import { ExportInformeButton } from "@/components/export/ExportInformeButton";
 import { auth } from "@/lib/auth";
 import { recalcularSubtotalsCompte } from "@/lib/compte-subtotals";
 import {
+  filtrarArbrePerScope,
+  filtrarLiniesPerScope,
+  resolveConsultaScope,
+} from "@/lib/consulta-scope";
+import {
   MESOS_CURTS,
   etiquetaRangMesos,
   getAnysAmbDades,
@@ -33,8 +38,10 @@ import {
   buildKpisInforme,
 } from "@/lib/kpi-definitions";
 import { getMapaNaturaConceptes } from "@/lib/natura-map";
+import { parseNavExtra } from "@/lib/nav-catalog";
 import { OPSIA_CHART } from "@/lib/opsia-colors";
 import type { RangMesos } from "@/lib/periodes";
+import { rangToQuery } from "@/lib/periodes";
 import {
   type ConceptePeInput,
   type ConceptePeMensualInput,
@@ -64,12 +71,15 @@ import {
   carregarCostPersonalDeptSc,
 } from "@/lib/repartiment/personal-departaments-data";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
+import { esSuperOAdmin } from "@/lib/roles";
 import {
   etiquetaVistaCompte,
-  parseVistaCompte,
+  parseVistaComptePerRol,
   vistaInclouRepartiment,
   vistaInclouTraspassos,
+  vistesComptePerUsuari,
 } from "@/lib/vista-compte";
+import { redirect } from "next/navigation";
 import { ajustarImportConsultaAction } from "../actions";
 import { LiniaCentresLazy } from "./LiniaCentresLazy";
 import { LiniaResumBoard } from "./LiniaResumBoard";
@@ -103,25 +113,47 @@ export default async function ConsultaLiniaPage({
   }>;
 }) {
   const sp = await searchParams;
-  const [session, arbre, anys, grup] = await Promise.all([
+  const [session, arbreRaw, anys, grup] = await Promise.all([
     auth(),
     getArbreSeleccio(),
     getAnysAmbDades(),
     getGrupEmpresaActual(),
   ]);
   const naturaByNode = await getMapaNaturaConceptes();
+  const navExtra = parseNavExtra(session?.user?.navExtra);
+  const scope = resolveConsultaScope({
+    role: session?.user?.role,
+    navExtra,
+    arbre: arbreRaw,
+  });
+  const arbre = filtrarArbrePerScope(arbreRaw, scope);
 
   const anyActual = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
   const rang = parseRangMesosFromSearchParams(sp);
 
-  const lnId = sp.ln ?? null;
-  const vista = parseVistaCompte(sp.vista);
-  const canEdit = session?.user?.role === "ADMIN" && vista === "directe";
+  const lnIdRaw = sp.ln ?? null;
+  const vista = parseVistaComptePerRol(sp.vista, session?.user?.role, { navExtra });
+  const vistesPermeses = vistesComptePerUsuari(session?.user?.role, navExtra);
+  const canEdit = esSuperOAdmin(session?.user?.role) && vista === "directe";
 
-  const linies = liniesPerConsultaDetall(
-    arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
-    grup
+  const linies = filtrarLiniesPerScope(
+    liniesPerConsultaDetall(
+      arbre.map((l) => ({ id: l.id, codi: l.codi, nom: l.nom })),
+      grup
+    ),
+    scope
   );
+
+  const lnId = lnIdRaw && linies.some((l) => l.id === lnIdRaw) ? lnIdRaw : null;
+
+  // Amb àmbit restringit a una sola LN, anar directe al detall
+  if (!lnId && scope && linies.length === 1) {
+    const qs = new URLSearchParams();
+    qs.set("ln", linies[0].id);
+    qs.set("any", String(anyActual));
+    if (vista !== "directe") qs.set("vista", vista);
+    redirect(`/consultes/linia?${qs.toString()}${rangToQuery(rang)}`);
+  }
 
   const periodeLabel = etiquetaRangMesos(rang, anyActual);
   const vistaLabel = etiquetaVistaCompte(vista);
@@ -144,8 +176,9 @@ export default async function ConsultaLiniaPage({
         rang={rang}
         grup={grup}
         vistaInicial={vista}
+        vistesOpcions={vistesPermeses}
         capesInicials={capesInicials}
-        potPrecarregarVistes={potGestio && !carregaCapesEager}
+        potPrecarregarVistes={potGestio && !carregaCapesEager && !vistesPermeses}
       />
     );
   }
@@ -737,6 +770,7 @@ export default async function ConsultaLiniaPage({
               any={anyActual}
               rang={rang}
               vista={vista}
+              vistesOpcions={vistesPermeses}
             />
             <ExportInformeButton
               disabled={buit}

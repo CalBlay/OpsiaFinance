@@ -5,6 +5,7 @@ import { RouteLoading } from "@/components/ui/RouteLoading";
 import { auth } from "@/lib/auth";
 import { getTraspassPersonalPeriodsLlista } from "@/lib/dades-list";
 import { periodesToExportInforme } from "@/lib/export/dades";
+import { esSuperOAdmin } from "@/lib/roles";
 import Link from "next/link";
 import { Suspense } from "react";
 import { PeriodLinkList, UploadHoresForm } from "./TraspassPersonalPanel";
@@ -17,7 +18,8 @@ const tab = getDadesTabById("traspass-personal");
 async function TraspassPersonalContent() {
   const [session, periods] = await Promise.all([auth(), getTraspassPersonalPeriodsLlista()]);
 
-  const canEdit = session?.user?.role === "ADMIN" || session?.user?.role === "EDICIO";
+  const role = session?.user?.role;
+  const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
   const items = periods.map((p) => ({
     id: p.id,
