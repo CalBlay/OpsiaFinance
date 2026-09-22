@@ -25,11 +25,10 @@ function run(cmd, args, opts = {}) {
 const isVercel = process.env.VERCEL === "1";
 const vercelEnv = process.env.VERCEL_ENV ?? "development";
 const skipMigrate = process.env.SKIP_PRISMA_MIGRATE === "1";
-const runMigrations = process.env.RUN_PRISMA_MIGRATIONS === "1";
 
 // Prod a Vercel: aplica migracions abans del build.
 // Preview/development: skip (mateixa BD → lock advisory concurrent amb prod).
-const shouldMigrate = !skipMigrate && (!isVercel || (vercelEnv === "production" && runMigrations));
+const shouldMigrate = !skipMigrate && (!isVercel || vercelEnv === "production");
 
 if (shouldMigrate) {
   console.log("[vercel-build] Aplicant migracions Prisma…");
@@ -38,8 +37,6 @@ if (shouldMigrate) {
   console.log("[vercel-build] Preview: saltant migracions (s'apliquen només a production).");
 } else if (skipMigrate) {
   console.log("[vercel-build] SKIP_PRISMA_MIGRATE=1: saltant migracions.");
-} else if (isVercel) {
-  console.log("[vercel-build] Produccio sense RUN_PRISMA_MIGRATIONS=1: saltant migracions.");
 }
 
 console.log("[vercel-build] next build…");
