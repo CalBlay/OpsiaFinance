@@ -1,21 +1,17 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getDirectePerLnNode } from "@/lib/repartiment/bases-vendes";
+import { carregarCostosGestioCentral } from "@/lib/repartiment/config-reference";
 import {
-  CODI_LN_CENTRAL,
   NODES_GESTIO_DETALL,
   NODE_COMPRES,
   NODE_COST_GESTIO,
   NODE_COST_SALARIAL,
 } from "@/lib/repartiment/nodes";
-import { syncGrupsRepartiment } from "@/lib/repartiment/normes-default";
 import { NOM_NORMA_ADMIN_REST_GREEN_VITA } from "@/lib/repartiment/personal-admin-restaurants";
 import { CODIS_LN_PERSONAL_CONFIG } from "@/lib/repartiment/personal-departaments-constants";
 import {
   carregarConfigPersonal,
   carregarCostPersonalDeptSc,
-  desactivarNormesPersonalObsoletes,
-  ensureConfigPersonalInicial,
 } from "@/lib/repartiment/personal-departaments-data";
 import { decimalToNumber } from "@/lib/repartiment/serialize";
 import { esSuperOAdmin } from "@/lib/roles";
@@ -25,25 +21,22 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Repartiment de costos — OpsiaFinance" };
 
 export default async function RepartimentSettingsPage() {
-  const session = await auth();
+  const [session, latestPeriod] = await Promise.all([
+    auth(),
+    db.period.findFirst({
+      where: {
+        OR: [{ costsPersonalsCentre: { some: {} } }, { dadesResultat: { some: {} } }],
+      },
+      orderBy: [{ any: "desc" }, { mes: "desc" }],
+      select: { id: true, any: true, mes: true, nom: true },
+    }),
+  ]);
   const canEdit = esSuperOAdmin(session?.user?.role);
-
-  await syncGrupsRepartiment();
-  await ensureConfigPersonalInicial();
-  await desactivarNormesPersonalObsoletes();
-
-  const latestPeriod = await db.period.findFirst({
-    where: {
-      OR: [{ costsPersonalsCentre: { some: {} } }, { dadesResultat: { some: {} } }],
-    },
-    orderBy: [{ any: "desc" }, { mes: "desc" }],
-    select: { id: true, any: true, mes: true, nom: true },
-  });
 
   const refAny = latestPeriod?.any ?? new Date().getFullYear();
   const refMes = latestPeriod?.mes ?? 1;
 
-  const [lns, costs, config, conceptesGestio, normes, directe] = await Promise.all([
+  const [lns, costs, config, conceptesGestio, normes, costosGestioCentral] = await Promise.all([
     db.liniaNegoci.findMany({
       where: {
         codi: { in: [...CODIS_LN_PERSONAL_CONFIG] },
@@ -72,7 +65,7 @@ export default async function RepartimentSettingsPage() {
         grup: { select: { codi: true, nom: true } },
       },
     }),
-    latestPeriod ? getDirectePerLnNode(latestPeriod.id) : Promise.resolve(new Map()),
+    latestPeriod ? carregarCostosGestioCentral(latestPeriod.id) : Promise.resolve({}),
   ]);
 
   // Si un centre SC no té departaments i tampoc té cost salarial al mes de referència,
@@ -86,7 +79,6 @@ export default async function RepartimentSettingsPage() {
     costRef: c.costPersonal,
   }));
 
-  const central = lns.find((ln) => ln.codi === CODI_LN_CENTRAL);
   const normesGestioDetall = normes.filter((norma) =>
     NODES_GESTIO_DETALL.includes(norma.concepteNode as (typeof NODES_GESTIO_DETALL)[number])
   );
@@ -103,7 +95,7 @@ export default async function RepartimentSettingsPage() {
     return {
       node: concepte.node,
       label: concepte.descripcio,
-      costRef: central ? Math.abs(directe.get(central.id)?.get(concepte.node) ?? 0) : 0,
+      costRef: Math.abs(costosGestioCentral[concepte.node] ?? 0),
       percentByLn,
     };
   });

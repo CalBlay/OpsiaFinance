@@ -60,6 +60,17 @@ export async function carregarArbreDeptSc(): Promise<ArbreDeptSc[]> {
 
 /** Cost nòmina + millores per departament SC d'un mes. */
 export async function carregarCostPersonalDeptSc(any: number, mes: number): Promise<CostDeptMes[]> {
+  return unstable_cache(
+    () => carregarCostPersonalDeptScUncached(any, mes),
+    consultesCacheKey("config-repartiment-cost-personal", String(any), String(mes)),
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
+}
+
+async function carregarCostPersonalDeptScUncached(
+  any: number,
+  mes: number
+): Promise<CostDeptMes[]> {
   const arbre = await carregarArbreDeptSc();
   const centreIds = arbre.map((c) => c.centreId);
   if (!centreIds.length) return [];
@@ -164,10 +175,9 @@ export async function carregarConfigPersonalUncached(): Promise<{
     db.configPersonalLn.findMany({ where: { liniaNegociId: { in: lnIds } } }),
     db.configPersonalDept.findMany({ where: { liniaNegociId: { in: lnIds } } }),
     db.pesDefectePersonalComercial.findMany({ where: { liniaNegociId: { in: lnIds } } }),
-    db.configRepartimentPersonal.upsert({
+    db.configRepartimentPersonal.findUnique({
       where: { id: "default" },
-      update: {},
-      create: { id: "default", fraccioSobrantIguals: FRACCIO_SOBRANT_IGUALS_DEFECTE },
+      select: { fraccioSobrantIguals: true },
     }),
   ]);
 
@@ -191,7 +201,9 @@ export async function carregarConfigPersonalUncached(): Promise<{
       liniaNegociId: p.liniaNegociId,
       pesDefecte: Number(p.pesDefecte),
     })),
-    fraccioSobrantIguals: clampFraccio01(Number(cfgSobrant.fraccioSobrantIguals)),
+    fraccioSobrantIguals: clampFraccio01(
+      Number(cfgSobrant?.fraccioSobrantIguals ?? FRACCIO_SOBRANT_IGUALS_DEFECTE)
+    ),
   };
 }
 
