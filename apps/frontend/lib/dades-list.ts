@@ -3,8 +3,7 @@ import { llistaCarreguesFitxerUncached } from "@/lib/carrega-fitxer";
 import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { estatConfiguracioRepartiment } from "@/lib/repartiment/estat-configuracio";
-import { personalSobrantAlDia } from "@/lib/repartiment/personal-departaments-constants";
-import { carregarConfigPersonalUncached } from "@/lib/repartiment/personal-departaments-data";
+import { carregarUltimaConfigPersonalUpdatedAt } from "@/lib/repartiment/estat-configuracio-data";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
@@ -34,42 +33,38 @@ export const getCarreguesFitxerLlista = cache(
 export const getRepartimentPeriodsLlista = cache(async (): Promise<RepartimentPeriodItem[]> => {
   return unstable_cache(
     async () => {
-      const [periods, configPersonal, ultimaNorma] = await Promise.all([
+      const [periods, ultimaConfigPersonalUpdatedAt, ultimaNorma] = await Promise.all([
         db.period.findMany({
-          where: { dadesResultat: { some: {} } },
+          where: { dadesResultat: { some: { import_: { not: 0 } } } },
           orderBy: [{ any: "desc" }, { mes: "desc" }],
           include: {
+            costsPersonalsCentre: {
+              where: { costPersonal: { not: 0 } },
+              select: { id: true },
+              take: 1,
+            },
             execucioRepartiment: {
               select: {
                 id: true,
                 estat: true,
                 calculatAt: true,
-                moviments: {
-                  where: { detallCalcul: { contains: "sobrant" } },
-                  select: { detallCalcul: true },
-                  take: 1,
-                },
               },
             },
           },
         }),
-        carregarConfigPersonalUncached(),
+        carregarUltimaConfigPersonalUpdatedAt(),
         db.normaRepartiment.findFirst({
           orderBy: { updatedAt: "desc" },
           select: { updatedAt: true },
         }),
       ]);
 
-      const fraccioVigent = configPersonal.fraccioSobrantIguals;
-
       return periods.map((p) => {
         const estatConfiguracio = estatConfiguracioRepartiment({
           calculatAt: p.execucioRepartiment?.calculatAt,
           ultimaNormaUpdatedAt: ultimaNorma?.updatedAt,
-          personalReglaAplicada: personalSobrantAlDia(
-            p.execucioRepartiment?.moviments[0]?.detallCalcul,
-            fraccioVigent
-          ),
+          ultimaConfigPersonalUpdatedAt,
+          teCostPersonal: p.costsPersonalsCentre.length > 0,
         });
         return {
           id: p.id,

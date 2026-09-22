@@ -2,8 +2,7 @@
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { estatConfiguracioRepartiment } from "@/lib/repartiment/estat-configuracio";
-import { personalSobrantAlDia } from "@/lib/repartiment/personal-departaments-constants";
-import { carregarConfigPersonalUncached } from "@/lib/repartiment/personal-departaments-data";
+import { carregarUltimaConfigPersonalUpdatedAt } from "@/lib/repartiment/estat-configuracio-data";
 import {
   calcularExecucioRepartiment,
   confirmarExecucioRepartiment,
@@ -58,7 +57,7 @@ export async function calcularIConfirmarRepartimentAnyAction(any: number) {
   }
 
   const periods = await db.period.findMany({
-    where: { any, dadesResultat: { some: {} } },
+    where: { any, dadesResultat: { some: { import_: { not: 0 } } } },
     orderBy: { mes: "asc" },
     include: { execucioRepartiment: { select: { id: true, estat: true } } },
   });
@@ -118,26 +117,26 @@ export async function recalcularIReconfirmarRepartimentAnyAction(any: number) {
     return { ok: false, missatge: "Any no vàlid." };
   }
 
-  const [periods, configPersonal, ultimaNorma] = await Promise.all([
+  const [periods, ultimaConfigPersonalUpdatedAt, ultimaNorma] = await Promise.all([
     db.period.findMany({
-      where: { any, dadesResultat: { some: {} } },
+      where: { any, dadesResultat: { some: { import_: { not: 0 } } } },
       orderBy: { mes: "asc" },
       include: {
+        costsPersonalsCentre: {
+          where: { costPersonal: { not: 0 } },
+          select: { id: true },
+          take: 1,
+        },
         execucioRepartiment: {
           select: {
             id: true,
             estat: true,
             calculatAt: true,
-            moviments: {
-              where: { detallCalcul: { contains: "sobrant" } },
-              select: { detallCalcul: true },
-              take: 1,
-            },
           },
         },
       },
     }),
-    carregarConfigPersonalUncached(),
+    carregarUltimaConfigPersonalUpdatedAt(),
     db.normaRepartiment.findFirst({
       orderBy: { updatedAt: "desc" },
       select: { updatedAt: true },
@@ -153,10 +152,8 @@ export async function recalcularIReconfirmarRepartimentAnyAction(any: number) {
     return !estatConfiguracioRepartiment({
       calculatAt: exec?.calculatAt,
       ultimaNormaUpdatedAt: ultimaNorma?.updatedAt,
-      personalReglaAplicada: personalSobrantAlDia(
-        exec?.moviments[0]?.detallCalcul,
-        configPersonal.fraccioSobrantIguals
-      ),
+      ultimaConfigPersonalUpdatedAt,
+      teCostPersonal: p.costsPersonalsCentre.length > 0,
     }).alDia;
   });
   if (pendentsConfiguracio.length === 0) {

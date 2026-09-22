@@ -6,7 +6,8 @@ export type EstatConfiguracioRepartiment = {
 export function estatConfiguracioRepartiment(input: {
   calculatAt: Date | null | undefined;
   ultimaNormaUpdatedAt: Date | null | undefined;
-  personalReglaAplicada: boolean;
+  ultimaConfigPersonalUpdatedAt: Date | null | undefined;
+  teCostPersonal: boolean;
 }): EstatConfiguracioRepartiment {
   const motiusPendents: string[] = [];
 
@@ -16,7 +17,11 @@ export function estatConfiguracioRepartiment(input: {
   ) {
     motiusPendents.push("regles generals");
   }
-  if (!input.personalReglaAplicada) {
+  if (
+    input.teCostPersonal &&
+    input.ultimaConfigPersonalUpdatedAt &&
+    (!input.calculatAt || input.calculatAt < input.ultimaConfigPersonalUpdatedAt)
+  ) {
     motiusPendents.push("configuració de personal");
   }
 
