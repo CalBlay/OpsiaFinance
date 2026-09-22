@@ -65,7 +65,9 @@ export default async function RepartimentSettingsPage() {
         grup: { select: { codi: true, nom: true } },
       },
     }),
-    latestPeriod ? carregarCostosGestioCentral(latestPeriod.id) : Promise.resolve({}),
+    latestPeriod
+      ? carregarCostosGestioCentral(latestPeriod.id)
+      : Promise.resolve({} as Record<number, number>),
   ]);
 
   // Si un centre SC no té departaments i tampoc té cost salarial al mes de referència,
