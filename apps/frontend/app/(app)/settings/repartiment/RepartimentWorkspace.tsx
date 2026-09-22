@@ -97,6 +97,7 @@ export function RepartimentWorkspace({
   assignacions,
   gestioRows,
   compres,
+  reglesPersonal,
   refMesLabel,
   canEdit,
 }: {
@@ -105,6 +106,7 @@ export function RepartimentWorkspace({
   assignacions: Assignacio[];
   gestioRows: GestioRow[];
   compres: Compra[];
+  reglesPersonal: Compra[];
   refMesLabel: string | null;
   canEdit: boolean;
 }) {
@@ -357,6 +359,42 @@ export function RepartimentWorkspace({
               </tbody>
             </table>
           </div>
+          {reglesPersonal.length > 0 && (
+            <div className={styles.complementaryRules}>
+              <div>
+                <span className={styles.eyebrow}>Regles complementàries</span>
+                <h3>Personal fora de Central</h3>
+                <p>
+                  Moviments específics que es calculen després de la matriu de Serveis Centrals.
+                </p>
+              </div>
+              {reglesPersonal.map((rule) => (
+                <article className={styles.inlineRule} key={rule.id}>
+                  <div>
+                    <span className={styles.lnPill}>
+                      Destí {rule.liniaNegociDesti?.codi ?? "—"}
+                    </span>
+                    <strong>{rule.nom}</strong>
+                  </div>
+                  <label>
+                    <input
+                      inputMode="decimal"
+                      defaultValue={rule.valorPercent ?? 0}
+                      disabled={!canEdit || pending}
+                      onBlur={(event) => {
+                        const value = numberFromInput(event.target.value);
+                        if (value === rule.valorPercent) return;
+                        startTransition(async () =>
+                          notify(await updateNormaAction(rule.id, { valorPercent: value }))
+                        );
+                      }}
+                    />
+                    %
+                  </label>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       )}
 

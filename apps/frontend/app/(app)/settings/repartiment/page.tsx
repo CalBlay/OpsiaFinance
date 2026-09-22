@@ -6,8 +6,10 @@ import {
   NODES_GESTIO_DETALL,
   NODE_COMPRES,
   NODE_COST_GESTIO,
+  NODE_COST_SALARIAL,
 } from "@/lib/repartiment/nodes";
 import { syncGrupsRepartiment } from "@/lib/repartiment/normes-default";
+import { NOM_NORMA_ADMIN_REST_GREEN_VITA } from "@/lib/repartiment/personal-admin-restaurants";
 import { CODIS_LN_PERSONAL_CONFIG } from "@/lib/repartiment/personal-departaments-constants";
 import {
   carregarConfigPersonal,
@@ -60,7 +62,9 @@ export default async function RepartimentSettingsPage() {
     db.normaRepartiment.findMany({
       where: {
         actiu: true,
-        concepteNode: { in: [NODE_COMPRES, NODE_COST_GESTIO, ...NODES_GESTIO_DETALL] },
+        concepteNode: {
+          in: [NODE_COMPRES, NODE_COST_SALARIAL, NODE_COST_GESTIO, ...NODES_GESTIO_DETALL],
+        },
       },
       orderBy: { ordre: "asc" },
       include: {
@@ -114,6 +118,19 @@ export default async function RepartimentSettingsPage() {
       liniaNegociDesti: norma.liniaNegociDesti,
       grup: norma.grup,
     }));
+  const reglesPersonal = normes
+    .filter(
+      (norma) =>
+        norma.concepteNode === NODE_COST_SALARIAL && norma.nom === NOM_NORMA_ADMIN_REST_GREEN_VITA
+    )
+    .map((norma) => ({
+      id: norma.id,
+      nom: norma.nom ?? "Regla complementària de personal",
+      tipus: norma.tipus,
+      valorPercent: decimalToNumber(norma.valorPercent),
+      liniaNegociDesti: norma.liniaNegociDesti,
+      grup: norma.grup,
+    }));
 
   return (
     <RepartimentWorkspace
@@ -122,6 +139,7 @@ export default async function RepartimentSettingsPage() {
       assignacions={config.configsDept}
       gestioRows={gestioRows}
       compres={compres}
+      reglesPersonal={reglesPersonal}
       refMesLabel={latestPeriod?.nom ?? null}
       canEdit={canEdit}
     />
