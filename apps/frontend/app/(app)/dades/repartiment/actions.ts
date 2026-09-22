@@ -1,6 +1,9 @@
 "use server";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { estatConfiguracioRepartiment } from "@/lib/repartiment/estat-configuracio";
+import { personalSobrantAlDia } from "@/lib/repartiment/personal-departaments-constants";
+import { carregarConfigPersonalUncached } from "@/lib/repartiment/personal-departaments-data";
 import {
   calcularExecucioRepartiment,
   confirmarExecucioRepartiment,
@@ -115,21 +118,58 @@ export async function recalcularIReconfirmarRepartimentAnyAction(any: number) {
     return { ok: false, missatge: "Any no vàlid." };
   }
 
-  const periods = await db.period.findMany({
-    where: { any, dadesResultat: { some: {} } },
-    orderBy: { mes: "asc" },
-    include: { execucioRepartiment: { select: { id: true, estat: true } } },
-  });
+  const [periods, configPersonal, ultimaNorma] = await Promise.all([
+    db.period.findMany({
+      where: { any, dadesResultat: { some: {} } },
+      orderBy: { mes: "asc" },
+      include: {
+        execucioRepartiment: {
+          select: {
+            id: true,
+            estat: true,
+            calculatAt: true,
+            moviments: {
+              where: { detallCalcul: { contains: "sobrant" } },
+              select: { detallCalcul: true },
+              take: 1,
+            },
+          },
+        },
+      },
+    }),
+    carregarConfigPersonalUncached(),
+    db.normaRepartiment.findFirst({
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    }),
+  ]);
 
   const confirmats = periods.filter((p) => p.execucioRepartiment?.estat === "CONFIRMAT");
   if (confirmats.length === 0) {
     return { ok: false, missatge: `${any}: no hi ha mesos confirmats per recalcular.` };
   }
+  const pendentsConfiguracio = confirmats.filter((p) => {
+    const exec = p.execucioRepartiment;
+    return !estatConfiguracioRepartiment({
+      calculatAt: exec?.calculatAt,
+      ultimaNormaUpdatedAt: ultimaNorma?.updatedAt,
+      personalReglaAplicada: personalSobrantAlDia(
+        exec?.moviments[0]?.detallCalcul,
+        configPersonal.fraccioSobrantIguals
+      ),
+    }).alDia;
+  });
+  if (pendentsConfiguracio.length === 0) {
+    return {
+      ok: true,
+      missatge: `${any}: tots els mesos confirmats ja tenen les regles actuals aplicades.`,
+    };
+  }
 
   let fets = 0;
   const errors: string[] = [];
 
-  for (const p of confirmats) {
+  for (const p of pendentsConfiguracio) {
     try {
       const exec = await calcularExecucioRepartiment(p.id);
       if (!exec?.id) {

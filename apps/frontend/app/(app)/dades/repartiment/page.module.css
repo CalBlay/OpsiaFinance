@@ -20,15 +20,91 @@
 }
 
 .bulkBar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.65rem 0.85rem;
+  display: grid;
+  gap: 0.75rem;
   margin-bottom: 0.85rem;
   padding: 0.75rem 0.85rem;
   border: 1px solid var(--opsia-cx-border, var(--color-border));
   border-radius: 0.65rem;
   background: color-mix(in srgb, var(--opsia-green-600, #2f6f6d) 5%, #fff);
+}
+
+.bulkHead {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.bulkStatusPending,
+.bulkStatusOk {
+  display: flex;
+  flex: 1 1 22rem;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-height: 2.55rem;
+  justify-content: center;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  font-size: 0.78rem;
+}
+
+.bulkStatusPending {
+  border: 1px solid color-mix(in srgb, #b7791f 38%, var(--color-border));
+  background: color-mix(in srgb, #f6ad55 13%, #fff);
+  color: #805211;
+}
+
+.bulkStatusOk {
+  border: 1px solid color-mix(in srgb, var(--opsia-green-700, #245956) 25%, var(--color-border));
+  background: color-mix(in srgb, var(--opsia-green-600, #2f6f6d) 7%, #fff);
+  color: var(--opsia-green-700, #245956);
+}
+
+.bulkStatusPending span,
+.bulkStatusOk span {
+  font-weight: 500;
+}
+
+.bulkActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.bulkActionCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.85rem;
+  padding: 0.7rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: 0.55rem;
+  background: #fff;
+}
+
+.bulkActionRecommended {
+  border-color: color-mix(in srgb, #b7791f 42%, var(--color-border));
+  box-shadow: inset 3px 0 0 #d69e2e;
+}
+
+.bulkActionCard strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.84rem;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+}
+
+.bulkActionCard p {
+  margin: 0;
+  max-width: 38rem;
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: var(--opsia-cx-ink-soft, var(--color-muted-foreground));
+}
+
+.bulkActionCard button {
+  flex: 0 0 auto;
 }
 
 .bulkLabel {
@@ -98,10 +174,38 @@
 }
 
 .bulkMsg {
-  flex: 1 1 100%;
   margin: 0;
   font-size: 0.85rem;
   font-weight: 600;
   color: var(--opsia-cx-ink, var(--color-foreground));
   line-height: 1.35;
+}
+
+.periodStatus {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.periodPending {
+  display: inline-flex;
+  padding: 0.12rem 0.42rem;
+  border: 1px solid color-mix(in srgb, #b7791f 38%, var(--color-border));
+  border-radius: 999px;
+  background: color-mix(in srgb, #f6ad55 13%, #fff);
+  color: #805211;
+  font-size: 0.69rem;
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .bulkActions {
+    grid-template-columns: 1fr;
+  }
+
+  .bulkActionCard {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }

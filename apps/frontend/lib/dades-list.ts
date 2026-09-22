@@ -2,6 +2,7 @@ import type { CarregaFitxerLlistaItem, TipusCarregaFitxer } from "@/lib/carrega-
 import { llistaCarreguesFitxerUncached } from "@/lib/carrega-fitxer";
 import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
+import { estatConfiguracioRepartiment } from "@/lib/repartiment/estat-configuracio";
 import { personalSobrantAlDia } from "@/lib/repartiment/personal-departaments-constants";
 import { carregarConfigPersonalUncached } from "@/lib/repartiment/personal-departaments-data";
 import { unstable_cache } from "next/cache";
@@ -13,7 +14,8 @@ export type RepartimentPeriodItem = {
   any: number;
   mes: number;
   estat: "CONFIRMAT" | "BORRADOR" | null;
-  personalReglaAplicada: boolean;
+  configuracioAplicada: boolean;
+  motiusConfiguracioPendent: string[];
 };
 
 /** Historial de càrregues Excel (cost salarial, personal, vendes…). */
@@ -32,7 +34,7 @@ export const getCarreguesFitxerLlista = cache(
 export const getRepartimentPeriodsLlista = cache(async (): Promise<RepartimentPeriodItem[]> => {
   return unstable_cache(
     async () => {
-      const [periods, configPersonal] = await Promise.all([
+      const [periods, configPersonal, ultimaNorma] = await Promise.all([
         db.period.findMany({
           where: { dadesResultat: { some: {} } },
           orderBy: [{ any: "desc" }, { mes: "desc" }],
@@ -41,6 +43,7 @@ export const getRepartimentPeriodsLlista = cache(async (): Promise<RepartimentPe
               select: {
                 id: true,
                 estat: true,
+                calculatAt: true,
                 moviments: {
                   where: { detallCalcul: { contains: "sobrant" } },
                   select: { detallCalcul: true },
@@ -51,21 +54,33 @@ export const getRepartimentPeriodsLlista = cache(async (): Promise<RepartimentPe
           },
         }),
         carregarConfigPersonalUncached(),
+        db.normaRepartiment.findFirst({
+          orderBy: { updatedAt: "desc" },
+          select: { updatedAt: true },
+        }),
       ]);
 
       const fraccioVigent = configPersonal.fraccioSobrantIguals;
 
-      return periods.map((p) => ({
-        id: p.id,
-        nom: p.nom,
-        any: p.any,
-        mes: p.mes,
-        estat: (p.execucioRepartiment?.estat as "CONFIRMAT" | "BORRADOR" | null) ?? null,
-        personalReglaAplicada: personalSobrantAlDia(
-          p.execucioRepartiment?.moviments[0]?.detallCalcul,
-          fraccioVigent
-        ),
-      }));
+      return periods.map((p) => {
+        const estatConfiguracio = estatConfiguracioRepartiment({
+          calculatAt: p.execucioRepartiment?.calculatAt,
+          ultimaNormaUpdatedAt: ultimaNorma?.updatedAt,
+          personalReglaAplicada: personalSobrantAlDia(
+            p.execucioRepartiment?.moviments[0]?.detallCalcul,
+            fraccioVigent
+          ),
+        });
+        return {
+          id: p.id,
+          nom: p.nom,
+          any: p.any,
+          mes: p.mes,
+          estat: (p.execucioRepartiment?.estat as "CONFIRMAT" | "BORRADOR" | null) ?? null,
+          configuracioAplicada: estatConfiguracio.alDia,
+          motiusConfiguracioPendent: estatConfiguracio.motiusPendents,
+        };
+      });
     },
     consultesCacheKey("dades-repartiment-periods"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 60 }

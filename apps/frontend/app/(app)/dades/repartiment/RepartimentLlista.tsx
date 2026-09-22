@@ -23,7 +23,8 @@ export type RepartimentPeriodItem = {
   any: number;
   mes: number;
   estat: "CONFIRMAT" | "BORRADOR" | null;
-  personalReglaAplicada?: boolean;
+  configuracioAplicada: boolean;
+  motiusConfiguracioPendent: string[];
 };
 
 export function RepartimentLlista({
@@ -56,14 +57,14 @@ export function RepartimentLlista({
     () => periods.filter((p) => String(p.any) === anyMassiu && p.estat === "CONFIRMAT").length,
     [periods, anyMassiu]
   );
-  const confirmatsPendentsRegla = useMemo(
+  const confirmatsPendentsConfiguracio = useMemo(
     () =>
       periods.filter(
-        (p) => String(p.any) === anyMassiu && p.estat === "CONFIRMAT" && !p.personalReglaAplicada
+        (p) => String(p.any) === anyMassiu && p.estat === "CONFIRMAT" && !p.configuracioAplicada
       ).length,
     [periods, anyMassiu]
   );
-  const confirmatsAlDia = confirmatsAny > 0 && confirmatsPendentsRegla === 0;
+  const confirmatsAlDia = confirmatsAny > 0 && confirmatsPendentsConfiguracio === 0;
 
   const filtrats = useMemo(() => {
     return periods.filter((p) => {
@@ -97,79 +98,130 @@ export function RepartimentLlista({
     >
       {canEdit && anysOpts.length > 0 ? (
         <div className={styles.bulkBar}>
-          <label className={styles.bulkLabel} htmlFor="repartiment-any-massiu">
-            Any
-            <select
-              id="repartiment-any-massiu"
-              className={styles.bulkSelect}
-              value={anyMassiu || anyDefecte}
-              onChange={(e) => {
-                const v = e.target.value;
-                setAnyMassiu(v);
-                setFiltreAny(v);
-                setMissatge(null);
-              }}
-            >
-              {anysOpts.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="button"
-            className={styles.bulkBtn}
-            disabled={pending || !anyMassiu || pendentsAny === 0}
-            onClick={() => {
-              const any = Number(anyMassiu);
-              if (
-                !window.confirm(
-                  `Calcular i confirmar el repartiment de tots els mesos pendents de ${any}?\n\n${pendentsAny} període${pendentsAny === 1 ? "" : "s"} a processar.\nEls ja confirmats no es modificaran.`
-                )
-              ) {
-                return;
+          <div className={styles.bulkHead}>
+            <label className={styles.bulkLabel} htmlFor="repartiment-any-massiu">
+              Any
+              <select
+                id="repartiment-any-massiu"
+                className={styles.bulkSelect}
+                value={anyMassiu || anyDefecte}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAnyMassiu(v);
+                  setFiltreAny(v);
+                  setMissatge(null);
+                }}
+              >
+                {anysOpts.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div
+              className={
+                confirmatsPendentsConfiguracio > 0 ? styles.bulkStatusPending : styles.bulkStatusOk
               }
-              setMissatge(null);
-              startTransition(async () => {
-                const r = await calcularIConfirmarRepartimentAnyAction(any);
-                setMissatge(r.missatge);
-                router.refresh();
-              });
-            }}
-          >
-            {pending
-              ? "Processant…"
-              : pendentsAny > 0
-                ? `Calcular i confirmar ${anyMassiu} (${pendentsAny})`
-                : `Sense pendents a ${anyMassiu || "—"}`}
-          </button>
-          <button
-            type="button"
-            className={confirmatsAlDia ? styles.bulkBtnDone : styles.bulkBtn}
-            disabled={pending || !anyMassiu || confirmatsAny === 0}
-            onClick={() => {
-              const any = Number(anyMassiu);
-              const avís = confirmatsAlDia
-                ? `Els ${confirmatsAny} mesos confirmats de ${any} ja tenen la configuració actual del sobrant de personal.\n\nVols tornar a recalcular-los igualment?`
-                : `Has canviat la configuració del sobrant de personal (parts iguals / pes de vendes).\n\nRecalcular i reconfirmar ${confirmatsPendentsRegla} període${confirmatsPendentsRegla === 1 ? "" : "s"} confirmat${confirmatsPendentsRegla === 1 ? "" : "s"} de ${any}?\nEls esborranys no es toquen.`;
-              if (!window.confirm(avís)) return;
-              setMissatge(null);
-              startTransition(async () => {
-                const r = await recalcularIReconfirmarRepartimentAnyAction(any);
-                setMissatge(r.missatge);
-                router.refresh();
-              });
-            }}
-          >
-            {pending
-              ? "Processant…"
-              : confirmatsAny === 0
-                ? `Sense confirmats a ${anyMassiu || "—"}`
-                : confirmatsAlDia
-                  ? `Confirmats al dia ${anyMassiu} (${confirmatsAny})`
-                  : `Recalcular confirmats ${anyMassiu} (${confirmatsPendentsRegla})`}
-          </button>
+            >
+              <strong>
+                {confirmatsPendentsConfiguracio > 0
+                  ? `${confirmatsPendentsConfiguracio} mes${confirmatsPendentsConfiguracio === 1 ? "" : "os"} confirmat${confirmatsPendentsConfiguracio === 1 ? "" : "s"} sense les regles actuals`
+                  : confirmatsAny > 0
+                    ? "Regles actuals aplicades"
+                    : "Encara no hi ha mesos confirmats"}
+              </strong>
+              <span>
+                {confirmatsPendentsConfiguracio > 0
+                  ? "Acció recomanada: aplica les regles noves als confirmats."
+                  : confirmatsAny > 0
+                    ? `${confirmatsAny} mes${confirmatsAny === 1 ? "" : "os"} confirmat${confirmatsAny === 1 ? "" : "s"} al dia.`
+                    : "Calcula primer els mesos nous o pendents."}
+              </span>
+            </div>
+          </div>
+
+          <div className={styles.bulkActions}>
+            <section className={styles.bulkActionCard}>
+              <div>
+                <strong>1. Mesos nous o pendents</strong>
+                <p>
+                  Calcula i confirma només els mesos que encara no estan confirmats. No modifica
+                  resultats anteriors.
+                </p>
+              </div>
+              <button
+                type="button"
+                className={styles.bulkBtn}
+                disabled={pending || !anyMassiu || pendentsAny === 0}
+                onClick={() => {
+                  const any = Number(anyMassiu);
+                  if (
+                    !window.confirm(
+                      `Calcular i confirmar ${pendentsAny} mes${pendentsAny === 1 ? "" : "os"} pendent${pendentsAny === 1 ? "" : "s"} de ${any}?\n\nEls mesos ja confirmats no es modificaran.`
+                    )
+                  ) {
+                    return;
+                  }
+                  setMissatge(null);
+                  startTransition(async () => {
+                    const r = await calcularIConfirmarRepartimentAnyAction(any);
+                    setMissatge(r.missatge);
+                    router.refresh();
+                  });
+                }}
+              >
+                {pending
+                  ? "Processant…"
+                  : pendentsAny > 0
+                    ? `Calcular pendents (${pendentsAny})`
+                    : "Cap mes pendent"}
+              </button>
+            </section>
+
+            <section
+              className={`${styles.bulkActionCard} ${
+                confirmatsPendentsConfiguracio > 0 ? styles.bulkActionRecommended : ""
+              }`}
+            >
+              <div>
+                <strong>2. Aplicar regles noves</strong>
+                <p>
+                  Recalcula només els mesos confirmats que no incorporen la configuració actual. No
+                  toca els que ja estan al dia.
+                </p>
+              </div>
+              <button
+                type="button"
+                className={confirmatsAlDia ? styles.bulkBtnDone : styles.bulkBtn}
+                disabled={pending || !anyMassiu || confirmatsPendentsConfiguracio === 0}
+                onClick={() => {
+                  const any = Number(anyMassiu);
+                  if (
+                    !window.confirm(
+                      `Aplicar les regles actuals a ${confirmatsPendentsConfiguracio} mes${confirmatsPendentsConfiguracio === 1 ? "" : "os"} confirmat${confirmatsPendentsConfiguracio === 1 ? "" : "s"} de ${any}?\n\nEs recalcularan i es tornaran a confirmar. Els mesos que ja estan al dia no es tocaran.`
+                    )
+                  ) {
+                    return;
+                  }
+                  setMissatge(null);
+                  startTransition(async () => {
+                    const r = await recalcularIReconfirmarRepartimentAnyAction(any);
+                    setMissatge(r.missatge);
+                    router.refresh();
+                  });
+                }}
+              >
+                {pending
+                  ? "Processant…"
+                  : confirmatsPendentsConfiguracio > 0
+                    ? `Aplicar regles noves (${confirmatsPendentsConfiguracio})`
+                    : confirmatsAny > 0
+                      ? "Regles ja aplicades"
+                      : "Cap mes confirmat"}
+              </button>
+            </section>
+          </div>
           {missatge ? <p className={styles.bulkMsg}>{missatge}</p> : null}
         </div>
       ) : null}
@@ -220,7 +272,17 @@ export function RepartimentLlista({
                   <td className={ui.nowrap}>{p.nom}</td>
                   <td>
                     {p.estat === "CONFIRMAT" ? (
-                      <DadesBadge tone="ok">Confirmat</DadesBadge>
+                      <div className={styles.periodStatus}>
+                        <DadesBadge tone="ok">Confirmat</DadesBadge>
+                        {!p.configuracioAplicada ? (
+                          <span
+                            className={styles.periodPending}
+                            title={`Pendent: ${p.motiusConfiguracioPendent.join(", ")}`}
+                          >
+                            Regles pendents
+                          </span>
+                        ) : null}
+                      </div>
                     ) : p.estat === "BORRADOR" ? (
                       <DadesBadge tone="warn">Esborrany</DadesBadge>
                     ) : (
