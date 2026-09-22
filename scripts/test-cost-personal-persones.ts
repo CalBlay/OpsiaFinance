@@ -25,9 +25,13 @@ const header = [
   "Operación",
 ];
 
+// El nou informe insereix el % a I a les files individuals, però la capçalera
+// exportada continua una columna a l'esquerra dels imports reals.
+const headerDesplacat = header.slice(0, 8).concat(header.slice(9));
+
 const detall = parseExcelCostPersonalCentre(
   workbook([
-    header,
+    headerDesplacat,
     [
       "00 - SERVEIS CENTRALS - 00002 - DECORACIO",
       null,
@@ -68,10 +72,10 @@ const detall = parseExcelCostPersonalCentre(
       null,
       null,
       100,
-      1000,
-      100,
-      300,
-      1400,
+      9000,
+      900,
+      2700,
+      12_600,
     ],
     [
       "'000224 GOMEZ ROSINES, LOURDES",
@@ -83,10 +87,10 @@ const detall = parseExcelCostPersonalCentre(
       null,
       null,
       100,
-      2000,
-      200,
-      600,
-      2800,
+      8000,
+      800,
+      2400,
+      11_200,
     ],
   ])
 );
@@ -95,6 +99,7 @@ const dept = detall.files.find((fila) => fila.codi === "00002001");
 assert.ok(dept, "S'ha de conservar el departament");
 assert.equal(dept.nombrePersones, 2);
 assert.equal(dept.costPersonal, 4200, "El cost ha de venir del subtotal, sense doble comptatge");
+assert.match(detall.diagnostica ?? "", /desplaçament \+1/);
 assert.doesNotMatch(JSON.stringify(detall), /000115|000224|AGUIRRE|GOMEZ ROSINES/);
 
 const legacy = parseExcelCostPersonalCentre(

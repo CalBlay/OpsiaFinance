@@ -378,39 +378,55 @@ function resolLayout(
   mode: "NOMINA" | "MILLORES"
 ): Layout {
   const perNom = detectarLayoutPerCapcalera(matrixText) ?? detectarLayoutPerCapcalera(matrixRaw);
-  if (perNom) return { ...perNom, idxProv: mode === "MILLORES" ? -1 : perNom.idxProv };
-
   const idxDesc = detectarIdxDesc(matrixText, 0);
   const start = detectarStartDades(matrixText, idxDesc);
 
-  // Candidats fixos: I/J/K/L (brut a I) i J/K/L/M (brut a J)
-  const candidats: Layout[] = [
-    {
-      startRow: start,
-      idxDesc,
-      idxBrut: 8,
-      idxProv: mode === "MILLORES" ? -1 : 9,
-      idxSs: 10,
-      idxOp: 11,
-      origen: "fixes I/J/K/L",
-    },
-    {
-      startRow: start,
-      idxDesc,
-      idxBrut: 9,
-      idxProv: mode === "MILLORES" ? -1 : 10,
-      idxSs: 11,
-      idxOp: 12,
-      origen: "fixes J/K/L/M",
-    },
-  ];
+  const desplacar = (layout: Layout, offset: number): Layout => ({
+    ...layout,
+    idxBrut: layout.idxBrut + offset,
+    idxProv: layout.idxProv < 0 ? -1 : layout.idxProv + offset,
+    idxSs: layout.idxSs + offset,
+    idxOp: layout.idxOp < 0 ? -1 : layout.idxOp + offset,
+    origen: `${layout.origen} desplaçament ${offset > 0 ? "+" : ""}${offset}`,
+  });
 
-  let millor = candidats[0]!;
+  // Candidats fixos: I/J/K/L (brut a I) i J/K/L/M (brut a J)
+  const fixI: Layout = {
+    startRow: start,
+    idxDesc,
+    idxBrut: 8,
+    idxProv: mode === "MILLORES" ? -1 : 9,
+    idxSs: 10,
+    idxOp: 11,
+    origen: "fixes I/J/K/L",
+  };
+  const candidats: Layout[] = perNom
+    ? [
+        { ...perNom, idxProv: mode === "MILLORES" ? -1 : perNom.idxProv },
+        desplacar({ ...perNom, idxProv: mode === "MILLORES" ? -1 : perNom.idxProv }, 1),
+        desplacar({ ...perNom, idxProv: mode === "MILLORES" ? -1 : perNom.idxProv }, -1),
+      ]
+    : [
+        fixI,
+        {
+          startRow: start,
+          idxDesc,
+          idxBrut: 9,
+          idxProv: mode === "MILLORES" ? -1 : 10,
+          idxSs: 11,
+          idxOp: 12,
+          origen: "fixes J/K/L/M",
+        },
+      ];
+
+  let millor = candidats[0] ?? fixI;
   let millorScore = Number.NEGATIVE_INFINITY;
-  for (const c of candidats) {
+  for (let i = 0; i < candidats.length; i++) {
+    const c = candidats[i];
+    if (!c) continue;
     const s = scoreLayout(matrixRaw, matrixText, c, mode);
-    // Preferència lleu a I/J/K/L (desplaçament històric)
-    const bonus = c.idxBrut === 8 ? 1e6 : 0;
+    // Preferència lleu al layout literal; la coherència dels imports mana.
+    const bonus = i === 0 ? 1e6 : 0;
     if (s + bonus > millorScore) {
       millorScore = s + bonus;
       millor = c;
@@ -428,7 +444,7 @@ function extreureFiles(
   mode: "NOMINA" | "MILLORES"
 ): FilaCostPersonalExcel[] {
   const out: FilaCostPersonalExcel[] = [];
-  const detallPersones = new Map<string, FilaCostPersonalExcel>();
+  const detallPersones = new Map<string, { nombrePersones: number }>();
   let centreActual: string | null = null;
   let textCentreActual: string | null = null;
   let departamentActual: string | null = null;
@@ -515,9 +531,14 @@ function extreureFiles(
         }
       }
     }
-    // Un identificador numèric propi d'una persona no és un nou centre/dept.
-    // Els codis organitzatius de detall han de penjar del centre actiu.
-    if (codiPropi && departamentActual && centreContext && !codiPropi.startsWith(centreContext)) {
+    // Els empleats del nou format tenen codi de 6 dígits + «COGNOMS, NOM».
+    // També protegim qualsevol identificador que no pertanyi al centre actiu.
+    const semblaPersona =
+      Boolean(departamentActual) &&
+      Boolean(codiPropi) &&
+      ((codiPropi?.length === 6 && /,\s*\p{L}/u.test(text)) ||
+        Boolean(centreContext && !codiPropi?.startsWith(centreContext)));
+    if (semblaPersona) {
       codiPropi = null;
       centreActual = centreContext;
       textCentreActual = textCentreContext;
@@ -534,9 +555,8 @@ function extreureFiles(
     const suma = Math.abs(j) + Math.abs(prov) + Math.abs(ss);
     if (suma < 0.05) continue;
 
-    // El nou format baixa un nivell sota el departament i hi posa una persona
-    // per fila. S'atribueixen els imports al pare i només se'n conserva el
-    // recompte agregat: el nom no surt mai d'aquest bucle.
+    // Les files individuals només aporten headcount. Els seus imports i el
+    // text identificatiu es descarten sempre.
     if (
       !codiPropi &&
       departamentActual &&
@@ -544,25 +564,9 @@ function extreureFiles(
       !esLiniaConcepteComptable(text)
     ) {
       const prev = detallPersones.get(departamentActual);
-      if (prev) {
-        prev.importBrut = absRound2(prev.importBrut, j);
-        prev.segSocialEmpresa = absRound2(prev.segSocialEmpresa, prov);
-        prev.totalSegSocial = absRound2(prev.totalSegSocial, ss);
-        prev.costPersonal = absRound2(prev.importBrut, prev.segSocialEmpresa, prev.totalSegSocial);
-        prev.nombrePersones++;
-      } else {
-        detallPersones.set(departamentActual, {
-          codi: departamentActual,
-          text: textDepartamentActual,
-          nombrePersones: 1,
-          importBrut: Math.abs(j),
-          segSocialEmpresa: Math.abs(prov),
-          totalSegSocial: Math.abs(ss),
-          costPersonal: absRound2(j, prov, ss),
-          nivell: 1,
-          codiHeretat: true,
-        });
-      }
+      detallPersones.set(departamentActual, {
+        nombrePersones: (prev?.nombrePersones ?? 0) + 1,
+      });
       continue;
     }
 
@@ -599,17 +603,11 @@ function extreureFiles(
   for (const f of out) {
     perCodi.set(f.codi, f);
   }
-  // Quan hi ha detall individual, afegeix el recompte al subtotal del
-  // departament sense sumar dues vegades el cost.
   for (const [codi, detall] of detallPersones) {
     const resum = perCodi.get(codi);
     if (resum) {
-      // El subtotal existent continua sent la font del cost; el nivell persona
-      // només aporta el recompte. Així els totals antics i nous són idèntics.
+      // Només el total del departament aporta imports.
       resum.nombrePersones = detall.nombrePersones;
-    } else {
-      // Fallback per a variants sense subtotal de departament.
-      perCodi.set(codi, detall);
     }
   }
   return [...perCodi.values()];
