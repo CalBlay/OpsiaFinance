@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { type RangMesos, prismaPeriodFilter } from "@/lib/periodes";
 import {
   CODI_LN_CENTRAL,
+  NODES_GESTIO_DETALL,
   fraccionsRepartimentDetall,
   nodesPresentacioGestio,
   partsDeltaDetall,
@@ -19,8 +20,13 @@ export {
 
 type RowAmbValors = { node: number; valors: number[] };
 
-/** Nodes on el total empresa ha de ser invariant (zero-sum entre LN): Compres, Personal, Gestió. */
-export const NODES_INVARIANT_EMPRESA = [11, 17, 30] as const;
+/** Nodes on el total empresa ha de ser invariant (zero-sum entre LN). */
+export const NODES_INVARIANT_EMPRESA: readonly number[] = [
+  11,
+  17,
+  30,
+  ...NODES_GESTIO_DETALL,
+];
 
 const getCentralLnId = cache(async (): Promise<string | null> => {
   const c = await db.liniaNegoci.findUnique({

@@ -1,4 +1,9 @@
-import { NODE_COMPRES, NODE_COST_GESTIO, NODE_COST_SALARIAL } from "@/lib/repartiment/nodes";
+import {
+  NODES_GESTIO_DETALL,
+  NODE_COMPRES,
+  NODE_COST_GESTIO,
+  NODE_COST_SALARIAL,
+} from "@/lib/repartiment/nodes";
 
 /**
  * Repartiment a la vista Gestió — reconstrucció node a node.
@@ -14,6 +19,7 @@ export const NODES_REPARTIMENT_GESTIO_ACTIUS: readonly number[] = [
   NODE_COMPRES,
   NODE_COST_SALARIAL,
   NODE_COST_GESTIO,
+  ...NODES_GESTIO_DETALL,
 ];
 
 /** Referència de tots els nodes de repartiment previstos. */
