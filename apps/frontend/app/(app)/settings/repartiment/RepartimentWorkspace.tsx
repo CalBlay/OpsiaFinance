@@ -223,9 +223,14 @@ export function RepartimentWorkspace({
       window.localStorage.removeItem(PERSONAL_DRAFT_KEY);
       return;
     }
+    const values = Object.fromEntries(
+      Object.entries(personalDraft).filter(([key]) =>
+        personalDirty.some((deptId) => key.startsWith(`${deptId}:`))
+      )
+    );
     window.localStorage.setItem(
       PERSONAL_DRAFT_KEY,
-      JSON.stringify({ values: personalDraft, dirty: personalDirty })
+      JSON.stringify({ values, dirty: personalDirty })
     );
   }, [personalDraft, personalDirty]);
 
