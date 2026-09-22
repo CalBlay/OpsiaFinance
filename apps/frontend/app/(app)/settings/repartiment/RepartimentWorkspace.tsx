@@ -1,9 +1,15 @@
 "use client";
 
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
-import { BriefcaseBusiness, Check, PackageOpen, Save, UsersRound } from "lucide-react";
-import { Fragment, useMemo, useState, useTransition } from "react";
+import {
+  BriefcaseBusiness,
+  Check,
+  Cloud,
+  LoaderCircle,
+  PackageOpen,
+  UsersRound,
+} from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { saveGestioMatrixAction, savePersonalMatrixAction, updateNormaAction } from "./actions";
 import styles from "./page.module.css";
 
@@ -38,6 +44,10 @@ const tabs = [
   { id: "gestio", label: "Cost de gestió", icon: BriefcaseBusiness },
 ] as const;
 type TabId = (typeof tabs)[number]["id"];
+type AutosaveState = "idle" | "draft" | "saving" | "saved" | "error";
+
+const PERSONAL_DRAFT_KEY = "opsia:repartiment:personal-draft-v1";
+const GESTIO_DRAFT_KEY = "opsia:repartiment:gestio-draft-v1";
 
 function numberFromInput(raw: string): number {
   const n = Number(raw.replace(",", "."));
@@ -91,6 +101,22 @@ function TotalCell({ total }: { total: number }) {
   );
 }
 
+function AutosaveStatus({ state }: { state: AutosaveState }) {
+  const content = {
+    idle: { icon: <Cloud size={15} />, label: "Autodesat activat" },
+    draft: { icon: <Cloud size={15} />, label: "Esborrany local · falta arribar al 100%" },
+    saving: { icon: <LoaderCircle className={styles.spinner} size={15} />, label: "Desant…" },
+    saved: { icon: <Check size={15} />, label: "Desat automàticament" },
+    error: { icon: <Cloud size={15} />, label: "No s’ha pogut desar · esborrany conservat" },
+  }[state];
+  return (
+    <span className={cn(styles.autosaveStatus, state === "error" && styles.autosaveError)}>
+      {content.icon}
+      {content.label}
+    </span>
+  );
+}
+
 export function RepartimentWorkspace({
   linies,
   departaments,
@@ -113,6 +139,11 @@ export function RepartimentWorkspace({
   const [activeTab, setActiveTab] = useState<TabId>("personal");
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
+  const [personalDirty, setPersonalDirty] = useState<string[]>([]);
+  const [gestioDirty, setGestioDirty] = useState(false);
+  const [personalSaveState, setPersonalSaveState] = useState<AutosaveState>("idle");
+  const [gestioSaveState, setGestioSaveState] = useState<AutosaveState>("idle");
+  const [draftRevision, setDraftRevision] = useState(0);
 
   const initialPersonal = useMemo(() => {
     const map: Record<string, number> = {};
@@ -122,6 +153,8 @@ export function RepartimentWorkspace({
     return map;
   }, [assignacions]);
   const [personalDraft, setPersonalDraft] = useState(initialPersonal);
+  const latestPersonalRef = useRef(personalDraft);
+  latestPersonalRef.current = personalDraft;
 
   const initialGestio = useMemo(() => {
     const map: Record<string, number> = {};
@@ -131,6 +164,8 @@ export function RepartimentWorkspace({
     return map;
   }, [gestioRows, linies]);
   const [gestioDraft, setGestioDraft] = useState(initialGestio);
+  const latestGestioRef = useRef(gestioDraft);
+  latestGestioRef.current = gestioDraft;
 
   const deptsPerCentre = useMemo(() => {
     const groups = new Map<string, Departament[]>();
@@ -145,48 +180,172 @@ export function RepartimentWorkspace({
     linies.reduce((sum, ln) => sum + (personalDraft[`${deptId}:${ln.id}`] ?? 0), 0);
   const gestioTotal = (node: number) =>
     linies.reduce((sum, ln) => sum + (gestioDraft[`${node}:${ln.id}`] ?? 0), 0);
-  const personalValid = departaments.every(
-    (dept) => Math.abs(personalTotal(dept.departamentId) - 100) <= 0.01
-  );
   const gestioValid = gestioRows.every((row) => Math.abs(gestioTotal(row.node) - 100) <= 0.01);
+
+  useEffect(() => {
+    try {
+      const personalSaved = window.localStorage.getItem(PERSONAL_DRAFT_KEY);
+      if (personalSaved) {
+        const parsed = JSON.parse(personalSaved) as {
+          values?: Record<string, number>;
+          dirty?: string[];
+        };
+        const validDepts = new Set(departaments.map((dept) => dept.departamentId));
+        const dirty = (parsed.dirty ?? []).filter((id) => validDepts.has(id));
+        if (dirty.length && parsed.values) {
+          setPersonalDraft((current) => ({ ...current, ...parsed.values }));
+          setPersonalDirty(dirty);
+          setPersonalSaveState("draft");
+        }
+      }
+
+      const gestioSaved = window.localStorage.getItem(GESTIO_DRAFT_KEY);
+      if (gestioSaved) {
+        const parsed = JSON.parse(gestioSaved) as {
+          values?: Record<string, number>;
+          dirty?: boolean;
+        };
+        if (parsed.dirty && parsed.values) {
+          setGestioDraft((current) => ({ ...current, ...parsed.values }));
+          setGestioDirty(true);
+          setGestioSaveState("draft");
+        }
+      }
+      setDraftRevision(1);
+    } catch {
+      window.localStorage.removeItem(PERSONAL_DRAFT_KEY);
+      window.localStorage.removeItem(GESTIO_DRAFT_KEY);
+    }
+  }, [departaments]);
+
+  useEffect(() => {
+    if (!personalDirty.length) {
+      window.localStorage.removeItem(PERSONAL_DRAFT_KEY);
+      return;
+    }
+    window.localStorage.setItem(
+      PERSONAL_DRAFT_KEY,
+      JSON.stringify({ values: personalDraft, dirty: personalDirty })
+    );
+  }, [personalDraft, personalDirty]);
+
+  useEffect(() => {
+    if (!gestioDirty) {
+      window.localStorage.removeItem(GESTIO_DRAFT_KEY);
+      return;
+    }
+    window.localStorage.setItem(
+      GESTIO_DRAFT_KEY,
+      JSON.stringify({ values: gestioDraft, dirty: true })
+    );
+  }, [gestioDraft, gestioDirty]);
+
+  const personalRowsToSave = useMemo(
+    () =>
+      departaments.filter(
+        (dept) =>
+          personalDirty.includes(dept.departamentId) &&
+          !dept.departamentId.startsWith("__sense__") &&
+          Math.abs(
+            linies.reduce(
+              (sum, ln) => sum + (personalDraft[`${dept.departamentId}:${ln.id}`] ?? 0),
+              0
+            ) - 100
+          ) <= 0.01
+      ),
+    [departaments, linies, personalDraft, personalDirty]
+  );
+
+  useEffect(() => {
+    if (!canEdit || personalDirty.length === 0) return;
+    if (personalRowsToSave.length === 0) {
+      setPersonalSaveState("draft");
+      return;
+    }
+
+    const snapshot = personalDraft;
+    const rows = personalRowsToSave.map((dept) => ({
+      departamentId: dept.departamentId,
+      percentByLn: linies.map((ln) => ({
+        liniaNegociId: ln.id,
+        percent: snapshot[`${dept.departamentId}:${ln.id}`] ?? 0,
+      })),
+    }));
+    const timer = window.setTimeout(async () => {
+      setPersonalSaveState("saving");
+      let result: Awaited<ReturnType<typeof savePersonalMatrixAction>>;
+      try {
+        result = await savePersonalMatrixAction(rows);
+      } catch {
+        setPersonalSaveState("error");
+        return;
+      }
+      if (!result.ok) {
+        setPersonalSaveState("error");
+        return;
+      }
+      const savedIds = new Set(
+        rows
+          .filter((row) =>
+            row.percentByLn.every(
+              (cell) =>
+                (latestPersonalRef.current[`${row.departamentId}:${cell.liniaNegociId}`] ?? 0) ===
+                cell.percent
+            )
+          )
+          .map((row) => row.departamentId)
+      );
+      setPersonalDirty((current) => current.filter((id) => !savedIds.has(id)));
+      setPersonalSaveState("saved");
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [canEdit, linies, personalDraft, personalDirty.length, personalRowsToSave]);
+
+  useEffect(() => {
+    if (!canEdit || !gestioDirty) return;
+    if (!gestioValid) {
+      setGestioSaveState("draft");
+      return;
+    }
+
+    const snapshot = gestioDraft;
+    const rows = gestioRows.map((row) => ({
+      node: row.node,
+      label: row.label,
+      percentByLn: linies.map((ln) => ({
+        liniaNegociId: ln.id,
+        percent: snapshot[`${row.node}:${ln.id}`] ?? 0,
+      })),
+    }));
+    const timer = window.setTimeout(async () => {
+      setGestioSaveState("saving");
+      let result: Awaited<ReturnType<typeof saveGestioMatrixAction>>;
+      try {
+        result = await saveGestioMatrixAction(rows);
+      } catch {
+        setGestioSaveState("error");
+        return;
+      }
+      if (!result.ok) {
+        setGestioSaveState("error");
+        return;
+      }
+      const unchanged = rows.every((row) =>
+        row.percentByLn.every(
+          (cell) =>
+            (latestGestioRef.current[`${row.node}:${cell.liniaNegociId}`] ?? 0) === cell.percent
+        )
+      );
+      if (unchanged) setGestioDirty(false);
+      setGestioSaveState("saved");
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [canEdit, gestioDraft, gestioDirty, gestioRows, gestioValid, linies]);
 
   const notify = (result: { ok: boolean; missatge?: string }) => {
     setFeedback({
       ok: result.ok,
       text: result.missatge ?? (result.ok ? "Canvis desats." : "No s'ha pogut desar."),
-    });
-  };
-
-  const savePersonal = () => {
-    startTransition(async () => {
-      notify(
-        await savePersonalMatrixAction(
-          departaments.map((dept) => ({
-            departamentId: dept.departamentId,
-            percentByLn: linies.map((ln) => ({
-              liniaNegociId: ln.id,
-              percent: personalDraft[`${dept.departamentId}:${ln.id}`] ?? 0,
-            })),
-          }))
-        )
-      );
-    });
-  };
-
-  const saveGestio = () => {
-    startTransition(async () => {
-      notify(
-        await saveGestioMatrixAction(
-          gestioRows.map((row) => ({
-            node: row.node,
-            label: row.label,
-            percentByLn: linies.map((ln) => ({
-              liniaNegociId: ln.id,
-              percent: gestioDraft[`${row.node}:${ln.id}`] ?? 0,
-            })),
-          }))
-        )
-      );
     });
   };
 
@@ -301,14 +460,10 @@ export function RepartimentWorkspace({
                 {refMesLabel ? ` amb el cost de referència de ${refMesLabel}` : ""}.
               </p>
             </div>
-            {canEdit && (
-              <Button disabled={pending || !personalValid} onClick={savePersonal}>
-                <Save size={16} /> {pending ? "Desant…" : "Desar personal"}
-              </Button>
-            )}
+            {canEdit && <AutosaveStatus state={personalSaveState} />}
           </div>
           <div className={styles.matrixWrap}>
-            <table className={styles.matrix}>
+            <table className={styles.matrix} key={`personal-${draftRevision}`}>
               <thead>
                 <tr>
                   <th className={styles.stickyLabel}>Centre / departament</th>
@@ -340,15 +495,19 @@ export function RepartimentWorkspace({
                             key={ln.id}
                             value={personalDraft[`${dept.departamentId}:${ln.id}`] ?? 0}
                             base={dept.costRef}
-                            disabled={
-                              !canEdit || pending || dept.departamentId.startsWith("__sense__")
-                            }
-                            onChange={(value) =>
+                            disabled={!canEdit || dept.departamentId.startsWith("__sense__")}
+                            onChange={(value) => {
                               setPersonalDraft((current) => ({
                                 ...current,
                                 [`${dept.departamentId}:${ln.id}`]: value,
-                              }))
-                            }
+                              }));
+                              setPersonalDirty((current) =>
+                                current.includes(dept.departamentId)
+                                  ? current
+                                  : [...current, dept.departamentId]
+                              );
+                              setPersonalSaveState("draft");
+                            }}
                           />
                         ))}
                         <TotalCell total={personalTotal(dept.departamentId)} />
@@ -409,14 +568,10 @@ export function RepartimentWorkspace({
                 moment.
               </p>
             </div>
-            {canEdit && (
-              <Button disabled={pending || !gestioValid} onClick={saveGestio}>
-                <Save size={16} /> {pending ? "Desant…" : "Desar gestió"}
-              </Button>
-            )}
+            {canEdit && <AutosaveStatus state={gestioSaveState} />}
           </div>
           <div className={styles.matrixWrap}>
-            <table className={styles.matrix}>
+            <table className={styles.matrix} key={`gestio-${draftRevision}`}>
               <thead>
                 <tr>
                   <th className={styles.stickyLabel}>Partida del compte</th>
@@ -443,13 +598,15 @@ export function RepartimentWorkspace({
                         key={ln.id}
                         value={gestioDraft[`${row.node}:${ln.id}`] ?? 0}
                         base={row.costRef}
-                        disabled={!canEdit || pending}
-                        onChange={(value) =>
+                        disabled={!canEdit}
+                        onChange={(value) => {
                           setGestioDraft((current) => ({
                             ...current,
                             [`${row.node}:${ln.id}`]: value,
-                          }))
-                        }
+                          }));
+                          setGestioDirty(true);
+                          setGestioSaveState("draft");
+                        }}
                       />
                     ))}
                     <TotalCell total={gestioTotal(row.node)} />

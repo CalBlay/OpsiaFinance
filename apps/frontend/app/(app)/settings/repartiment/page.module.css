@@ -438,6 +438,39 @@
   background: rgba(192, 57, 43, 0.08);
 }
 
+.autosaveStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  align-self: center;
+  padding: 0.48rem 0.7rem;
+  color: var(--opsia-accent-primary);
+  background: rgba(47, 111, 109, 0.1);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.autosaveStatus svg {
+  flex: none;
+}
+
+.spinner {
+  animation: autosave-spin 0.9s linear infinite;
+}
+
+.autosaveError {
+  color: var(--opsia-ui-danger);
+  background: rgba(192, 57, 43, 0.08);
+}
+
+@keyframes autosave-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .matrixWrap {
   width: 100%;
   overflow: auto;
