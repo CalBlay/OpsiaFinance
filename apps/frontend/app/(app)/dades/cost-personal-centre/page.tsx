@@ -126,6 +126,7 @@ async function CostPersonalCentreContent({
               provisioPaguesExtres: d.provisio,
               totalSegSocial: d.seguretatSocial,
               costPersonal: d.cost,
+              nombrePersones: r.nombrePersones,
               textOrigen: r.textOrigen,
               periodNom: r.period.nom,
               periodAny: r.period.any,

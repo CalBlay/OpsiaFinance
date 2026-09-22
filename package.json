@@ -14,6 +14,7 @@
     "prisma:deploy": "node scripts/prisma-deploy.mjs",
     "postprisma:migrate": "prisma generate",
     "prisma:seed": "tsx prisma/seed.ts",
+    "test:cost-personal": "tsx scripts/test-cost-personal-persones.ts",
     "prepare": "husky || true"
   },
   "dependencies": {

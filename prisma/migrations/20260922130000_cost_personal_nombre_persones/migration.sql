@@ -1,0 +1,2 @@
+ALTER TABLE "CostPersonalCentre"
+ADD COLUMN "nombrePersones" INTEGER NOT NULL DEFAULT 0;

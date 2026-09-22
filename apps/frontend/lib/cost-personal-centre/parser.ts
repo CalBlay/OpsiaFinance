@@ -14,6 +14,8 @@ import { type WorkBook, read, utils } from "xlsx";
 export type FilaCostPersonalExcel = {
   codi: string;
   text: string;
+  /** Nombre de persones detectades al nivell inferior (mai se'n conserva el nom). */
+  nombrePersones: number;
   /** Col. brut (J / Importe bruto) */
   importBrut: number;
   /** Col. provisió pagues (K) — 0 a millores */
@@ -426,8 +428,11 @@ function extreureFiles(
   mode: "NOMINA" | "MILLORES"
 ): FilaCostPersonalExcel[] {
   const out: FilaCostPersonalExcel[] = [];
+  const detallPersones = new Map<string, FilaCostPersonalExcel>();
   let centreActual: string | null = null;
   let textCentreActual: string | null = null;
+  let departamentActual: string | null = null;
+  let textDepartamentActual: string | null = null;
 
   for (let i = layout.startRow; i < matrixRaw.length; i++) {
     const raw = matrixRaw[i] ?? [];
@@ -453,11 +458,15 @@ function extreureFiles(
     if (esFilaResumOTotal(text) || esFilaResumOTotal(textScan)) {
       centreActual = null;
       textCentreActual = null;
+      departamentActual = null;
+      textDepartamentActual = null;
       continue;
     }
     if (esCapcaleraLiniaNegoci(text) || esCapcaleraLiniaNegoci(textScan)) {
       centreActual = null;
       textCentreActual = null;
+      departamentActual = null;
+      textDepartamentActual = null;
       continue;
     }
 
@@ -469,6 +478,8 @@ function extreureFiles(
         if (codi && esCodiCentrePayroll(t, codi)) {
           centreActual = codi;
           textCentreActual = t;
+          departamentActual = null;
+          textDepartamentActual = null;
           break;
         }
       }
@@ -476,6 +487,8 @@ function extreureFiles(
     }
 
     // Codi de la fila: el més específic (dept 6–8 mana sobre centre 5)
+    const centreContext = centreActual;
+    const textCentreContext = textCentreActual;
     let codiPropi: string | null = null;
     for (let c = 0; c < 4; c++) {
       const t = cellText(raw, txt, c);
@@ -502,6 +515,18 @@ function extreureFiles(
         }
       }
     }
+    // Un identificador numèric propi d'una persona no és un nou centre/dept.
+    // Els codis organitzatius de detall han de penjar del centre actiu.
+    if (
+      codiPropi &&
+      departamentActual &&
+      centreContext &&
+      !codiPropi.startsWith(centreContext)
+    ) {
+      codiPropi = null;
+      centreActual = centreContext;
+      textCentreActual = textCentreContext;
+    }
 
     const brut = cellNum(raw, txt, layout.idxBrut);
     const prov = mode === "MILLORES" ? 0 : cellNum(raw, txt, layout.idxProv);
@@ -514,14 +539,61 @@ function extreureFiles(
     const suma = Math.abs(j) + Math.abs(prov) + Math.abs(ss);
     if (suma < 0.05) continue;
 
+    // El nou format baixa un nivell sota el departament i hi posa una persona
+    // per fila. S'atribueixen els imports al pare i només se'n conserva el
+    // recompte agregat: el nom no surt mai d'aquest bucle.
+    if (
+      !codiPropi &&
+      departamentActual &&
+      textDepartamentActual &&
+      !esLiniaConcepteComptable(text)
+    ) {
+      const prev = detallPersones.get(departamentActual);
+      if (prev) {
+        prev.importBrut = absRound2(prev.importBrut, j);
+        prev.segSocialEmpresa = absRound2(prev.segSocialEmpresa, prov);
+        prev.totalSegSocial = absRound2(prev.totalSegSocial, ss);
+        prev.costPersonal = absRound2(
+          prev.importBrut,
+          prev.segSocialEmpresa,
+          prev.totalSegSocial
+        );
+        prev.nombrePersones++;
+      } else {
+        detallPersones.set(departamentActual, {
+          codi: departamentActual,
+          text: textDepartamentActual,
+          nombrePersones: 1,
+          importBrut: Math.abs(j),
+          segSocialEmpresa: Math.abs(prov),
+          totalSegSocial: Math.abs(ss),
+          costPersonal: absRound2(j, prov, ss),
+          nivell: 1,
+          codiHeretat: true,
+        });
+      }
+      continue;
+    }
+
     // Centres (5) i departaments (6–8). El servei d’import decideix fulles vs pare.
     if (!codiPropi || codiPropi.length < 5 || codiPropi.length > 8) {
       continue;
     }
 
+    if (codiPropi.length === 5) {
+      centreActual = codiPropi;
+      textCentreActual = text;
+      departamentActual = null;
+      textDepartamentActual = null;
+    } else {
+      departamentActual = codiPropi;
+      textDepartamentActual = text;
+    }
+
     out.push({
       codi: codiPropi,
       text,
+      nombrePersones: 0,
       importBrut: Math.abs(j),
       segSocialEmpresa: Math.abs(prov),
       totalSegSocial: Math.abs(ss),
@@ -535,6 +607,19 @@ function extreureFiles(
   const perCodi = new Map<string, FilaCostPersonalExcel>();
   for (const f of out) {
     perCodi.set(f.codi, f);
+  }
+  // Quan hi ha detall individual, afegeix el recompte al subtotal del
+  // departament sense sumar dues vegades el cost.
+  for (const [codi, detall] of detallPersones) {
+    const resum = perCodi.get(codi);
+    if (resum) {
+      // El subtotal existent continua sent la font del cost; el nivell persona
+      // només aporta el recompte. Així els totals antics i nous són idèntics.
+      resum.nombrePersones = detall.nombrePersones;
+    } else {
+      // Fallback per a variants sense subtotal de departament.
+      perCodi.set(codi, detall);
+    }
   }
   return [...perCodi.values()];
 }

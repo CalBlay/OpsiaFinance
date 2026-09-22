@@ -26,6 +26,7 @@ type RegistreDTO = {
   provisioPaguesExtres: number;
   totalSegSocial: number;
   costPersonal: number;
+  nombrePersones: number;
   textOrigen: string | null;
   periodNom: string;
   periodAny: number;
@@ -45,6 +46,9 @@ type FilConsolida = {
   provisioPaguesExtres: number;
   totalSegSocial: number;
   costPersonal: number;
+  nombrePersones: number;
+  personesNomina: number;
+  personesMillores: number;
 };
 
 /**
@@ -70,6 +74,9 @@ export function consolidarRegistres(registres: RegistreDTO[]): FilConsolida[] {
         provisioPaguesExtres: 0,
         totalSegSocial: 0,
         costPersonal: 0,
+        nombrePersones: 0,
+        personesNomina: 0,
+        personesMillores: 0,
       };
       map.set(key, fil);
     }
@@ -80,10 +87,15 @@ export function consolidarRegistres(registres: RegistreDTO[]): FilConsolida[] {
     fil.provisioPaguesExtres += r.provisioPaguesExtres;
     fil.totalSegSocial += r.totalSegSocial;
     fil.costPersonal += r.costPersonal;
+    if (r.origen === "Nòmina") fil.personesNomina += r.nombrePersones;
+    else fil.personesMillores += r.nombrePersones;
   }
 
   const out = [...map.values()];
   for (const fil of out) {
+    // Una mateixa persona pot aparèixer als dos fitxers. Nòmina és la font
+    // principal del headcount; millores només fa de fallback.
+    fil.nombrePersones = fil.personesNomina || fil.personesMillores;
     fil.detall.sort((a, b) => {
       if (a.origen !== b.origen) return a.origen === "Nòmina" ? -1 : 1;
       return a.dept.localeCompare(b.dept, "ca");
@@ -259,6 +271,7 @@ export function CostPersonalCentrePanel({
                   <th>Període</th>
                   <th>Centre</th>
                   <th>Fonts</th>
+                  <th className={ui.right}>Persones</th>
                   <th className={ui.right}>Brut</th>
                   <th className={ui.right}>Provisió</th>
                   <th className={ui.right}>SS</th>
@@ -290,6 +303,9 @@ export function CostPersonalCentrePanel({
                         <td>
                           <DadesBadge>{etiquetaFonts(fil)}</DadesBadge>
                         </td>
+                        <td className={ui.right}>
+                          {fil.nombrePersones > 0 ? formatNum(fil.nombrePersones, 0) : "—"}
+                        </td>
                         <td className={ui.right}>{formatNum(fil.importBrut, 2)}</td>
                         <td className={ui.right}>{formatNum(fil.provisioPaguesExtres, 2)}</td>
                         <td className={ui.right}>{formatNum(fil.totalSegSocial, 2)}</td>
@@ -305,6 +321,9 @@ export function CostPersonalCentrePanel({
                             </td>
                             <td>
                               <DadesBadge>{r.origen}</DadesBadge>
+                            </td>
+                            <td className={ui.right}>
+                              {r.nombrePersones > 0 ? formatNum(r.nombrePersones, 0) : "—"}
                             </td>
                             <td className={ui.right}>{formatNum(r.importBrut, 2)}</td>
                             <td className={ui.right}>{formatNum(r.provisioPaguesExtres, 2)}</td>

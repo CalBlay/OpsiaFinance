@@ -98,6 +98,12 @@ El fitxer porta total per:
 1. **Dimensió 1 — Línia de negoci** (ex.: `00 - Serveis Centrals` → LN0000)
 2. **Dimensió 2 — Centre** (ex.: `00002 - Centre Decoració`)
 3. **Dimensió 3 — Departament** (ex.: `00002001 - Departament personal`)
+4. **Detall de persona** (nou format): s'utilitza exclusivament per comptar persones
+
+El nom de la persona no es desa ni es conserva a la traçabilitat. La importació
+només persisteix el recompte agregat per període, centre i departament. Els
+fitxers antics sense aquest quart nivell continuen sent compatibles i no
+informen recompte.
 
 #### Mapeig (Configuració)
 

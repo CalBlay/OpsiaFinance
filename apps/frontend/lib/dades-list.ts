@@ -334,6 +334,7 @@ export const getCostPersonalCentreRegistres = cache(async (any: number, mes: num
           segSocialEmpresa: true,
           totalSegSocial: true,
           costPersonal: true,
+          nombrePersones: true,
           textOrigen: true,
           departamentSalarial: true,
           period: { select: { nom: true, any: true, mes: true } },

@@ -776,6 +776,8 @@ model CostPersonalCentre {
   totalSegSocial      Decimal                  @default(0) @db.Decimal(18, 2)
   /// Columna M: cost personal.
   costPersonal        Decimal                  @default(0) @db.Decimal(18, 2)
+  /// Recompte agregat del detall individual del fitxer. No es desa cap dada personal.
+  nombrePersones      Int                      @default(0)
   createdAt           DateTime                 @default(now())
   updatedAt           DateTime                 @updatedAt
   carrega             CarregaFitxer?           @relation(fields: [carregaId], references: [id], onDelete: Cascade)

@@ -200,6 +200,7 @@ type Agregat = {
   segSocialEmpresa: number;
   totalSegSocial: number;
   costPersonal: number;
+  nombrePersones: number;
   codiOrigen: string | null;
   textOrigen: string | null;
 };
@@ -327,8 +328,9 @@ export async function importarCostPersonalCentreDesDeBuffer(
       prev.segSocialEmpresa = round2(prev.segSocialEmpresa + f.segSocialEmpresa);
       prev.totalSegSocial = round2(prev.totalSegSocial + f.totalSegSocial);
       prev.costPersonal = round2(prev.costPersonal + f.costPersonal);
+      prev.nombrePersones += f.nombrePersones;
       prev.codiOrigen = null;
-      prev.textOrigen = "Diverses línies";
+      prev.textOrigen = f.nombrePersones > 0 ? null : "Diverses línies";
     } else {
       agregats.set(k, {
         centreId: f.centreId,
@@ -338,8 +340,11 @@ export async function importarCostPersonalCentreDesDeBuffer(
         segSocialEmpresa: f.segSocialEmpresa,
         totalSegSocial: f.totalSegSocial,
         costPersonal: f.costPersonal,
+        nombrePersones: f.nombrePersones,
         codiOrigen: f.codi,
-        textOrigen: f.text,
+        // Amb detall individual no conservem cap text de la fila per garantir
+        // que un nom no arribi mai a la base de dades.
+        textOrigen: f.nombrePersones > 0 ? null : f.text,
       });
     }
   }
@@ -372,6 +377,7 @@ export async function importarCostPersonalCentreDesDeBuffer(
     segSocialEmpresa: a.segSocialEmpresa,
     totalSegSocial: a.totalSegSocial,
     costPersonal: a.costPersonal,
+    nombrePersones: a.nombrePersones,
   }));
 
   const BATCH = 200;
@@ -384,11 +390,12 @@ export async function importarCostPersonalCentreDesDeBuffer(
 
   const nCentres = new Set([...agregats.values()].map((a) => a.centreId)).size;
   const nDepts = new Set([...agregats.values()].map((a) => a.departamentId).filter(Boolean)).size;
+  const nPersones = [...agregats.values()].reduce((sum, a) => sum + a.nombrePersones, 0);
   return {
     ok: true,
     missatge: `Importat (${etiquetaOrigen}): ${rows.length} registres · ${nCentres} centres${
       nDepts ? ` · ${nDepts} departaments` : ""
-    } · ${MESOS_LLARGS[opts.mes - 1]} ${opts.any}.${
+    }${nPersones ? ` · ${nPersones} persones` : ""} · ${MESOS_LLARGS[opts.mes - 1]} ${opts.any}.${
       senseMapeig ? ` ${senseMapeig} files sense mapeig.` : ""
     }`,
     filesImportades: rows.length,
