@@ -487,8 +487,8 @@ function extreureFiles(
     }
 
     // Codi de la fila: el més específic (dept 6–8 mana sobre centre 5)
-    const centreContext = centreActual;
-    const textCentreContext = textCentreActual;
+    const centreContext: string | null = centreActual;
+    const textCentreContext: string | null = textCentreActual;
     let codiPropi: string | null = null;
     for (let c = 0; c < 4; c++) {
       const t = cellText(raw, txt, c);
@@ -517,12 +517,7 @@ function extreureFiles(
     }
     // Un identificador numèric propi d'una persona no és un nou centre/dept.
     // Els codis organitzatius de detall han de penjar del centre actiu.
-    if (
-      codiPropi &&
-      departamentActual &&
-      centreContext &&
-      !codiPropi.startsWith(centreContext)
-    ) {
+    if (codiPropi && departamentActual && centreContext && !codiPropi.startsWith(centreContext)) {
       codiPropi = null;
       centreActual = centreContext;
       textCentreActual = textCentreContext;
@@ -553,11 +548,7 @@ function extreureFiles(
         prev.importBrut = absRound2(prev.importBrut, j);
         prev.segSocialEmpresa = absRound2(prev.segSocialEmpresa, prov);
         prev.totalSegSocial = absRound2(prev.totalSegSocial, ss);
-        prev.costPersonal = absRound2(
-          prev.importBrut,
-          prev.segSocialEmpresa,
-          prev.totalSegSocial
-        );
+        prev.costPersonal = absRound2(prev.importBrut, prev.segSocialEmpresa, prev.totalSegSocial);
         prev.nombrePersones++;
       } else {
         detallPersones.set(departamentActual, {
