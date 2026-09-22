@@ -6,6 +6,10 @@ import {
   esNormaGestioEspecial,
   restarGestioImputadaDelPool,
 } from "@/lib/repartiment/gestio-ln";
+import {
+  calcularMovimentsMatriuGestio,
+  esNormaMatriuGestio,
+} from "@/lib/repartiment/gestio-matriu";
 import { NODE_COMPRES, NODE_COST_SALARIAL, NODE_INGRESSOS } from "@/lib/repartiment/nodes";
 import {
   type CostSapAdminRestaurants,
@@ -113,6 +117,7 @@ export function calcularMoviments(
     centralLnId,
     lnIdByCodi
   );
+  const movimentsGestioDetall = calcularMovimentsMatriuGestio(normesActives, directe, centralLnId);
   const movimentsPersonal = calcularMovimentsPersonalDepartaments(
     personalDept.costs,
     personalDept.configsLn,
@@ -133,6 +138,7 @@ export function calcularMoviments(
     ...movimentsCompres,
     ...movimentsCentral,
     ...movimentsGestio,
+    ...movimentsGestioDetall,
     ...movimentsPersonal,
     ...movimentsAdminRest,
   ];
@@ -151,6 +157,7 @@ export function calcularMoviments(
   for (const norma of normesActives) {
     if (esNormaCompresExterna(norma)) continue;
     if (esNormaGestioEspecial(norma, lnIdByCodi)) continue;
+    if (esNormaMatriuGestio(norma)) continue;
     if (norma.concepteNode === NODE_COST_SALARIAL) continue;
     if (esNormaAdminRestGreenVita(norma.nom)) continue;
 

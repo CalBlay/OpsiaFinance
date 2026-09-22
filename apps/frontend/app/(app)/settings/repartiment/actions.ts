@@ -1,7 +1,9 @@
 "use server";
 
 import { auth } from "@/lib/auth";
+import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { parseNavExtra } from "@/lib/nav-catalog";
+import { NODES_GESTIO_DETALL, NODE_COST_GESTIO } from "@/lib/repartiment/nodes";
 import {
   ensureNormesRepartimentInicials,
   reiniciarAmbNormesSeed,
@@ -15,6 +17,17 @@ async function requireEditor() {
   if (!session?.user) return null;
   if (!potConfigurar(session.user.role, parseNavExtra(session.user.navExtra))) return null;
   return session.user;
+}
+
+function revalidateRepartiment() {
+  revalidateConsultesDades();
+  revalidatePath("/settings/repartiment");
+  revalidatePath("/settings/repartiment/normes");
+  revalidatePath("/dades/repartiment");
+}
+
+function percentValid(percent: number) {
+  return Number.isFinite(percent) && percent >= 0 && percent <= 100;
 }
 
 export async function inicialitzarNormesAction() {
@@ -90,6 +103,9 @@ export async function updateNormaAction(
     patch.ordre = Math.round(data.ordre);
   }
   if (data.valorPercent !== undefined) {
+    if (data.valorPercent != null && !percentValid(data.valorPercent)) {
+      return { ok: false, missatge: "El percentatge ha d'estar entre 0 i 100." };
+    }
     patch.valorPercent = data.valorPercent;
   }
   if (data.valorImport !== undefined) {
@@ -105,4 +121,150 @@ export async function updateNormaAction(
   revalidatePath("/settings/repartiment/normes");
   revalidatePath("/dades/repartiment");
   return { ok: true, missatge: "Norma actualitzada." };
+}
+
+export async function savePersonalMatrixAction(
+  rows: {
+    departamentId: string;
+    percentByLn: { liniaNegociId: string; percent: number }[];
+  }[]
+) {
+  const user = await requireEditor();
+  if (!user) return { ok: false, missatge: "Sense permisos." };
+  if (!rows.length) return { ok: false, missatge: "No hi ha departaments per desar." };
+
+  const { db } = await import("@/lib/db");
+  const lnIds = [
+    ...new Set(rows.flatMap((row) => row.percentByLn.map((cell) => cell.liniaNegociId))),
+  ];
+  const validLnIds = new Set(
+    (
+      await db.liniaNegoci.findMany({
+        where: { id: { in: lnIds }, isActive: true },
+        select: { id: true },
+      })
+    ).map((ln) => ln.id)
+  );
+  if (validLnIds.size !== lnIds.length) {
+    return { ok: false, missatge: "La matriu conté una línia de negoci no vàlida." };
+  }
+
+  for (const row of rows) {
+    if (row.departamentId.startsWith("__sense__")) {
+      return { ok: false, missatge: "Completeu el mapeig dels departaments abans de desar." };
+    }
+    if (
+      row.percentByLn.length !== lnIds.length ||
+      row.percentByLn.some((cell) => !percentValid(cell.percent))
+    ) {
+      return { ok: false, missatge: "Tots els percentatges han d'estar entre 0 i 100." };
+    }
+    const total = row.percentByLn.reduce((sum, cell) => sum + cell.percent, 0);
+    if (Math.abs(total - 100) > 0.01) {
+      return {
+        ok: false,
+        missatge: `Cada departament ha de sumar 100%. Hi ha una fila amb ${total.toFixed(2)}%.`,
+      };
+    }
+  }
+
+  const departamentIds = rows.map((row) => row.departamentId);
+  await db.$transaction(async (tx) => {
+    for (const liniaNegociId of lnIds) {
+      await tx.configPersonalLn.upsert({
+        where: { liniaNegociId },
+        update: { mode: "PERCENT_DEPT", importFixTotal: null },
+        create: { liniaNegociId, mode: "PERCENT_DEPT" },
+      });
+    }
+    await tx.configPersonalDept.deleteMany({
+      where: { departamentId: { in: departamentIds }, liniaNegociId: { in: lnIds } },
+    });
+    const cells = rows.flatMap((row) =>
+      row.percentByLn
+        .filter((cell) => cell.percent > 0)
+        .map((cell) => ({
+          departamentId: row.departamentId,
+          liniaNegociId: cell.liniaNegociId,
+          actiu: true,
+          percentDept: cell.percent,
+        }))
+    );
+    if (cells.length) await tx.configPersonalDept.createMany({ data: cells });
+  });
+
+  revalidateRepartiment();
+  return { ok: true, missatge: "Repartiment de personal desat." };
+}
+
+export async function saveGestioMatrixAction(
+  rows: {
+    node: number;
+    label: string;
+    percentByLn: { liniaNegociId: string; percent: number }[];
+  }[]
+) {
+  const user = await requireEditor();
+  if (!user) return { ok: false, missatge: "Sense permisos." };
+  if (!rows.length) return { ok: false, missatge: "No hi ha partides de gestió per desar." };
+
+  const nodesPermesos = new Set<number>(NODES_GESTIO_DETALL);
+  const lnIds = [
+    ...new Set(rows.flatMap((row) => row.percentByLn.map((cell) => cell.liniaNegociId))),
+  ];
+  for (const row of rows) {
+    if (!nodesPermesos.has(row.node)) {
+      return { ok: false, missatge: `La partida ${row.node} no es pot repartir.` };
+    }
+    if (
+      row.percentByLn.length !== lnIds.length ||
+      row.percentByLn.some((cell) => !percentValid(cell.percent))
+    ) {
+      return { ok: false, missatge: "Tots els percentatges han d'estar entre 0 i 100." };
+    }
+    const total = row.percentByLn.reduce((sum, cell) => sum + cell.percent, 0);
+    if (Math.abs(total - 100) > 0.01) {
+      return {
+        ok: false,
+        missatge: `La partida «${row.label}» suma ${total.toFixed(2)}%; ha de sumar 100%.`,
+      };
+    }
+  }
+
+  const { db } = await import("@/lib/db");
+  const [central, validLnCount] = await Promise.all([
+    db.liniaNegoci.findUnique({ where: { codi: "LN00000" }, select: { id: true } }),
+    db.liniaNegoci.count({ where: { id: { in: lnIds }, isActive: true } }),
+  ]);
+  if (!central || validLnCount !== lnIds.length) {
+    return { ok: false, missatge: "No s'han pogut validar les línies de negoci." };
+  }
+
+  const nodes = rows.map((row) => row.node);
+  await db.$transaction(async (tx) => {
+    await tx.normaRepartiment.updateMany({
+      where: {
+        actiu: true,
+        concepteNode: { in: [NODE_COST_GESTIO, ...nodes] },
+        tipus: "PERCENT_POOL_CENTRAL",
+      },
+      data: { actiu: false },
+    });
+    await tx.normaRepartiment.createMany({
+      data: rows.flatMap((row, rowIndex) =>
+        row.percentByLn.map((cell, colIndex) => ({
+          nom: `${row.label} · matriu de gestió`,
+          tipus: "PERCENT_POOL_CENTRAL" as const,
+          ordre: 7000 + rowIndex * 100 + colIndex,
+          liniaNegociOrigenId: central.id,
+          liniaNegociDestiId: cell.liniaNegociId,
+          concepteNode: row.node,
+          valorPercent: cell.percent,
+        }))
+      ),
+    });
+  });
+
+  revalidateRepartiment();
+  return { ok: true, missatge: "Repartiment de gestió desat." };
 }

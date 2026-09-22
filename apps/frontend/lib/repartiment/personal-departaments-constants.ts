@@ -1,17 +1,19 @@
-/**
- * LN amb import fix/% assignat com a destí (es resta del pool SAP Central).
- * LN00000 és una LN destí més (no només «el residual»).
- */
+/** Totes les LN entre les quals es reparteix explícitament cada departament de Central. */
 export const CODIS_LN_PERSONAL_CONFIG = [
   "LN00000",
   "LN00001",
+  "LN00002",
+  "LN00003",
   "LN00004",
   "LN00005",
   "LN00006",
 ] as const;
 
-/** Sobrant del pool Central: mix parts iguals + pes de vendes (fraccions editables). */
-export const CODIS_LN_PERSONAL_COMERCIAL = ["LN00002", "LN00003"] as const;
+/**
+ * Compatibilitat amb configuracions antigues. La nova matriu no deixa sobrants
+ * automàtics: cada fila de departament ha de sumar el 100%.
+ */
+export const CODIS_LN_PERSONAL_COMERCIAL = [] as const;
 
 /** Defecte: fracció del sobrant a parts iguals entre LN comercials. */
 export const FRACCIO_SOBRANT_IGUALS_DEFECTE = 0.5;
