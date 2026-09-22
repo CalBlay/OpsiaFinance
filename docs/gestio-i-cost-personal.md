@@ -103,7 +103,8 @@ El fitxer porta total per:
 El nom de la persona no es desa ni es conserva a la traçabilitat. La importació
 només persisteix el recompte agregat per període, centre i departament. Els
 fitxers antics sense aquest quart nivell continuen sent compatibles i no
-informen recompte.
+informen recompte. Els imports de les files individuals s'ignoren: el cost
+sempre prové exclusivament de la fila total del departament.
 
 #### Mapeig (Configuració)
 
