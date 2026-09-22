@@ -27,6 +27,7 @@ export function agregarHeadcount(
   >();
 
   for (const row of rows) {
+    if (mes != null && row.period.mes !== mes) continue;
     if (row.nombrePersones <= 0) continue;
     const key = keyFor(row);
     if (!key) continue;
