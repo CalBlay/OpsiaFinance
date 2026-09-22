@@ -103,6 +103,9 @@ export async function updateNormaAction(
     patch.ordre = Math.round(data.ordre);
   }
   if (data.valorPercent !== undefined) {
+    if (data.valorPercent != null && !percentValid(data.valorPercent)) {
+      return { ok: false, missatge: "El percentatge ha d'estar entre 0 i 100." };
+    }
     patch.valorPercent = data.valorPercent;
   }
   if (data.valorImport !== undefined) {
@@ -131,7 +134,9 @@ export async function savePersonalMatrixAction(
   if (!rows.length) return { ok: false, missatge: "No hi ha departaments per desar." };
 
   const { db } = await import("@/lib/db");
-  const lnIds = [...new Set(rows.flatMap((row) => row.percentByLn.map((cell) => cell.liniaNegociId)))];
+  const lnIds = [
+    ...new Set(rows.flatMap((row) => row.percentByLn.map((cell) => cell.liniaNegociId))),
+  ];
   const validLnIds = new Set(
     (
       await db.liniaNegoci.findMany({
@@ -204,7 +209,9 @@ export async function saveGestioMatrixAction(
   if (!rows.length) return { ok: false, missatge: "No hi ha partides de gestió per desar." };
 
   const nodesPermesos = new Set<number>(NODES_GESTIO_DETALL);
-  const lnIds = [...new Set(rows.flatMap((row) => row.percentByLn.map((cell) => cell.liniaNegociId)))];
+  const lnIds = [
+    ...new Set(rows.flatMap((row) => row.percentByLn.map((cell) => cell.liniaNegociId))),
+  ];
   for (const row of rows) {
     if (!nodesPermesos.has(row.node)) {
       return { ok: false, missatge: `La partida ${row.node} no es pot repartir.` };

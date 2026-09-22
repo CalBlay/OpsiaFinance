@@ -4,11 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 import { BriefcaseBusiness, Check, PackageOpen, Save, UsersRound } from "lucide-react";
 import { Fragment, useMemo, useState, useTransition } from "react";
-import {
-  saveGestioMatrixAction,
-  savePersonalMatrixAction,
-  updateNormaAction,
-} from "./actions";
+import { saveGestioMatrixAction, savePersonalMatrixAction, updateNormaAction } from "./actions";
 import styles from "./page.module.css";
 
 type Ln = { id: string; codi: string; nom: string };
@@ -73,7 +69,7 @@ function MatrixCell({
         <input
           aria-label="Percentatge de repartiment"
           inputMode="decimal"
-          value={value === 0 ? "" : String(value)}
+          defaultValue={value === 0 ? "" : String(value)}
           placeholder="0"
           disabled={disabled}
           onChange={(event) => onChange(numberFromInput(event.target.value))}
@@ -147,11 +143,16 @@ export function RepartimentWorkspace({
     linies.reduce((sum, ln) => sum + (personalDraft[`${deptId}:${ln.id}`] ?? 0), 0);
   const gestioTotal = (node: number) =>
     linies.reduce((sum, ln) => sum + (gestioDraft[`${node}:${ln.id}`] ?? 0), 0);
-  const personalValid = departaments.every((dept) => Math.abs(personalTotal(dept.departamentId) - 100) <= 0.01);
+  const personalValid = departaments.every(
+    (dept) => Math.abs(personalTotal(dept.departamentId) - 100) <= 0.01
+  );
   const gestioValid = gestioRows.every((row) => Math.abs(gestioTotal(row.node) - 100) <= 0.01);
 
   const notify = (result: { ok: boolean; missatge?: string }) => {
-    setFeedback({ ok: result.ok, text: result.missatge ?? (result.ok ? "Canvis desats." : "No s'ha pogut desar.") });
+    setFeedback({
+      ok: result.ok,
+      text: result.missatge ?? (result.ok ? "Canvis desats." : "No s'ha pogut desar."),
+    });
   };
 
   const savePersonal = () => {
@@ -272,7 +273,9 @@ export function RepartimentWorkspace({
                         onBlur={(event) => {
                           const value = numberFromInput(event.target.value);
                           if (value === rule.valorPercent) return;
-                          startTransition(async () => notify(await updateNormaAction(rule.id, { valorPercent: value })));
+                          startTransition(async () =>
+                            notify(await updateNormaAction(rule.id, { valorPercent: value }))
+                          );
                         }}
                       />
                       %
@@ -335,7 +338,9 @@ export function RepartimentWorkspace({
                             key={ln.id}
                             value={personalDraft[`${dept.departamentId}:${ln.id}`] ?? 0}
                             base={dept.costRef}
-                            disabled={!canEdit || pending || dept.departamentId.startsWith("__sense__")}
+                            disabled={
+                              !canEdit || pending || dept.departamentId.startsWith("__sense__")
+                            }
                             onChange={(value) =>
                               setPersonalDraft((current) => ({
                                 ...current,
@@ -361,7 +366,10 @@ export function RepartimentWorkspace({
             <div>
               <span className={styles.eyebrow}>03 · Cost de gestió</span>
               <h2>Una decisió diferent per a cada partida</h2>
-              <p>Distribueix cada línia del compte d’explotació i comprova l’import resultant al moment.</p>
+              <p>
+                Distribueix cada línia del compte d’explotació i comprova l’import resultant al
+                moment.
+              </p>
             </div>
             {canEdit && (
               <Button disabled={pending || !gestioValid} onClick={saveGestio}>
