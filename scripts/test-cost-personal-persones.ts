@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { utils, write } from "xlsx";
+import { agregarHeadcount } from "../apps/frontend/lib/cost-personal-centre/headcount";
 import { parseExcelCostPersonalCentre } from "../apps/frontend/lib/cost-personal-centre/parser";
 
 function workbook(rows: unknown[][]): Buffer {
@@ -117,5 +118,53 @@ const legacy = parseExcelCostPersonalCentre(
   ])
 );
 assert.equal(legacy.files[0]?.nombrePersones, 0);
+
+const filesHeadcount = [
+  {
+    centreId: "centre-a",
+    departamentId: "dept-1",
+    origen: "NOMINA" as const,
+    nombrePersones: 2,
+    period: { mes: 1 },
+  },
+  {
+    centreId: "centre-a",
+    departamentId: "dept-1",
+    origen: "MILLORES" as const,
+    nombrePersones: 2,
+    period: { mes: 1 },
+  },
+  {
+    centreId: "centre-a",
+    departamentId: "dept-2",
+    origen: "NOMINA" as const,
+    nombrePersones: 3,
+    period: { mes: 1 },
+  },
+  {
+    centreId: "centre-a",
+    departamentId: "dept-1",
+    origen: "NOMINA" as const,
+    nombrePersones: 4,
+    period: { mes: 2 },
+  },
+  {
+    centreId: "centre-a",
+    departamentId: "dept-2",
+    origen: "MILLORES" as const,
+    nombrePersones: 2,
+    period: { mes: 2 },
+  },
+];
+
+const gener = agregarHeadcount(filesHeadcount, 1, (fila) => fila.departamentId);
+assert.equal(gener.perClau.get("dept-1"), 2, "Nòmina preval sobre millores");
+assert.equal(gener.total, 5);
+
+const anual = agregarHeadcount(filesHeadcount, null, (fila) => fila.departamentId);
+assert.equal(anual.perClau.get("dept-1"), 3);
+assert.equal(anual.perClau.get("dept-2"), 2.5);
+assert.equal(anual.total, 5.5, "L'acumulat anual és una mitjana mensual, no una suma");
+assert.equal(anual.esMitjana, true);
 
 console.log("Cost personal: recompte agregat i privacitat verificats.");

@@ -10,6 +10,7 @@ import {
   carregarBaseDirectePersonal,
   carregarBaseGestioPersonal,
 } from "@/lib/cost-personal-centre/base-gestio";
+import { type HeadcountRow, agregarHeadcount } from "@/lib/cost-personal-centre/headcount";
 import {
   NODE_SEGURETAT_SOCIAL,
   NODE_SOUS_SALARIS,
@@ -29,6 +30,8 @@ export interface BarraCostPersonal {
   totalSegSocial: number;
   pctSobreTotal: number | null;
   pctSobreVendes: number | null;
+  /** Headcount mensual (o mitjana mensual quan es consulta tot l'any). */
+  nombrePersones: number | null;
   href?: string;
 }
 
@@ -63,6 +66,10 @@ export interface InformeCostPersonal {
     totalSegSocial: number;
     vendes: number;
     pctSobreVendes: number | null;
+    /** Headcount de nòmina; millores només s'usa si no hi ha nòmina. */
+    nombrePersones: number | null;
+    /** True quan el període és anual i el valor és una mitjana mensual. */
+    headcountEsMitjana: boolean;
   };
   buit: boolean;
 }
@@ -166,6 +173,28 @@ function pctSobreVendesSegur(cost: number, vendes: number): number | null {
 
 function absCost(v: number): number {
   return Math.abs(v);
+}
+
+async function carregarHeadcount(
+  any: number,
+  mes: number | null,
+  centreIds?: string[]
+): Promise<HeadcountRow[]> {
+  if (centreIds && !centreIds.length) return [];
+  return db.costPersonalCentre.findMany({
+    where: {
+      period: periodWhere(any, mes),
+      nombrePersones: { gt: 0 },
+      ...(centreIds ? { centreId: { in: centreIds } } : {}),
+    },
+    select: {
+      centreId: true,
+      departamentId: true,
+      origen: true,
+      nombrePersones: true,
+      period: { select: { mes: true } },
+    },
+  });
 }
 
 function subtitolVista(vista: VistaCompte): string {
@@ -355,6 +384,7 @@ function buildBarres(
   cols: ColMeta[],
   importsPerCol: Map<string, Imports>,
   vendesPerCol: Map<string, number>,
+  headcountPerCol: Map<string, number>,
   totalCostAbs: number,
   hrefFor?: (col: ColMeta) => string | undefined
 ): BarraCostPersonal[] {
@@ -371,6 +401,7 @@ function buildBarres(
         totalSegSocial: absCost(imp.totalSegSocial),
         pctSobreTotal: pct(cost, totalCostAbs),
         pctSobreVendes: pctSobreVendesSegur(imp.costPersonal, vendes),
+        nombrePersones: headcountPerCol.get(col.key) ?? null,
         href: hrefFor?.(col),
       };
     })
@@ -420,7 +451,7 @@ export async function getInformeCostPersonalLinies(
   return unstable_cache(
     () => computeInformeCostPersonalLinies(any, mes, vista, opts),
     consultesCacheKey(
-      "cost-pers-linies-v1",
+      "cost-pers-linies-v2",
       String(any),
       String(mes ?? 0),
       vista,
@@ -465,6 +496,9 @@ async function computeInformeCostPersonalLinies(
       })
     : [];
   const centreToLn = new Map(centresMeta.map((c) => [c.id, c.liniaNegociId]));
+  for (const ln of linies) {
+    for (const centre of ln.centres) centreToLn.set(centre.id, ln.id);
+  }
 
   const perCentreFiltrat = new Map(
     [...perCentre.entries()].filter(([id]) => {
@@ -474,7 +508,16 @@ async function computeInformeCostPersonalLinies(
     })
   );
   const centreIds = [...perCentreFiltrat.keys()];
-  const vendesCentre = await getVendesMap(centreIds, any, mes);
+  const centresHeadcount = linies.flatMap((ln) => ln.centres.map((c) => c.id));
+  const [vendesCentre, headcountRows] = await Promise.all([
+    getVendesMap(centreIds, any, mes),
+    carregarHeadcount(any, mes, centresHeadcount),
+  ]);
+  const headcount = agregarHeadcount(
+    headcountRows,
+    mes,
+    (row) => centreToLn.get(row.centreId) ?? null
+  );
 
   const importsPerLn = new Map<string, Imports>();
   const vendesPerLn = new Map<string, number>();
@@ -537,11 +580,18 @@ async function computeInformeCostPersonalLinies(
   params.set("vista", vista);
   if (mes != null) params.set("mes", String(mes));
 
-  const barres = buildBarres(cols, importsPerLn, vendesPerLn, totalCostAbs, (col) => {
-    const p = new URLSearchParams(params);
-    p.set("ln", col.key);
-    return `${basePath}?${p}`;
-  });
+  const barres = buildBarres(
+    cols,
+    importsPerLn,
+    vendesPerLn,
+    headcount.perClau,
+    totalCostAbs,
+    (col) => {
+      const p = new URLSearchParams(params);
+      p.set("ln", col.key);
+      return `${basePath}?${p}`;
+    }
+  );
 
   const totalsImp = emptyImports();
   let totalVendes = 0;
@@ -577,6 +627,8 @@ async function computeInformeCostPersonalLinies(
       totalSegSocial: absCost(totalsImp.totalSegSocial),
       vendes: totalVendes,
       pctSobreVendes: pctSobreVendesSegur(totalsImp.costPersonal, totalVendes),
+      nombrePersones: headcount.total,
+      headcountEsMitjana: headcount.esMitjana,
     },
     buit: !cols.length || !conceptes.length,
   };
@@ -593,7 +645,7 @@ export async function getInformeCostPersonalCentres(
   return unstable_cache(
     () => computeInformeCostPersonalCentres(liniaNegociId, any, mes, vista, opts),
     consultesCacheKey(
-      "cost-pers-centres-v1",
+      "cost-pers-centres-v2",
       liniaNegociId,
       String(any),
       String(mes ?? 0),
@@ -665,7 +717,11 @@ async function computeInformeCostPersonalCentres(
   }
 
   const centreIds = cols.map((c) => c.key).filter((id) => !id.startsWith("__"));
-  const vendesCentre = await getVendesMap(centreIds, any, mes);
+  const [vendesCentre, headcountRows] = await Promise.all([
+    getVendesMap(centreIds, any, mes),
+    carregarHeadcount(any, mes, centreIds),
+  ]);
+  const headcount = agregarHeadcount(headcountRows, mes, (row) => row.centreId);
   const totalCostAbs = cols.reduce(
     (s, c) => s + absCost((perCentre.get(c.key) ?? emptyImports()).costPersonal),
     0
@@ -684,12 +740,19 @@ async function computeInformeCostPersonalCentres(
   params.set("ln", liniaNegociId);
   if (mes != null) params.set("mes", String(mes));
 
-  const barres = buildBarres(cols, perCentre, vendesCentre, totalCostAbs, (col) => {
-    if (col.key.startsWith("__")) return undefined;
-    const p = new URLSearchParams(params);
-    p.set("centre", col.key);
-    return `${basePath}?${p}`;
-  });
+  const barres = buildBarres(
+    cols,
+    perCentre,
+    vendesCentre,
+    headcount.perClau,
+    totalCostAbs,
+    (col) => {
+      if (col.key.startsWith("__")) return undefined;
+      const p = new URLSearchParams(params);
+      p.set("centre", col.key);
+      return `${basePath}?${p}`;
+    }
+  );
 
   const totalsImp = emptyImports();
   let totalVendes = 0;
@@ -734,6 +797,8 @@ async function computeInformeCostPersonalCentres(
       totalSegSocial: absCost(totalsImp.totalSegSocial),
       vendes: totalVendes,
       pctSobreVendes: pctSobreVendesSegur(totalsImp.costPersonal, totalVendes),
+      nombrePersones: headcount.total,
+      headcountEsMitjana: headcount.esMitjana,
     },
     buit: !cols.length || !conceptes.length,
   };
@@ -749,7 +814,7 @@ export async function getInformeCostPersonalDepartaments(
   const lnKey = (opts?.lnIds ?? []).slice().sort().join(",");
   return unstable_cache(
     () => computeInformeCostPersonalDepartaments(centreId, any, mes, vista, opts),
-    consultesCacheKey("cost-pers-depts-v1", centreId, String(any), String(mes ?? 0), vista, lnKey),
+    consultesCacheKey("cost-pers-depts-v2", centreId, String(any), String(mes ?? 0), vista, lnKey),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 120 }
   )();
 }
@@ -800,13 +865,22 @@ async function computeInformeCostPersonalDepartaments(
       period: periodWhere(any, mes),
     },
     select: {
+      centreId: true,
       departamentId: true,
+      origen: true,
+      nombrePersones: true,
       importBrut: true,
       totalSegSocial: true,
       costPersonal: true,
+      period: { select: { mes: true } },
       departament: { select: { id: true, codi: true, nom: true } },
     },
   });
+  const headcountDept = agregarHeadcount(
+    payrollRows,
+    mes,
+    (row) => row.departamentId ?? "__sense__"
+  );
 
   const teDeptsDimensions = payrollRows.some((r) => r.departamentId);
   if (teDeptsDimensions) {
@@ -899,7 +973,7 @@ async function computeInformeCostPersonalDepartaments(
           },
         ])
       ),
-      barres: buildBarres(cols, importsPerCol, vendesPerCol, totalCostAbs),
+      barres: buildBarres(cols, importsPerCol, vendesPerCol, headcountDept.perClau, totalCostAbs),
       evolucioMensual,
       totals: {
         costPersonal: absCost(totalsImp.costPersonal),
@@ -907,6 +981,8 @@ async function computeInformeCostPersonalDepartaments(
         totalSegSocial: absCost(totalsImp.totalSegSocial),
         vendes: vendesVal,
         pctSobreVendes: pctSobreVendesSegur(totalsImp.costPersonal, vendesVal),
+        nombrePersones: headcountDept.total,
+        headcountEsMitjana: headcountDept.esMitjana,
       },
       buit: !cols.length || !conceptes.length,
     };
@@ -950,6 +1026,7 @@ async function computeInformeCostPersonalDepartaments(
           totalSegSocial: absCost(imp.totalSegSocial),
           pctSobreTotal: 100,
           pctSobreVendes: pctSobreVendesSegur(imp.costPersonal, vendesVal),
+          nombrePersones: headcountDept.total,
         },
       ],
       evolucioMensual,
@@ -959,6 +1036,8 @@ async function computeInformeCostPersonalDepartaments(
         totalSegSocial: absCost(imp.totalSegSocial),
         vendes: vendesVal,
         pctSobreVendes: pctSobreVendesSegur(imp.costPersonal, vendesVal),
+        nombrePersones: headcountDept.total,
+        headcountEsMitjana: headcountDept.esMitjana,
       },
       buit: !imp.costPersonal && !imp.importBrut && !imp.totalSegSocial,
     };
@@ -1055,7 +1134,15 @@ async function computeInformeCostPersonalDepartaments(
         },
       ])
     ),
-    barres: buildBarres(cols, importsPerDept, vendesPerCol, totalCostAbs),
+    barres: buildBarres(
+      cols,
+      importsPerDept,
+      vendesPerCol,
+      headcountDept.total == null
+        ? new Map<string, number>()
+        : new Map([["SENSE", headcountDept.total]]),
+      totalCostAbs
+    ),
     evolucioMensual,
     totals: {
       costPersonal: absCost(totalsImp.costPersonal),
@@ -1063,6 +1150,8 @@ async function computeInformeCostPersonalDepartaments(
       totalSegSocial: absCost(totalsImp.totalSegSocial),
       vendes: vendesVal,
       pctSobreVendes: pctSobreVendesSegur(totalsImp.costPersonal, vendesVal),
+      nombrePersones: headcountDept.total,
+      headcountEsMitjana: headcountDept.esMitjana,
     },
     buit: !cols.length || !conceptes.length,
   };

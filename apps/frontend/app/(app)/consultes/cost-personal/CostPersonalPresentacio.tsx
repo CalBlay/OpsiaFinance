@@ -59,6 +59,8 @@ export function CostPersonalPresentacio({
     importBrut: number;
     totalSegSocial: number;
     pctSobreVendes: number | null;
+    nombrePersones: number | null;
+    headcountEsMitjana: boolean;
   };
   barres: BarraCostPersonal[];
   evolucioMensual: MesCostPersonal[];
@@ -91,14 +93,27 @@ export function CostPersonalPresentacio({
               <span>{nivellLabel}</span>
             </p>
           </div>
-          <div className={styles.heroMetric}>
-            <span className={styles.heroMetricLabel}>Cost de personal</span>
-            <span className={styles.heroMetricValue}>{formatEuro(totals.costPersonal)}</span>
-            {totals.pctSobreVendes != null && (
-              <span className={styles.heroMetricHint}>
-                {pctTxt(totals.pctSobreVendes)} de les vendes del període
-              </span>
+          <div className={styles.heroMetrics}>
+            {totals.nombrePersones != null && (
+              <div className={styles.heroMetric}>
+                <span className={styles.heroMetricLabel}>
+                  {totals.headcountEsMitjana ? "Mitjana mensual" : "Treballadors"}
+                </span>
+                <span className={styles.heroMetricValuePeople}>
+                  {formatNum(totals.nombrePersones, totals.headcountEsMitjana ? 1 : 0)}
+                </span>
+                <span className={styles.heroMetricHint}>Font: nòmina</span>
+              </div>
             )}
+            <div className={styles.heroMetric}>
+              <span className={styles.heroMetricLabel}>Cost de personal</span>
+              <span className={styles.heroMetricValue}>{formatEuro(totals.costPersonal)}</span>
+              {totals.pctSobreVendes != null && (
+                <span className={styles.heroMetricHint}>
+                  {pctTxt(totals.pctSobreVendes)} de les vendes del període
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -188,6 +203,14 @@ export function CostPersonalPresentacio({
                     <span className={styles.rankFill} style={{ width: `${widthPct}%` }} />
                   </span>
                   <span className={styles.rankPct}>{pctTxt(row.pctSobreTotal)}</span>
+                  <span className={styles.rankPeople}>
+                    {row.nombrePersones != null
+                      ? `${formatNum(
+                          row.nombrePersones,
+                          totals.headcountEsMitjana ? 1 : 0
+                        )} pers.${totals.headcountEsMitjana ? "/mes" : ""}`
+                      : "—"}
+                  </span>
                   <span className={styles.rankEuro}>{formatEuro(row.costPersonal)}</span>
                   {row.href ? <ChevronRight size={16} className={styles.rankChevron} /> : <span />}
                 </>
