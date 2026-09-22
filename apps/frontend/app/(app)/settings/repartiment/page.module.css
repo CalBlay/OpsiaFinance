@@ -294,8 +294,7 @@
   gap: 2rem;
   padding: 1.75rem 2rem;
   color: #fff;
-  background:
-    radial-gradient(circle at 88% 20%, rgba(197, 155, 87, 0.28), transparent 26%),
+  background: radial-gradient(circle at 88% 20%, rgba(197, 155, 87, 0.28), transparent 26%),
     linear-gradient(135deg, #22313f 0%, #2f6f6d 100%);
   border-radius: var(--opsia-radius-lg);
   box-shadow: var(--opsia-shadow-soft);
@@ -362,9 +361,7 @@
   border: 1px solid var(--opsia-line-soft);
   border-radius: var(--opsia-radius-md);
   cursor: pointer;
-  transition:
-    transform var(--opsia-transition-fast),
-    border-color var(--opsia-transition-fast);
+  transition: transform var(--opsia-transition-fast), border-color var(--opsia-transition-fast);
 }
 
 .blockTab:hover {

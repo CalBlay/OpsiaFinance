@@ -117,11 +117,7 @@ export function calcularMoviments(
     centralLnId,
     lnIdByCodi
   );
-  const movimentsGestioDetall = calcularMovimentsMatriuGestio(
-    normesActives,
-    directe,
-    centralLnId
-  );
+  const movimentsGestioDetall = calcularMovimentsMatriuGestio(normesActives, directe, centralLnId);
   const movimentsPersonal = calcularMovimentsPersonalDepartaments(
     personalDept.costs,
     personalDept.configsLn,

@@ -117,13 +117,13 @@ export default async function RepartimentSettingsPage() {
 
   return (
     <RepartimentWorkspace
-        linies={lns}
-        departaments={departaments}
-        assignacions={config.configsDept}
-        gestioRows={gestioRows}
-        compres={compres}
-        refMesLabel={latestPeriod?.nom ?? null}
-        canEdit={canEdit}
-      />
+      linies={lns}
+      departaments={departaments}
+      assignacions={config.configsDept}
+      gestioRows={gestioRows}
+      compres={compres}
+      refMesLabel={latestPeriod?.nom ?? null}
+      canEdit={canEdit}
+    />
   );
 }
