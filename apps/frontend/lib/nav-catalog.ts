@@ -33,6 +33,7 @@ export type SettingsSub =
   | "repartiment"
   | "traspass-personal"
   | "cost-personal-centre"
+  | "balanc-esdeveniments"
   | "consolidacio";
 
 /** Overrides per usuari (rols restringits). Arrays buits = mòdul no concedit. */
@@ -95,6 +96,11 @@ export const SETTINGS_SUBS: { id: SettingsSub; label: string; href: string }[] =
   { id: "repartiment", label: "Repartiment", href: "/settings/repartiment" },
   { id: "traspass-personal", label: "Traspassos personal", href: "/settings/traspass-personal" },
   { id: "cost-personal-centre", label: "Cost personal", href: "/settings/cost-personal-centre" },
+  {
+    id: "balanc-esdeveniments",
+    label: "Balanç esdeveniments",
+    href: "/settings/balanc-esdeveniments",
+  },
   { id: "consolidacio", label: "Consolidació", href: "/settings/consolidacio" },
 ];
 
@@ -192,6 +198,7 @@ export function resolveSettingsSub(pathname: string): SettingsSub | "usuaris" | 
   if (pathname.startsWith("/settings/repartiment")) return "repartiment";
   if (pathname.startsWith("/settings/traspass-personal")) return "traspass-personal";
   if (pathname.startsWith("/settings/cost-personal-centre")) return "cost-personal-centre";
+  if (pathname.startsWith("/settings/balanc-esdeveniments")) return "balanc-esdeveniments";
   if (pathname.startsWith("/settings/consolidacio")) return "consolidacio";
   return null;
 }

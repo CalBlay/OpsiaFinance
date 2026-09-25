@@ -13,7 +13,13 @@ function revalidateImportacionsLlista() {
 }
 
 function esTipusExerciciAnual(tipus: TipusInforme | null | undefined): boolean {
-  return tipus === "PYG_FDLC" || tipus === "PYG_EXERCICI_LN";
+  return tipus === "PYG_FDLC" || tipus === "PYG_EXERCICI_LN" || tipus === "PYG_EXERCICI_CENTRE";
+}
+
+function extensioImportOk(tipus: TipusInforme, extRaw: string | undefined): string | null {
+  if (extRaw === "xlsx" || extRaw === "xls") return extRaw;
+  if (tipus === "PYG_EXERCICI_CENTRE" && extRaw === "csv") return "csv";
+  return null;
 }
 
 import { MESOS_PER_NUM } from "@/lib/periodes";
@@ -180,7 +186,7 @@ async function trobarImportDuplicada(
     select: {
       id: true,
       nomFitxer: true,
-      period: { select: { nom: true } },
+      period: { select: { nom: true, any: true } },
       liniaNegoci: { select: { codi: true, nom: true } },
     },
   });
@@ -197,6 +203,28 @@ async function trobarImportExerciciPerAny(
       liniaNegociId,
       formatInformeId,
       OR: [{ period: { any } }, { dades: { some: { period: { any } } } }],
+    },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      nomFitxer: true,
+      period: { select: { nom: true, any: true } },
+      liniaNegoci: { select: { codi: true, nom: true } },
+    },
+  });
+}
+
+/** Balanç esdeveniments: duplicat per format + any (LN opcional). */
+async function trobarImportExerciciPerAnyOpcional(
+  liniaNegociId: string | null,
+  formatInformeId: string,
+  any: number
+) {
+  return db.importacio.findFirst({
+    where: {
+      formatInformeId,
+      ...(liniaNegociId ? { liniaNegociId } : {}),
+      period: { any },
     },
     orderBy: { updatedAt: "desc" },
     select: {
@@ -239,11 +267,31 @@ export async function handleSingleImport(
     return { status: "error", message: "Any o mes no vàlids." };
 
   const extRaw = file.name.split(".").pop()?.toLowerCase();
-  const ext = extRaw === "xlsx" || extRaw === "xls" ? extRaw : null;
-  if (!ext) return { status: "error", message: "Només s'accepten fitxers Excel (.xlsx o .xls)." };
+  const ext = extensioImportOk(tipusEnum, extRaw);
+  if (!ext) {
+    return {
+      status: "error",
+      message:
+        tipusEnum === "PYG_EXERCICI_CENTRE"
+          ? "Només s'accepten .xlsx, .xls o .csv."
+          : "Només s'accepten fitxers Excel (.xlsx o .xls).",
+    };
+  }
 
-  const lnRes = await resoldreLiniaNegoci(liniaNegociId, file.name, null, tipusEnum);
-  if ("error" in lnRes) return { status: "error", message: lnRes.error };
+  const esBalancEsdeveniments = tipusEnum === "PYG_EXERCICI_CENTRE";
+  type LnOk = { id: string; label: string; codi: string };
+  let lnOk: LnOk | null = null;
+  if (esBalancEsdeveniments) {
+    if (liniaNegociId) {
+      const lnRes = await resoldreLiniaNegoci(liniaNegociId, file.name, null, tipusEnum);
+      if ("error" in lnRes) return { status: "error", message: lnRes.error };
+      lnOk = lnRes;
+    }
+  } else {
+    const lnRes = await resoldreLiniaNegoci(liniaNegociId, file.name, null, tipusEnum);
+    if ("error" in lnRes) return { status: "error", message: lnRes.error };
+    lnOk = lnRes;
+  }
 
   const nomFormat = TIPUS_INFORME_LABELS[tipusEnum] ?? tipusEnum;
   const formatInforme = await db.formatInforme.upsert({
@@ -258,16 +306,24 @@ export async function handleSingleImport(
   });
 
   if (mode === "auto") {
-    const existent = esExerciciAnual
-      ? await trobarImportExerciciPerAny(lnRes.id, formatInforme.id, any)
-      : await trobarImportDuplicada(period.id, lnRes.id, formatInforme.id);
+    let existent: Awaited<ReturnType<typeof trobarImportExerciciPerAny>> = null;
+    if (esBalancEsdeveniments) {
+      existent = await trobarImportExerciciPerAnyOpcional(lnOk?.id ?? null, formatInforme.id, any);
+    } else if (lnOk && esExerciciAnual) {
+      existent = await trobarImportExerciciPerAny(lnOk.id, formatInforme.id, any);
+    } else if (lnOk) {
+      existent = await trobarImportDuplicada(period.id, lnOk.id, formatInforme.id);
+    }
     if (existent) {
+      const sugCodi = lnOk?.codi ?? "xx";
       const suggestedName = await nomFitxerUnic(
         esFdlc
-          ? `fdlc_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
-          : esExerciciAnual
-            ? `historic_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
-            : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
+          ? `fdlc_${any}_${sufixLnDesDeCodi(sugCodi)}.${ext}`
+          : esBalancEsdeveniments
+            ? `balanc_esdeveniments_${any}.${ext}`
+            : esExerciciAnual
+              ? `historic_${any}_${sufixLnDesDeCodi(sugCodi)}.${ext}`
+              : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(sugCodi)}.${ext}`
       );
       return {
         status: "duplicate",
@@ -294,13 +350,17 @@ export async function handleSingleImport(
     if (!existent)
       return { status: "error", message: "La importació que vols actualitzar ja no existeix." };
 
-    const lnResUpdate = await resoldreLiniaNegoci(
-      liniaNegociId,
-      file.name,
-      existent.liniaNegociId,
-      tipusEnum
-    );
-    if ("error" in lnResUpdate) return { status: "error", message: lnResUpdate.error };
+    let lnUpdateId: string | null = existent.liniaNegociId;
+    if (!esBalancEsdeveniments || liniaNegociId) {
+      const lnResUpdate = await resoldreLiniaNegoci(
+        liniaNegociId,
+        file.name,
+        existent.liniaNegociId,
+        tipusEnum
+      );
+      if ("error" in lnResUpdate) return { status: "error", message: lnResUpdate.error };
+      lnUpdateId = lnResUpdate.id;
+    }
 
     await db.dadaResultat.deleteMany({ where: { importacioId: targetId } });
     const saved = await persistirFitxerImportacio(targetId, ext, buffer);
@@ -317,7 +377,7 @@ export async function handleSingleImport(
         notes: notes || null,
         formatInformeId: formatInforme.id,
         periodId: period.id,
-        liniaNegociId: lnResUpdate.id,
+        liniaNegociId: lnUpdateId,
         rutaStorage: saved.rutaStorage,
       },
     });
@@ -328,13 +388,16 @@ export async function handleSingleImport(
 
   let nomFitxer = file.name;
   if (mode === "create") {
+    const sugCodi = lnOk?.codi ?? "xx";
     nomFitxer = await nomFitxerUnic(
       newName ||
         (esFdlc
-          ? `fdlc_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
-          : esExerciciAnual
-            ? `historic_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`
-            : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(lnRes.codi)}.${ext}`)
+          ? `fdlc_${any}_${sufixLnDesDeCodi(sugCodi)}.${ext}`
+          : esBalancEsdeveniments
+            ? `balanc_esdeveniments_${any}.${ext}`
+            : esExerciciAnual
+              ? `historic_${any}_${sufixLnDesDeCodi(sugCodi)}.${ext}`
+              : `${pad2(mes)}_${any}_${sufixLnDesDeCodi(sugCodi)}.${ext}`)
     );
   }
 
@@ -346,7 +409,7 @@ export async function handleSingleImport(
       notes: notes || null,
       formatInformeId: formatInforme.id,
       periodId: period.id,
-      liniaNegociId: lnRes.id,
+      liniaNegociId: lnOk?.id ?? null,
       creatPer: userId,
     },
   });
@@ -372,7 +435,7 @@ export async function handleBulkFileItem(
 ): Promise<BulkFileResult> {
   try {
     const extRaw = file.name.split(".").pop()?.toLowerCase();
-    const ext = extRaw === "xlsx" || extRaw === "xls" ? extRaw : null;
+    const ext = extensioImportOk(tipusEnum, extRaw);
     if (!ext) {
       return {
         nom: file.name,
@@ -380,11 +443,15 @@ export async function handleBulkFileItem(
         ln: null,
         ok: false,
         confirmat: false,
-        missatge: "Format no vàlid (només .xlsx/.xls).",
+        missatge:
+          tipusEnum === "PYG_EXERCICI_CENTRE"
+            ? "Format no vàlid (només .xlsx/.xls/.csv)."
+            : "Format no vàlid (només .xlsx/.xls).",
       };
     }
 
     const esExerciciAnual = esTipusExerciciAnual(tipusEnum);
+    const esBalancEsdeveniments = tipusEnum === "PYG_EXERCICI_CENTRE";
     const parsed = classificacioDesDelNomFitxer(file.name);
     const anyMatch = file.name.match(/20\d{2}/)?.[0];
     const anyFitxer = parsed?.any ?? (anyMatch ? Number(anyMatch) : null);
@@ -409,18 +476,39 @@ export async function handleBulkFileItem(
       };
     }
 
-    const lnRes =
-      parsed?.codiLn || aliasLnDesDelNomFitxer(file.name)
-        ? await resoldreLiniaNegoci(null, file.name, null, tipusEnum)
-        : await resoldreLiniaNegoci(liniaNegociIdFallback, file.name, null, tipusEnum);
-    if ("error" in lnRes) {
+    type LnOk = { id: string; label: string; codi: string };
+    let lnOk: LnOk | null = null;
+    if (esBalancEsdeveniments) {
+      if (liniaNegociIdFallback || parsed?.codiLn || aliasLnDesDelNomFitxer(file.name)) {
+        const lnTry = await resoldreLiniaNegoci(liniaNegociIdFallback, file.name, null, tipusEnum);
+        if (!("error" in lnTry)) lnOk = lnTry;
+      }
+    } else {
+      const lnRes =
+        parsed?.codiLn || aliasLnDesDelNomFitxer(file.name)
+          ? await resoldreLiniaNegoci(null, file.name, null, tipusEnum)
+          : await resoldreLiniaNegoci(liniaNegociIdFallback, file.name, null, tipusEnum);
+      if ("error" in lnRes) {
+        return {
+          nom: file.name,
+          periode: "—",
+          ln: null,
+          ok: false,
+          confirmat: false,
+          missatge: lnRes.error,
+        };
+      }
+      lnOk = lnRes;
+    }
+
+    if (!esBalancEsdeveniments && !lnOk) {
       return {
         nom: file.name,
         periode: "—",
         ln: null,
         ok: false,
         confirmat: false,
-        missatge: lnRes.error,
+        missatge: "Cal indicar la línia de negoci.",
       };
     }
 
@@ -443,19 +531,29 @@ export async function handleBulkFileItem(
     const periodeLabel = esExerciciAnual
       ? `Exercici ${anyFitxer}`
       : `${MESOS[mesFitxer]} ${anyFitxer}`;
+    const lnLabel = lnOk?.label ?? "centre (mapeig)";
 
-    const existent = esExerciciAnual
-      ? await trobarImportExerciciPerAny(lnRes.id, formatInforme.id, anyFitxer)
-      : await trobarImportDuplicada(period.id, lnRes.id, formatInforme.id);
+    let existent: Awaited<ReturnType<typeof trobarImportExerciciPerAny>> = null;
+    if (esBalancEsdeveniments) {
+      existent = await trobarImportExerciciPerAnyOpcional(
+        lnOk?.id ?? null,
+        formatInforme.id,
+        anyFitxer
+      );
+    } else if (lnOk && esExerciciAnual) {
+      existent = await trobarImportExerciciPerAny(lnOk.id, formatInforme.id, anyFitxer);
+    } else if (lnOk) {
+      existent = await trobarImportDuplicada(period.id, lnOk.id, formatInforme.id);
+    }
 
     if (existent && politica === "ometre") {
       return {
         nom: file.name,
         periode: periodeLabel,
-        ln: lnRes.label,
+        ln: lnLabel,
         ok: false,
         confirmat: false,
-        missatge: `Omès: ja existia una importació per ${periodeLabel} · ${lnRes.label}.`,
+        missatge: `Omès: ja existia una importació per ${periodeLabel} · ${lnLabel}.`,
       };
     }
 
@@ -464,26 +562,30 @@ export async function handleBulkFileItem(
 
     if (existent && politica === "actualitzar") {
       importId = existent.id;
-      const lnResUpdate = await resoldreLiniaNegoci(
-        parsed?.codiLn || aliasLnDesDelNomFitxer(file.name) ? null : liniaNegociIdFallback,
-        file.name,
-        (
-          await db.importacio.findUnique({
-            where: { id: importId },
-            select: { liniaNegociId: true },
-          })
-        )?.liniaNegociId ?? null,
-        tipusEnum
-      );
-      if ("error" in lnResUpdate) {
-        return {
-          nom: file.name,
-          periode: periodeLabel,
-          ln: lnRes.label,
-          ok: false,
-          confirmat: false,
-          missatge: lnResUpdate.error,
-        };
+      let lnUpdateId = lnOk?.id ?? null;
+      if (!esBalancEsdeveniments) {
+        const lnResUpdate = await resoldreLiniaNegoci(
+          parsed?.codiLn || aliasLnDesDelNomFitxer(file.name) ? null : liniaNegociIdFallback,
+          file.name,
+          (
+            await db.importacio.findUnique({
+              where: { id: importId },
+              select: { liniaNegociId: true },
+            })
+          )?.liniaNegociId ?? null,
+          tipusEnum
+        );
+        if ("error" in lnResUpdate) {
+          return {
+            nom: file.name,
+            periode: periodeLabel,
+            ln: lnLabel,
+            ok: false,
+            confirmat: false,
+            missatge: lnResUpdate.error,
+          };
+        }
+        lnUpdateId = lnResUpdate.id;
       }
       await db.dadaResultat.deleteMany({ where: { importacioId: importId } });
       const saved = await persistirFitxerImportacio(importId, ext, buffer);
@@ -491,7 +593,7 @@ export async function handleBulkFileItem(
         return {
           nom: file.name,
           periode: periodeLabel,
-          ln: lnRes.label,
+          ln: lnLabel,
           ok: false,
           confirmat: false,
           missatge: saved.message,
@@ -506,7 +608,7 @@ export async function handleBulkFileItem(
           notes,
           formatInformeId: formatInforme.id,
           periodId: period.id,
-          liniaNegociId: lnResUpdate.id,
+          liniaNegociId: lnUpdateId,
           rutaStorage: saved.rutaStorage,
         },
       });
@@ -520,7 +622,7 @@ export async function handleBulkFileItem(
           notes,
           formatInformeId: formatInforme.id,
           periodId: period.id,
-          liniaNegociId: lnRes.id,
+          liniaNegociId: lnOk?.id ?? null,
           creatPer: userId,
         },
       });
@@ -531,7 +633,7 @@ export async function handleBulkFileItem(
         return {
           nom: file.name,
           periode: periodeLabel,
-          ln: lnRes.label,
+          ln: lnLabel,
           ok: false,
           confirmat: false,
           missatge: saved.message,
@@ -561,7 +663,7 @@ export async function handleBulkFileItem(
     return {
       nom: file.name,
       periode: periodeLabel,
-      ln: lnRes.label,
+      ln: lnLabel,
       ok: res.ok,
       confirmat,
       missatge,

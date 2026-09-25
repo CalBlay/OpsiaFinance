@@ -10,6 +10,7 @@ import {
   codiLnDelNomFitxer,
 } from "@/lib/nom-fitxer";
 import { opcionsMesos } from "@/lib/periodes";
+import { postFitxerImport } from "@/lib/upload-client";
 import { TIPUS_INFORME_LABELS, type TipusInforme } from "@/types";
 import {
   AlertTriangle,
@@ -34,7 +35,7 @@ const ANYS = Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - i);
 const MESOS = opcionsMesos("llarg").map((o) => [o.value, o.label] as [number, string]);
 const MES_NOMS = MESOS.map(([, n]) => n);
 
-const EXT_OK = ["xlsx", "xls"];
+const EXT_OK = ["xlsx", "xls", "csv"];
 const esExcel = (nom: string) => EXT_OK.includes(nom.split(".").pop()?.toLowerCase() ?? "");
 
 function deduirPeriodeLabel(nom: string): string {
@@ -69,8 +70,12 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
   const [tipusInforme, setTipusInforme] = useState<TipusInforme | "">("");
 
   const esFdlc = tipusInforme === "PYG_FDLC";
-  const esExerciciAnual = tipusInforme === "PYG_FDLC" || tipusInforme === "PYG_EXERCICI_LN";
+  const esExerciciAnual =
+    tipusInforme === "PYG_FDLC" ||
+    tipusInforme === "PYG_EXERCICI_LN" ||
+    tipusInforme === "PYG_EXERCICI_CENTRE";
   const esHistoricLn = tipusInforme === "PYG_EXERCICI_LN";
+  const esBalancEsdeveniments = tipusInforme === "PYG_EXERCICI_CENTRE";
   const fdlcLn = linies.find((l) => l.codi === FDLC_LN_CODI);
 
   const bulkMode = files.length > 1;
@@ -121,27 +126,30 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
     setIsPending(true);
 
     const form = formRef.current;
-    const fd = new FormData();
-    fd.append("file", files[0]);
+    const fields: Record<string, string> = {
+      mode: overrides?.mode ?? mode,
+      targetId: overrides?.targetId ?? targetId,
+      newName: overrides?.newName ?? newName,
+    };
     if (form) {
       const tipus = (form.elements.namedItem("formatInformeId") as HTMLSelectElement)?.value;
       const any = (form.elements.namedItem("any") as HTMLSelectElement)?.value;
       const mes = (form.elements.namedItem("mes") as HTMLSelectElement)?.value;
       const notes = (form.elements.namedItem("notes") as HTMLTextAreaElement)?.value;
-      if (tipus) fd.append("formatInformeId", tipus);
-      if (any) fd.append("any", any);
-      if (mes) fd.append("mes", mes);
-      if (notes) fd.append("notes", notes);
+      if (tipus) fields.formatInformeId = tipus;
+      if (any) fields.any = any;
+      if (mes) fields.mes = mes;
+      if (notes) fields.notes = notes;
     }
-    if (lnId) fd.append("liniaNegociId", lnId);
-    fd.append("mode", overrides?.mode ?? mode);
-    fd.append("targetId", overrides?.targetId ?? targetId);
-    fd.append("newName", overrides?.newName ?? newName);
+    if (lnId) fields.liniaNegociId = lnId;
 
     try {
-      const res = await fetch("/api/dades/upload", { method: "POST", body: fd });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as CreateImportState;
+      const posted = await postFitxerImport("/api/dades/upload", files[0], fields);
+      if (!posted.ok) {
+        setResult({ status: "error", message: posted.message });
+        return;
+      }
+      const data = posted.data as CreateImportState;
       setResult(data);
       setDismissed(false);
       if (data.status === "duplicate") {
@@ -211,29 +219,29 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
       const file = files[i];
       setBulkProgress({ current: i + 1, total: files.length, nom: file.name });
 
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("formatInformeId", tipus);
-      fd.append("politica", politica);
-      fd.append("autoConfirmar", autoConfirmar ? "true" : "false");
-      if (notes) fd.append("notes", notes);
+      const fields: Record<string, string> = {
+        formatInformeId: tipus,
+        politica,
+        autoConfirmar: autoConfirmar ? "true" : "false",
+      };
+      if (notes) fields.notes = notes;
       const parsed = classificacioDesDelNomFitxer(file.name);
-      if (!parsed?.codiLn && bulkLnFallback) fd.append("liniaNegociId", bulkLnFallback);
+      if (!parsed?.codiLn && bulkLnFallback) fields.liniaNegociId = bulkLnFallback;
 
       try {
-        const res = await fetch("/api/dades/upload-bulk-item", { method: "POST", body: fd });
-        if (!res.ok) {
+        const posted = await postFitxerImport("/api/dades/upload-bulk-item", file, fields);
+        if (!posted.ok) {
           resultats.push({
             nom: file.name,
             periode: deduirPeriodeLabel(file.name),
             ln: deduirLnLabel(file.name, linies),
             ok: false,
             confirmat: false,
-            missatge: `Error del servidor (${res.status}).`,
+            missatge: posted.message,
           });
           continue;
         }
-        resultats.push((await res.json()) as BulkFileResult);
+        resultats.push(posted.data as BulkFileResult);
       } catch {
         resultats.push({
           nom: file.name,
@@ -384,7 +392,7 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
             <div className={styles.dropPrompt}>
               <Upload size={28} strokeWidth={1.5} className={styles.uploadIcon} />
               <p className={styles.dropTitle}>Arrossega aquí o fes clic per seleccionar</p>
-              <p className={styles.dropHint}>Un o diversos fitxers · .xlsx, .xls</p>
+              <p className={styles.dropHint}>Un o diversos fitxers · .xlsx, .xls, .csv</p>
             </div>
           )}
         </label>
@@ -392,7 +400,7 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
           id="nova-importacio-fitxers"
           ref={pickerRef}
           type="file"
-          accept=".xlsx,.xls"
+          accept=".xlsx,.xls,.csv"
           multiple
           className="hidden"
           onChange={(e) => {
@@ -618,7 +626,13 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                   ))}
                 </select>
               </div>
-              {lnSelect("lnId", lnId, setLnId, isPending || esFdlc, !esFdlc)}
+              {lnSelect(
+                "lnId",
+                lnId,
+                setLnId,
+                isPending || esFdlc,
+                !esFdlc && !esBalancEsdeveniments
+              )}
               {esFdlc && (
                 <p className="col-span-full text-xs text-muted-foreground">
                   Puja l&apos;Excel amb les columnes mensuals (Gener, Febrer…). El sistema importa
@@ -631,6 +645,13 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                   Històric Cal Blay (Hoja1 des de la fila 49: Gener…Desembre). Un fitxer = un any
                   per LN. Vendes a cada LN; Central amb totals de compres/salaris/gestió. Es carrega
                   com a <strong>Directe</strong> (sense repartiment).
+                </p>
+              )}
+              {esBalancEsdeveniments && (
+                <p className="col-span-full text-xs text-muted-foreground">
+                  Balanç esdeveniments (A2 = centre, fila 49+ = C.Explotació). Cal el mapeig a
+                  Configuració → Balanç esdeveniments. Crea ajustos «Regularització» al centre
+                  mapejat (només detall; vendes/ingressos +, despeses −). Accepta .xlsx/.xls/.csv.
                 </p>
               )}
               {lnMismatch && (

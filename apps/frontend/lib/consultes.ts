@@ -44,7 +44,7 @@ import {
   vistaInclouTraspassos,
   vistaNomesAjustos,
 } from "@/lib/vista-compte";
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
@@ -187,12 +187,14 @@ export const getDarrerPeriodAmbDades = cache(
                 }
               : {};
 
-        const dada = await db.dadaResultat.findFirst({
-          where: filtreDades,
-          select: { period: { select: { any: true, mes: true } } },
-          orderBy: [{ period: { any: "desc" } }, { period: { mes: "desc" } }],
+        // Ordenar Period (desenes de files), no DadaResultat. Al consolidat el
+        // filtre és buit i un findFirst sobre les dades ordenava tota la taula.
+        const period = await db.period.findFirst({
+          where: { dadesResultat: { some: filtreDades } },
+          select: { any: true, mes: true },
+          orderBy: [{ any: "desc" }, { mes: "desc" }],
         });
-        return dada?.period ?? null;
+        return period;
       },
       consultesCacheKey("consultes-darrer-period", grup),
       { tags: [CONSULTES_CACHE_TAG], revalidate: 900 }
@@ -621,6 +623,80 @@ async function resolveLiniesGrup(grup: GrupEmpresa) {
   return { linies, lnIdsGrup: new Set(linies.map((l) => l.id)) };
 }
 
+type DadaEmpresaAgg = {
+  import_: unknown;
+  concepteResultatId: string;
+  liniaNegociId: string | null;
+  centreId: null;
+  senseCentre: false;
+  importacio: { liniaNegociId: null };
+  period: { any: number; mes: number };
+};
+
+/**
+ * Suma les dades del període a la BD (concepte × mes × LN de l'informe).
+ * El consolidat abans es descarregava fila a fila amb un OR enorme; aquí
+ * l'índex de període fa el filtre i només viatgen els totals.
+ */
+async function agregarDadesEmpresa(
+  periods: { id: string; any: number; mes: number }[],
+  lnIdsGrup: Set<string>
+): Promise<DadaEmpresaAgg[]> {
+  if (lnIdsGrup.size === 0 || periods.length === 0) return [];
+
+  const periodById = new Map(periods.map((p) => [p.id, p]));
+  const rows = await db.$queryRaw<
+    Array<{
+      periodId: string;
+      concepteResultatId: string;
+      lnId: string | null;
+      totalImport: unknown;
+    }>
+  >`
+    SELECT "periodId", "concepteResultatId", "lnId", "totalImport"
+    FROM (
+      SELECT
+        d."periodId" AS "periodId",
+        d."concepteResultatId" AS "concepteResultatId",
+        CASE
+          WHEN d."centreId" IS NOT NULL OR d."senseCentre" = TRUE
+            THEN COALESCE(i."liniaNegociId", d."liniaNegociId")
+          ELSE COALESCE(d."liniaNegociId", i."liniaNegociId")
+        END AS "lnId",
+        SUM(d."import") AS "totalImport"
+      FROM "DadaResultat" d
+      INNER JOIN "Importacio" i ON i."id" = d."importacioId"
+      WHERE d."periodId" IN (${Prisma.join(periods.map((p) => p.id))})
+        AND NOT (
+          d."centreId" IS NULL
+          AND d."senseCentre" = FALSE
+          AND d."liniaNegociId" IS NOT NULL
+          AND i."liniaNegociId" IS NOT NULL
+          AND d."liniaNegociId" = i."liniaNegociId"
+        )
+      GROUP BY 1, 2, 3
+    ) agg
+    WHERE agg."lnId" IN (${Prisma.join([...lnIdsGrup])})
+  `;
+
+  const out: DadaEmpresaAgg[] = [];
+  for (const row of rows) {
+    if (!row.lnId) continue;
+    const period = periodById.get(row.periodId);
+    if (!period) continue;
+    out.push({
+      import_: row.totalImport,
+      concepteResultatId: row.concepteResultatId,
+      liniaNegociId: row.lnId,
+      centreId: null,
+      senseCentre: false,
+      importacio: { liniaNegociId: null },
+      period: { any: period.any, mes: period.mes },
+    });
+  }
+  return out;
+}
+
 /**
  * Dades + ajustos d'empresa amb la mateixa atribució LN que getComparativaEmpresa
  * (`lnInformePerAgregacio` + filtre de grup Cal Blay / FDLC).
@@ -629,20 +705,12 @@ async function carregarDadesEmpresaUncached(
   periodFilter: Prisma.PeriodWhereInput,
   grup: GrupEmpresa
 ) {
-  const { linies, lnIdsGrup } = await resolveLiniesGrup(grup);
-  const lnIds = [...lnIdsGrup];
-
-  const [concepts, dadesAll, ajustosAll] = await Promise.all([
+  const [{ linies, lnIdsGrup }, concepts, periods, ajustosAll] = await Promise.all([
+    resolveLiniesGrup(grup),
     getConceptsActius(),
-    db.dadaResultat.findMany({
-      where: {
-        period: periodFilter,
-        ...prismaWhereDadaPerLnInformeIds(lnIds),
-      },
-      select: {
-        ...DADA_INFORME_SELECT,
-        period: { select: { any: true, mes: true } },
-      },
+    db.period.findMany({
+      where: periodFilter,
+      select: { id: true, any: true, mes: true },
     }),
     db.ajust.findMany({
       where: { period: periodFilter },
@@ -656,7 +724,8 @@ async function carregarDadesEmpresaUncached(
     }),
   ]);
 
-  // Amb N>1 LN el where SQL és candidat: encara cal excloure totals redundants.
+  const dadesAll = await agregarDadesEmpresa(periods, lnIdsGrup);
+
   const dades = dadesAll.filter((d) => {
     if (esColumnaTotalLnRedundant(d)) return false;
     const lnId = lnInformePerAgregacio(d);
@@ -679,7 +748,7 @@ async function carregarDadesEmpresaUncached(
 
 /**
  * Lectura d'any complet compartida (cache per petició): Empresa + Evolució
- * reutilitzen la mateixa scan de DadaResultat/Ajust.
+ * reutilitzen la mateixa agregació de DadaResultat/Ajust.
  */
 const carregarDadesEmpresaPerAny = cache(async (any: number, grup: GrupEmpresa) =>
   carregarDadesEmpresaUncached({ any }, grup)

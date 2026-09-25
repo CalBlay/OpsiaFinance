@@ -57,7 +57,7 @@ export const TIPUS_INFORME_LABELS: Record<TipusInforme, string> = {
   PYG_MENSUAL_CENTRES: "PyG Mensual per Centres",
   PYG_MENSUAL_LN: "PyG Mensual per LN",
   PYG_EXERCICI_LN: "PyG Històric LN (any)",
-  PYG_EXERCICI_CENTRE: "PyG Exercici Centre",
+  PYG_EXERCICI_CENTRE: "Balanç esdeveniments (ajustos)",
   PYG_CENTRES: "PyG per Centres",
   PYG_LN: "PyG per LN",
   PYG_FDLC: "PyG FDLC (empresa)",
