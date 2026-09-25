@@ -451,6 +451,12 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                   ))}
                 </select>
               </div>
+              {esBalancEsdeveniments && (
+                <p className="col-span-full text-xs text-muted-foreground">
+                  Massiu de balanços: cada fitxer (o cada pestanya dins d&apos;un Excel) → un centre
+                  via mapeig A2. Prepareu abans els mapeigs a Configuració → Balanç esdeveniments.
+                </p>
+              )}
               <div className={styles.field}>
                 <label htmlFor="politica" className={styles.label}>
                   Si ja existeix (mateix període + LN)
@@ -649,9 +655,14 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
               )}
               {esBalancEsdeveniments && (
                 <p className="col-span-full text-xs text-muted-foreground">
-                  Balanç esdeveniments (A2 = centre, fila 49+ = C.Explotació). Cal el mapeig a
-                  Configuració → Balanç esdeveniments. Crea ajustos «Regularització» al centre
-                  mapejat (només detall; vendes/ingressos +, despeses −). Accepta .xlsx/.xls/.csv.
+                  Balanç esdeveniments → ajustos «Regularització». Cal mapeig a Configuració →
+                  Balanç esdeveniments.
+                  <br />
+                  <strong>Un Excel amb diverses pestanyes:</strong> cada full (A2 = centre)
+                  s&apos;importa.
+                  <br />
+                  <strong>Un Excel per centre:</strong> selecioneu diversos fitxers (càrrega
+                  massiva). Accepta .xlsx / .xls / .csv.
                 </p>
               )}
               {lnMismatch && (

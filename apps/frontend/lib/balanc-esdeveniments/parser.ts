@@ -1,10 +1,11 @@
 /**
  * Parser del balanç d'esdeveniments (Excel/CSV).
  *
- * - A2 = nom del centre (text a mapear)
- * - A4 = FECHA dd/mm/yyyy AL … → any
+ * - Cada pestanya (full) = un centre (A2 = text a mapear; si buida, nom del full)
+ * - A4 = FECHA → any
  * - Bloc Descr_* / Gener…Desembre a partir de ~fila 49
  * - Només línies de detall → fets per mes
+ * - CSV = un sol «full»
  */
 
 import {
@@ -21,7 +22,9 @@ export interface EsdevenimentsFet {
   etiqueta: string;
 }
 
-export interface ParseBalancEsdevenimentsResult {
+/** Un bloc = un centre (normalment una pestanya). */
+export interface BalancEsdevenimentsBloc {
+  full: string;
   centreText: string | null;
   anyDetectat: number | null;
   titolBloc: string | null;
@@ -31,6 +34,15 @@ export interface ParseBalancEsdevenimentsResult {
   avisos: string[];
   etiquetesNoMapades: string[];
 }
+
+export interface ParseBalancEsdevenimentsMultiResult {
+  blocs: BalancEsdevenimentsBloc[];
+  errors: string[];
+  avisos: string[];
+}
+
+/** Compat: primer bloc vàlid (o agregat d'errors si no n'hi ha). */
+export type ParseBalancEsdevenimentsResult = BalancEsdevenimentsBloc;
 
 const MES_HEADER: Record<string, number> = {
   enero: 1,
@@ -147,74 +159,45 @@ function cellText(matrix: (string | number | null)[][], row: number, col: number
   return s === "" ? null : s;
 }
 
-function readMatrix(source: ExcelSource): {
-  matrix: (string | number | null)[][];
-  avisos: string[];
-  error?: string;
-} {
-  const avisos: string[] = [];
-  let workbook: XLSX.WorkBook;
-  try {
-    workbook = readWorkbook(source);
-  } catch (err) {
-    return { matrix: [], avisos, error: `No s'ha pogut llegir el fitxer: ${err}` };
-  }
-
-  const sheetName = workbook.SheetNames[0];
-  if (!sheetName) return { matrix: [], avisos, error: "El fitxer no té cap full." };
-
-  if (workbook.SheetNames.length > 1) {
-    avisos.push(`Només s'ha llegit «${sheetName}» (primer full); la resta s'ignora.`);
-  }
-
-  const sheet = workbook.Sheets[sheetName];
-  const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
+function sheetToMatrix(sheet: XLSX.WorkSheet): (string | number | null)[][] {
+  return XLSX.utils.sheet_to_json<(string | number | null)[]>(sheet, {
     header: 1,
     defval: null,
     raw: false,
   });
-  return { matrix, avisos };
 }
 
-export function parseBalancEsdeveniments(
-  source: ExcelSource,
-  anyFallback: number | null = null
-): ParseBalancEsdevenimentsResult {
+function parseMatrixBloc(
+  matrix: (string | number | null)[][],
+  full: string,
+  anyFallback: number | null
+): BalancEsdevenimentsBloc {
   const errors: string[] = [];
   const avisos: string[] = [];
   const etiquetesNoMapades: string[] = [];
   const fets: EsdevenimentsFet[] = [];
   const mesosAmbDades = new Set<number>();
 
-  const { matrix, avisos: avisosWb, error } = readMatrix(source);
-  avisos.push(...avisosWb);
-  if (error) {
-    return {
-      centreText: null,
-      anyDetectat: null,
-      titolBloc: null,
-      fets: [],
-      mesosDetectats: [],
-      errors: [error],
-      avisos,
-      etiquetesNoMapades: [],
-    };
+  const centreA2 = cellText(matrix, 1, 0);
+  const centreText = centreA2 ?? (full.trim() || null);
+  if (!centreA2 && centreText) {
+    avisos.push(`Full «${full}»: A2 buit; s'usa el nom de la pestanya com a centre.`);
   }
 
-  const centreText = cellText(matrix, 1, 0);
   const fechaText = cellText(matrix, 3, 0) ?? "";
   const anyDesFecha = anyDesDeFecha(fechaText);
 
   const cap = triarCapcalera(detectarCapcaleres(matrix));
   if (!cap) {
     return {
+      full,
       centreText,
       anyDetectat: anyDesFecha ?? anyFallback,
       titolBloc: null,
       fets: [],
       mesosDetectats: [],
       errors: [
-        "No s'ha trobat la capçalera mensual (Gener…Desembre). Cal el bloc a partir de la fila 49.",
+        `Full «${full}»: no s'ha trobat la capçalera mensual (Gener…Desembre). Cal el bloc a partir de la fila 49.`,
       ],
       avisos,
       etiquetesNoMapades: [],
@@ -223,7 +206,7 @@ export function parseBalancEsdeveniments(
 
   if (cap.rowIdx < 48) {
     avisos.push(
-      `Capçalera detectada a la fila ${cap.rowIdx + 1} (s'esperava ≥ 49). S'ha usat aquest bloc.`
+      `Full «${full}»: capçalera a la fila ${cap.rowIdx + 1} (s'esperava ≥ 49). S'ha usat aquest bloc.`
     );
   }
 
@@ -267,13 +250,14 @@ export function parseBalancEsdeveniments(
   }
 
   if (!centreText) {
-    errors.push("No s'ha trobat el nom del centre a la fila 2 (columna A).");
+    errors.push(`Full «${full}»: falta el nom del centre (A2 o nom de pestanya).`);
   }
   if (fets.length === 0) {
-    errors.push("No s'han trobat imports de detall al bloc del C.Explotació.");
+    errors.push(`Full «${full}»: no s'han trobat imports de detall al C.Explotació.`);
   }
 
   return {
+    full,
     centreText,
     anyDetectat,
     titolBloc,
@@ -282,5 +266,96 @@ export function parseBalancEsdeveniments(
     errors,
     avisos,
     etiquetesNoMapades,
+  };
+}
+
+/** Llegeix totes les pestanyes; omet fulls sense capçalera mensual (buits / residuals). */
+export function parseBalancEsdevenimentsTots(
+  source: ExcelSource,
+  anyFallback: number | null = null
+): ParseBalancEsdevenimentsMultiResult {
+  const errors: string[] = [];
+  const avisos: string[] = [];
+  const blocs: BalancEsdevenimentsBloc[] = [];
+
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = readWorkbook(source);
+  } catch (err) {
+    return {
+      blocs: [],
+      errors: [`No s'ha pogut llegir el fitxer: ${err}`],
+      avisos: [],
+    };
+  }
+
+  if (workbook.SheetNames.length === 0) {
+    return { blocs: [], errors: ["El fitxer no té cap full."], avisos: [] };
+  }
+
+  if (workbook.SheetNames.length > 1) {
+    avisos.push(
+      `S'han revisat ${workbook.SheetNames.length} pestanyes (cada una pot ser un centre).`
+    );
+  }
+
+  for (const sheetName of workbook.SheetNames) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) continue;
+    const matrix = sheetToMatrix(sheet);
+    if (matrix.length < 5) {
+      avisos.push(`Full «${sheetName}» omès (massa curt).`);
+      continue;
+    }
+
+    const caps = detectarCapcaleres(matrix);
+    if (caps.length === 0) {
+      avisos.push(`Full «${sheetName}» omès (sense capçalera Gener…Desembre).`);
+      continue;
+    }
+
+    const bloc = parseMatrixBloc(matrix, sheetName, anyFallback);
+    // Només incloem blocs amb dades o amb centre resoluble + error útil
+    if (bloc.fets.length > 0 || bloc.centreText) {
+      blocs.push(bloc);
+    } else {
+      avisos.push(`Full «${sheetName}» omès (sense dades ni centre).`);
+    }
+  }
+
+  if (blocs.length === 0) {
+    errors.push(
+      "No s'ha trobat cap pestanya amb balanç vàlid (cal capçalera Gener…Desembre i dades de detall)."
+    );
+  }
+
+  return { blocs, errors, avisos };
+}
+
+/** Compat: retorna el primer bloc amb fets, o el primer, o un bloc d'error. */
+export function parseBalancEsdeveniments(
+  source: ExcelSource,
+  anyFallback: number | null = null
+): ParseBalancEsdevenimentsResult {
+  const multi = parseBalancEsdevenimentsTots(source, anyFallback);
+  const ambDades = multi.blocs.find((b) => b.fets.length > 0);
+  const primer = ambDades ?? multi.blocs[0];
+  if (primer) {
+    return {
+      ...primer,
+      avisos: [...multi.avisos, ...primer.avisos],
+      errors: [...(primer.fets.length ? [] : multi.errors), ...primer.errors],
+    };
+  }
+  return {
+    full: "",
+    centreText: null,
+    anyDetectat: anyFallback,
+    titolBloc: null,
+    fets: [],
+    mesosDetectats: [],
+    errors: multi.errors.length ? multi.errors : ["No s'han trobat dades."],
+    avisos: multi.avisos,
+    etiquetesNoMapades: [],
   };
 }

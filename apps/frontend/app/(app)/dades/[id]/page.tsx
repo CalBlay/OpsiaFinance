@@ -1,19 +1,26 @@
 import { DadesPageShell } from "@/components/dades/DadesPageShell";
 import { EstatImportBadge } from "@/components/ui/Badge";
 import { auth } from "@/lib/auth";
+import { MOTIU_REGULARITZACIO } from "@/lib/balanc-esdeveniments/nodes";
 import { esSubtotalPresentacio, recalcularSubtotalsDetallImport } from "@/lib/compte-subtotals";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { db } from "@/lib/db";
 import { codiLnDelNomFitxer } from "@/lib/nom-fitxer";
+import { MESOS_PER_NUM } from "@/lib/periodes";
 import { esSuperOAdmin } from "@/lib/roles";
 import { formatDateShort } from "@/lib/utils";
 import type { EstatImport } from "@/types";
 import { Calendar, FileText, Tag, User } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { type DadaRow, DadesEditables } from "./DadesEditables";
 import { ImportActions, ProcessarExcelButton } from "./ImportActions";
 import { LiniaNegociEditor } from "./LiniaNegociEditor";
 import styles from "./page.module.css";
+
+function formatImportCa(n: number): string {
+  return n.toLocaleString("ca-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -32,8 +39,8 @@ export default async function ImportDetailPage({
     db.importacio.findUnique({
       where: { id },
       include: {
-        formatInforme: { select: { nom: true } },
-        period: { select: { nom: true } },
+        formatInforme: { select: { nom: true, tipusInforme: true } },
+        period: { select: { nom: true, any: true } },
         liniaNegoci: { select: { id: true, codi: true, nom: true } },
         creatPerUser: { select: { name: true } },
         _count: { select: { dades: true } },
@@ -61,6 +68,40 @@ export default async function ImportDetailPage({
   ]);
 
   if (!imp) notFound();
+
+  const esBalancEsdeveniments = imp.formatInforme?.tipusInforme === "PYG_EXERCICI_CENTRE";
+  const centreCodisNotes = [
+    ...new Set(
+      [...(imp.notes?.matchAll(/Centre\s+([A-Z]{2,3}\d+)/gi) ?? [])]
+        .map((m) => m[1]?.toUpperCase())
+        .filter((c): c is string => Boolean(c))
+    ),
+  ];
+  const anyAjustos = imp.period?.any ?? null;
+
+  const ajustosRegularitzacio =
+    esBalancEsdeveniments && centreCodisNotes.length > 0 && anyAjustos
+      ? await db.ajust.findMany({
+          where: {
+            motiu: MOTIU_REGULARITZACIO,
+            centre: { codi: { in: centreCodisNotes } },
+            period: { any: anyAjustos },
+          },
+          orderBy: [
+            { centre: { codi: "asc" } },
+            { period: { mes: "asc" } },
+            { concepteResultat: { ordre: "asc" } },
+          ],
+          select: {
+            id: true,
+            import_: true,
+            motiu: true,
+            period: { select: { mes: true, any: true, nom: true } },
+            concepteResultat: { select: { descripcio: true, node: true } },
+            centre: { select: { codi: true, nom: true } },
+          },
+        })
+      : [];
 
   const linies = arbre.map((ln) => ({ id: ln.id, codi: ln.codi, nom: ln.nom }));
 
@@ -129,6 +170,7 @@ export default async function ImportDetailPage({
             importId={imp.id}
             estat={imp.estat as EstatImport}
             rutaStorage={imp.rutaStorage}
+            esBalancEsdeveniments={esBalancEsdeveniments}
           />
         ) : undefined
       }
@@ -195,14 +237,69 @@ export default async function ImportDetailPage({
         )}
       </div>
 
-      {/* ─── Dades processades ────────────────────────────────── */}
+      {/* ─── Dades processades / Ajustos Regularització ───────── */}
       <div className={styles.rowsSection}>
         <h2 className={styles.sectionTitle}>
-          Dades processades
-          {imp._count.dades > 0 && <span className={styles.rowCount}>{imp._count.dades}</span>}
+          {esBalancEsdeveniments ? "Ajustos Regularització" : "Dades processades"}
+          {esBalancEsdeveniments
+            ? ajustosRegularitzacio.length > 0 && (
+                <span className={styles.rowCount}>{ajustosRegularitzacio.length}</span>
+              )
+            : imp._count.dades > 0 && <span className={styles.rowCount}>{imp._count.dades}</span>}
         </h2>
 
-        {imp.dades.length === 0 ? (
+        {esBalancEsdeveniments ? (
+          ajustosRegularitzacio.length === 0 ? (
+            <div className={styles.noRows}>
+              <p>
+                Encara no hi ha ajustos Regularització per aquest centre/exercici. Clica «Processar
+                Excel» (o Actualitzar) per generar-los a partir del balanç.
+              </p>
+              {isEditor ? (
+                <div style={{ marginTop: "1rem" }}>
+                  {imp.rutaStorage ? (
+                    <ProcessarExcelButton importId={imp.id} />
+                  ) : (
+                    <p className={styles.noData}>
+                      El fitxer no és al servidor. Torna a pujar-lo des d&apos;Importacions.
+                    </p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <>
+              <p className={styles.editHint}>
+                Aquests ajustos <strong>ja són al model</strong> (motiu «{MOTIU_REGULARITZACIO}»).
+                «Confirmar importació» només marca la importació com a confirmada; no torna a
+                crear-los. Pots revisar-los també a{" "}
+                <Link href="/dades/ajustos">Dades → Ajustos</Link>.
+              </p>
+              <table className={styles.table}>
+                <thead>
+                  <tr>
+                    <th>Mes</th>
+                    <th>Concepte</th>
+                    <th>Centre</th>
+                    <th style={{ textAlign: "right" }}>Import</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ajustosRegularitzacio.map((a) => (
+                    <tr key={a.id}>
+                      <td>{MESOS_PER_NUM[a.period.mes] ?? a.period.nom}</td>
+                      <td>{a.concepteResultat.descripcio}</td>
+                      <td>{a.centre ? `${a.centre.codi} · ${a.centre.nom}` : "—"}</td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
+                        {formatImportCa(Number(a.import_))} €
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )
+        ) : imp.dades.length === 0 ? (
           <div className={styles.noRows}>
             <p>
               Encara no hi ha dades processades. Clica «Processar Excel» per llegir el compte de

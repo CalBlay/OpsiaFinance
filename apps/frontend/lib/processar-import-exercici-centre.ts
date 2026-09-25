@@ -1,6 +1,6 @@
 import { resolCentreBalancEsdeveniments } from "@/lib/balanc-esdeveniments/mapeig";
 import { MOTIU_REGULARITZACIO } from "@/lib/balanc-esdeveniments/nodes";
-import { parseBalancEsdeveniments } from "@/lib/balanc-esdeveniments/parser";
+import { parseBalancEsdevenimentsTots } from "@/lib/balanc-esdeveniments/parser";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { ensureConceptesCompteBase } from "@/lib/fdlc/conceptes-base";
@@ -30,8 +30,8 @@ async function upsertPeriode(any: number, mes: number): Promise<string> {
 }
 
 /**
- * Importa un balanç d'esdeveniments com a ajustos «Regularització» al centre mapejat.
- * No escriu DadaResultat; només capa Ajustos.
+ * Importa un balanç d'esdeveniments (totes les pestanyes = centres) com a ajustos
+ * «Regularització». No escriu DadaResultat.
  */
 export async function processarImportExerciciCentre(
   imp: ImportWithRelations,
@@ -42,113 +42,149 @@ export async function processarImportExerciciCentre(
 
   await ensureConceptesCompteBase();
 
-  const parsed = parseBalancEsdeveniments(fitxer, anyFallback);
-  const {
-    centreText,
-    anyDetectat,
-    titolBloc,
-    fets,
-    mesosDetectats,
-    errors,
-    avisos,
-    etiquetesNoMapades,
-  } = parsed;
-
-  const any = anyDetectat ?? anyFallback;
-  if (!any) {
+  const multi = parseBalancEsdevenimentsTots(fitxer, anyFallback);
+  if (multi.blocs.length === 0) {
     return {
       ok: false,
-      missatge: "Cal indicar l'exercici (any) abans de processar el balanç d'esdeveniments.",
+      missatge: [...multi.errors, ...multi.avisos].join(" ") || "No s'han trobat dades.",
     };
   }
 
-  if (!centreText) {
-    return {
-      ok: false,
-      missatge: errors.join(" ") || "Falta el nom del centre a la fila 2.",
-    };
-  }
+  const resums: string[] = [];
+  const errorsGlobals: string[] = [];
+  const avisosGlobals = [...multi.avisos];
+  let totalAjustos = 0;
+  let centresOk = 0;
+  const centreCodis: string[] = [];
+  let refPeriodId: string | null = null;
+  let liniaNegociIdFinal: string | null = imp.liniaNegociId;
+  let anyUsat: number | null = anyFallback;
 
-  const desti = await resolCentreBalancEsdeveniments(centreText);
-  if (!desti) {
-    return {
-      ok: false,
-      missatge: `No hi ha mapeig per «${centreText}». Afegeix-lo a Configuració → Balanç esdeveniments.`,
-    };
-  }
+  const periodIdByMesGlobal = new Map<number, string>();
 
-  if (fets.length === 0) {
-    return { ok: false, missatge: errors.join(" ") || "No s'han trobat dades de detall." };
-  }
+  for (const bloc of multi.blocs) {
+    const any = bloc.anyDetectat ?? anyFallback;
+    if (!any) {
+      errorsGlobals.push(`Full «${bloc.full}»: falta l'exercici (any).`);
+      continue;
+    }
+    anyUsat = any;
 
-  const nodes = [...new Set(fets.map((f) => f.node))];
-  const conceptes = await db.concepteResultat.findMany({
-    where: { node: { in: nodes } },
-    select: { id: true, node: true },
-  });
-  const concepteIdByNode = new Map(conceptes.map((c) => [c.node, c.id]));
-  const nodesFaltants = nodes.filter((n) => !concepteIdByNode.has(n));
-  if (nodesFaltants.length > 0) {
-    return {
-      ok: false,
-      missatge: `Falten conceptes al compte de resultats: nodes ${nodesFaltants.join(", ")}.`,
-    };
-  }
+    if (!bloc.centreText) {
+      errorsGlobals.push(...bloc.errors);
+      continue;
+    }
 
-  const periodIdByMes = new Map<number, string>();
-  await Promise.all(
-    mesosDetectats.map(async (mes) => {
-      periodIdByMes.set(mes, await upsertPeriode(any, mes));
-    })
-  );
-  const periodIds = [...periodIdByMes.values()];
+    const desti = await resolCentreBalancEsdeveniments(bloc.centreText);
+    if (!desti) {
+      errorsGlobals.push(
+        `Full «${bloc.full}»: no hi ha mapeig per «${bloc.centreText}». Afegeix-lo a Configuració → Balanç esdeveniments.`
+      );
+      continue;
+    }
 
-  await db.ajust.deleteMany({
-    where: {
-      centreId: desti.centreId,
-      liniaNegociId: null,
-      periodId: { in: periodIds },
-      motiu: MOTIU_REGULARITZACIO,
-    },
-  });
+    if (bloc.fets.length === 0) {
+      errorsGlobals.push(...bloc.errors);
+      avisosGlobals.push(...bloc.avisos);
+      continue;
+    }
 
-  const rows = fets
-    .map((f) => {
-      const concepteResultatId = concepteIdByNode.get(f.node);
-      const periodId = periodIdByMes.get(f.mes);
-      if (!concepteResultatId || !periodId) return null;
-      return {
-        periodId,
-        concepteResultatId,
+    const nodes = [...new Set(bloc.fets.map((f) => f.node))];
+    const conceptes = await db.concepteResultat.findMany({
+      where: { node: { in: nodes } },
+      select: { id: true, node: true },
+    });
+    const concepteIdByNode = new Map(conceptes.map((c) => [c.node, c.id]));
+    const nodesFaltants = nodes.filter((n) => !concepteIdByNode.has(n));
+    if (nodesFaltants.length > 0) {
+      errorsGlobals.push(
+        `Full «${bloc.full}»: falten conceptes (nodes ${nodesFaltants.join(", ")}).`
+      );
+      continue;
+    }
+
+    for (const mes of bloc.mesosDetectats) {
+      if (!periodIdByMesGlobal.has(mes)) {
+        periodIdByMesGlobal.set(mes, await upsertPeriode(any, mes));
+      }
+    }
+    const periodIds = bloc.mesosDetectats
+      .map((m) => periodIdByMesGlobal.get(m))
+      .filter((id): id is string => Boolean(id));
+
+    await db.ajust.deleteMany({
+      where: {
         centreId: desti.centreId,
-        liniaNegociId: null as string | null,
-        import_: f.valor,
+        liniaNegociId: null,
+        periodId: { in: periodIds },
         motiu: MOTIU_REGULARITZACIO,
-        creatPer: imp.creatPer,
-      };
-    })
-    .filter((r): r is NonNullable<typeof r> => r !== null);
+      },
+    });
 
-  const BATCH = 500;
-  for (let i = 0; i < rows.length; i += BATCH) {
-    await db.ajust.createMany({ data: rows.slice(i, i + BATCH) });
+    const rows = bloc.fets
+      .map((f) => {
+        const concepteResultatId = concepteIdByNode.get(f.node);
+        const periodId = periodIdByMesGlobal.get(f.mes);
+        if (!concepteResultatId || !periodId) return null;
+        return {
+          periodId,
+          concepteResultatId,
+          centreId: desti.centreId,
+          liniaNegociId: null as string | null,
+          import_: f.valor,
+          motiu: MOTIU_REGULARITZACIO,
+          creatPer: imp.creatPer,
+        };
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+
+    const BATCH = 500;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      await db.ajust.createMany({ data: rows.slice(i, i + BATCH) });
+    }
+
+    totalAjustos += rows.length;
+    centresOk += 1;
+    centreCodis.push(desti.centreCodi);
+    liniaNegociIdFinal = desti.liniaNegociId;
+    if (!refPeriodId && periodIds[0]) refPeriodId = periodIds[0];
+
+    avisosGlobals.push(...bloc.avisos);
+    if (bloc.etiquetesNoMapades.length > 0) {
+      const mostra = bloc.etiquetesNoMapades.slice(0, 3).join("; ");
+      avisosGlobals.push(`Full «${bloc.full}»: etiquetes ignorades (${mostra}…).`);
+    }
+
+    const mesosLabel = bloc.mesosDetectats.map((m) => MESOS_NOMS[m]).join(", ");
+    resums.push(
+      `${desti.centreCodi} · ${desti.centreNom}: ${rows.length} ajustos (${mesosLabel || "—"})`
+    );
   }
 
-  const primerMes = mesosDetectats[0];
-  const refPeriodId =
-    (primerMes !== undefined ? periodIdByMes.get(primerMes) : null) ?? periodIds[0] ?? null;
+  if (centresOk === 0) {
+    return {
+      ok: false,
+      missatge:
+        errorsGlobals.join(" ") ||
+        multi.errors.join(" ") ||
+        "No s'ha pogut importar cap centre (revisa mapeigs i pestanyes).",
+    };
+  }
+
+  const notesCentres = centreCodis.map((c) => `Centre ${c}`).join(" · ");
 
   await db.importacio.update({
     where: { id: imp.id },
     data: {
       estat: "CLASSIFICAT",
       periodId: refPeriodId,
-      liniaNegociId: desti.liniaNegociId,
+      liniaNegociId: liniaNegociIdFinal,
       notes: [
         imp.nomFitxer,
-        `Centre ${desti.centreCodi} · ${desti.centreNom} (mapeig «${desti.textMapeig}»)`,
-        titolBloc ? `bloc ${titolBloc}` : null,
-        `${rows.length} ajustos Regularització`,
+        notesCentres,
+        `${centresOk} centre(s)`,
+        `${totalAjustos} ajustos Regularització`,
+        anyUsat ? `exercici ${anyUsat}` : null,
       ]
         .filter(Boolean)
         .join(" · "),
@@ -166,17 +202,16 @@ export async function processarImportExerciciCentre(
   revalidatePath("/consultes/comparativa");
 
   let avis = "";
-  if (etiquetesNoMapades.length > 0) {
-    const mostra = etiquetesNoMapades.slice(0, 5).join("; ");
-    const extra = etiquetesNoMapades.length > 5 ? ` (+${etiquetesNoMapades.length - 5} més)` : "";
-    avis += ` Etiquetes ignorades: ${mostra}${extra}.`;
+  if (errorsGlobals.length > 0) {
+    avis += ` Amb avisos: ${errorsGlobals.slice(0, 3).join(" | ")}`;
+    if (errorsGlobals.length > 3) avis += ` (+${errorsGlobals.length - 3})`;
   }
-  if (avisos.length > 0) avis += ` ${avisos.join(" ")}`;
-
-  const mesosLabel = mesosDetectats.map((m) => MESOS_NOMS[m]).join(", ");
+  if (avisosGlobals.length > 0) {
+    avis += ` ${avisosGlobals.slice(0, 2).join(" ")}`;
+  }
 
   return {
     ok: true,
-    missatge: `${mesosDetectats.length} mesos (${mesosLabel}) · ${rows.length} ajustos Regularització · ${desti.centreCodi} · ${desti.centreNom} · exercici ${any}.${avis}`,
+    missatge: `${centresOk} centre(s) · ${totalAjustos} ajustos Regularització · ${resums.join(" · ")}.${avis}`,
   };
 }
