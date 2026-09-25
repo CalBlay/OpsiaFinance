@@ -186,7 +186,7 @@ async function trobarImportDuplicada(
     select: {
       id: true,
       nomFitxer: true,
-      period: { select: { nom: true } },
+      period: { select: { nom: true, any: true } },
       liniaNegoci: { select: { codi: true, nom: true } },
     },
   });
