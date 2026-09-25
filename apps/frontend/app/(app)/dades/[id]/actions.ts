@@ -1,5 +1,6 @@
 "use server";
 
+import { MOTIU_REGULARITZACIO } from "@/lib/balanc-esdeveniments/nodes";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { esborrarFitxerDisc } from "@/lib/import-file-storage";
@@ -37,6 +38,17 @@ export async function updateDadaResultatImportAction(
   return { ok: true, missatge: "Valor actualitzat." };
 }
 
+function centreCodisDesDeNotes(notes: string | null | undefined): string[] {
+  if (!notes) return [];
+  return [
+    ...new Set(
+      [...notes.matchAll(/Centre\s+([A-Z]{2,3}\d+)/gi)]
+        .map((m) => m[1]?.toUpperCase())
+        .filter((c): c is string => Boolean(c))
+    ),
+  ];
+}
+
 export async function eliminarImportAction(
   importId: string,
   options: { redirect: boolean } = { redirect: true }
@@ -46,10 +58,29 @@ export async function eliminarImportAction(
 
   const imp = await db.importacio.findUnique({
     where: { id: importId },
-    select: { rutaStorage: true },
+    select: {
+      rutaStorage: true,
+      notes: true,
+      period: { select: { any: true } },
+      formatInforme: { select: { tipusInforme: true } },
+    },
   });
 
   if (!imp) return;
+
+  // Balanç esdeveniments: els ajustos no penjen de la importació → cal esborrar-los explícitament
+  if (imp.formatInforme?.tipusInforme === "PYG_EXERCICI_CENTRE" && imp.period?.any) {
+    const codis = centreCodisDesDeNotes(imp.notes);
+    if (codis.length > 0) {
+      await db.ajust.deleteMany({
+        where: {
+          motiu: MOTIU_REGULARITZACIO,
+          centre: { codi: { in: codis } },
+          period: { any: imp.period.any },
+        },
+      });
+    }
+  }
 
   if (imp.rutaStorage) {
     await esborrarFitxerDisc(imp.rutaStorage);
@@ -58,6 +89,7 @@ export async function eliminarImportAction(
   await db.importacio.delete({ where: { id: importId } });
 
   revalidatePath("/dades");
+  revalidatePath("/dades/ajustos");
   revalidateConsultesDades();
   if (options.redirect) redirect("/dades");
 }

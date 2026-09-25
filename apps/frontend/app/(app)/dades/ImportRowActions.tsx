@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Trash } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { eliminarImportAction } from "./[id]/actions";
@@ -42,11 +42,11 @@ export function ImportRowActions({ importId }: { importId: string }) {
           "h-8 w-8 rounded-md flex items-center justify-center",
           "transition-colors disabled:opacity-50",
           confirm
-            ? "bg-red-100 text-red-700 hover:bg-red-200"
-            : "text-muted-foreground hover:text-red-600 hover:bg-red-50"
+            ? "bg-red-100 text-[var(--opsia-ui-danger)] hover:bg-red-200"
+            : "text-muted-foreground hover:text-[var(--opsia-ui-danger)] hover:bg-red-50"
         )}
       >
-        <Trash size={15} />
+        <Trash2 size={15} strokeWidth={1.75} />
       </button>
     </div>
   );

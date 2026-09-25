@@ -13,6 +13,8 @@ interface ImportActionsProps {
   importId: string;
   estat: EstatImport;
   rutaStorage: string | null;
+  /** Balanç esdeveniments: eliminar també treu ajustos Regularització. */
+  esBalancEsdeveniments?: boolean;
 }
 
 export function ProcessarExcelButton({
@@ -47,7 +49,12 @@ export function ProcessarExcelButton({
   );
 }
 
-export function ImportActions({ importId, estat, rutaStorage }: ImportActionsProps) {
+export function ImportActions({
+  importId,
+  estat,
+  rutaStorage,
+  esBalancEsdeveniments = false,
+}: ImportActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -64,8 +71,9 @@ export function ImportActions({ importId, estat, rutaStorage }: ImportActionsPro
   }
 
   function handleActualitzar() {
-    const msg =
-      estat === "CONFIRMAT"
+    const msg = esBalancEsdeveniments
+      ? "Actualitzar tornarà a llegir el balanç i substituirà els ajustos Regularització d'aquests centres/mesos. Vols continuar?"
+      : estat === "CONFIRMAT"
         ? "Aquesta importació està confirmada. Actualitzar tornarà a llegir l'Excel i sobreescriurà totes les dades processades (incloses correccions manuals d'import). L'estat passarà a Classificat. Vols continuar?"
         : "Actualitzar tornarà a llegir l'Excel i sobreescriurà les dades processades (incloses correccions manuals d'import). Vols continuar?";
     if (!confirm(msg)) return;
@@ -90,6 +98,15 @@ export function ImportActions({ importId, estat, rutaStorage }: ImportActionsPro
     if (!confirmDelete) {
       setConfirmDelete(true);
       return;
+    }
+    if (esBalancEsdeveniments) {
+      const ok = confirm(
+        "S'eliminarà la importació i també els ajustos Regularització dels centres d'aquest fitxer (exercici). Continuar?"
+      );
+      if (!ok) {
+        setConfirmDelete(false);
+        return;
+      }
     }
     startTransition(() => {
       eliminarImportAction(importId);

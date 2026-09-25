@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { Trash } from "lucide-react";
+import { Trash2 } from "lucide-react";
 
 interface FloatingDeleteButtonProps {
   onClick: () => void;
@@ -9,6 +9,7 @@ interface FloatingDeleteButtonProps {
   label?: string;
 }
 
+/** FAB d'eliminació — icona Trash2 (estàndard Dades) i color corporatiu danger. */
 export function FloatingDeleteButton({
   onClick,
   className,
@@ -22,14 +23,14 @@ export function FloatingDeleteButton({
       className={cn(
         "fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-28",
         "h-14 w-14 rounded-full",
-        "bg-red-600 text-white",
+        "bg-[var(--opsia-ui-danger)] text-white",
         "shadow-xl flex items-center justify-center",
-        "hover:bg-red-700 active:scale-95",
+        "hover:brightness-95 active:scale-95",
         "transition-all duration-150 cursor-pointer z-50",
         className
       )}
     >
-      <Trash className="h-6 w-6" />
+      <Trash2 className="h-6 w-6" strokeWidth={1.75} />
     </button>
   );
 }
