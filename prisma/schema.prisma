@@ -67,13 +67,14 @@ model Centre {
   dadesResultat           DadaResultat[]
   departaments            Departament[]
   rows                    ImportRow[]
-  mapeigsCostPersonal     MapeigCodiCostPersonal[]
-  mapeigsTextCentre       MapeigTextCentreTreball[]
-  movimentsTraspassDesti  MovimentTraspassPersonal[] @relation("TraspassDesti")
-  movimentsTraspassOrigen MovimentTraspassPersonal[] @relation("TraspassOrigen")
-  pressupostCelsCentre    PressupostCelCentre[]
-  vendesArticles          VendaArticleRestaurant[]
-  vendesDiaries           VendaDiariaRestaurant[]
+  mapeigsCostPersonal          MapeigCodiCostPersonal[]
+  mapeigsTextCentre            MapeigTextCentreTreball[]
+  mapeigsBalancEsdeveniments   MapeigCentreBalancEsdeveniments[]
+  movimentsTraspassDesti       MovimentTraspassPersonal[] @relation("TraspassDesti")
+  movimentsTraspassOrigen      MovimentTraspassPersonal[] @relation("TraspassOrigen")
+  pressupostCelsCentre         PressupostCelCentre[]
+  vendesArticles               VendaArticleRestaurant[]
+  vendesDiaries                VendaDiariaRestaurant[]
 
   @@unique([liniaNegociId, codi])
   @@index([liniaNegociId])
@@ -612,6 +613,21 @@ model ConfigTraspassPersonal {
   id         String   @id @default("default")
   tarifaHora Decimal  @default(18) @db.Decimal(18, 2)
   updatedAt  DateTime @updatedAt
+}
+
+/// Mapeig text A2 del balanç d'esdeveniments (ex. ESPAIS) → centre Opsia.
+model MapeigCentreBalancEsdeveniments {
+  id        String   @id @default(cuid())
+  /// Text exacte (normalitzat al resoldre) de la cel·la A2 del fitxer.
+  text      String   @unique
+  centreId  String
+  ordre     Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  centre    Centre   @relation(fields: [centreId], references: [id], onDelete: Cascade)
+
+  @@index([centreId])
 }
 
 /// Mapeig text (Organizaciones o Proyecto) → centre de cost + departament de l'arbre.

@@ -4,6 +4,7 @@ import { parseCompteResultats, periodeDesDelNomFitxer } from "@/lib/excel-parser
 import { carregarFitxerImportacio } from "@/lib/import-file-storage";
 import { resolveLiniaNegociImport } from "@/lib/linia-informe";
 import { codiLnDelNomFitxer } from "@/lib/nom-fitxer";
+import { processarImportExerciciCentre } from "@/lib/processar-import-exercici-centre";
 import { processarImportExerciciLn } from "@/lib/processar-import-exercici-ln";
 import { processarImportFdlc } from "@/lib/processar-import-fdlc";
 import { revalidatePath } from "next/cache";
@@ -37,6 +38,9 @@ export async function processarImportExcel(
   }
   if (imp.formatInforme?.tipusInforme === "PYG_EXERCICI_LN") {
     return processarImportExerciciLn(imp, fitxer);
+  }
+  if (imp.formatInforme?.tipusInforme === "PYG_EXERCICI_CENTRE") {
+    return processarImportExerciciCentre(imp, fitxer);
   }
 
   let periodId = imp.periodId;

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import {
   ArrowLeftRight,
   BookOpen,
+  CalendarRange,
   GitBranch,
   Layers,
   ListTree,
@@ -59,6 +60,13 @@ const SETTINGS_TABS = [
     icon: UserCog,
     exact: false,
     sub: "cost-personal-centre",
+  },
+  {
+    href: "/settings/balanc-esdeveniments",
+    label: "Balanç esdeveniments",
+    icon: CalendarRange,
+    exact: false,
+    sub: "balanc-esdeveniments",
   },
   {
     href: "/settings/consolidacio",

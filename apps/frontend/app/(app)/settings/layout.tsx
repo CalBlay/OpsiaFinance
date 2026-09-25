@@ -22,6 +22,7 @@ export default async function SettingsLayout({ children }: { children: ReactNode
     "repartiment",
     "traspass-personal",
     "cost-personal-centre",
+    "balanc-esdeveniments",
     "consolidacio",
   ].filter((id) => potVeureSub(role, "settings", id, navExtra));
 
