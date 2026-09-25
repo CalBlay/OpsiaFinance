@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { FloatingDeleteButton } from "@/components/ui/FloatingDeleteButton";
 import type { EstatImport } from "@/types";
 import { RefreshCw } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { eliminarImportAction, processarExcelAction, updateEstatImportAction } from "./actions";
 
@@ -55,6 +56,7 @@ export function ImportActions({
   rutaStorage,
   esBalancEsdeveniments = false,
 }: ImportActionsProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -92,24 +94,21 @@ export function ImportActions({
     });
   }
 
-  const [confirmDelete, setConfirmDelete] = useState(false);
-
   function handleEliminar() {
-    if (!confirmDelete) {
-      setConfirmDelete(true);
-      return;
-    }
-    if (esBalancEsdeveniments) {
-      const ok = confirm(
-        "S'eliminarà la importació i també els ajustos Regularització dels centres d'aquest fitxer (exercici). Continuar?"
-      );
-      if (!ok) {
-        setConfirmDelete(false);
+    const msg = esBalancEsdeveniments
+      ? "S'eliminarà la importació, el fitxer i els ajustos Regularització d'aquests centres (exercici). Continuar?"
+      : "S'eliminarà la importació i el fitxer. Continuar?";
+    if (!confirm(msg)) return;
+
+    setFeedback(null);
+    startTransition(async () => {
+      const res = await eliminarImportAction(importId, { redirect: false });
+      if (!res.ok) {
+        setFeedback({ ok: false, msg: res.missatge });
         return;
       }
-    }
-    startTransition(() => {
-      eliminarImportAction(importId);
+      router.push("/dades");
+      router.refresh();
     });
   }
 
@@ -153,25 +152,10 @@ export function ImportActions({
         )}
       </div>
 
-      {confirmDelete && (
-        <div
-          role="button"
-          tabIndex={0}
-          className="fixed inset-0 bg-black/20 z-40"
-          aria-label="Cancel·lar eliminació"
-          onClick={() => setConfirmDelete(false)}
-          onKeyDown={(e) => {
-            if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              setConfirmDelete(false);
-            }
-          }}
-        />
-      )}
       <FloatingDeleteButton
         onClick={handleEliminar}
-        label={confirmDelete ? "Confirma l'eliminació" : "Eliminar importació"}
-        className={confirmDelete ? "animate-pulse" : ""}
+        label={isPending ? "Eliminant…" : "Eliminar importació"}
+        className={isPending ? "opacity-60 pointer-events-none" : ""}
       />
     </>
   );

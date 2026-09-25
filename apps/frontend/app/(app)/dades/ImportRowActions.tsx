@@ -7,43 +7,42 @@ import { useState, useTransition } from "react";
 import { eliminarImportAction } from "./[id]/actions";
 
 export function ImportRowActions({ importId }: { importId: string }) {
-  const [confirm, setConfirm] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   function handleClick() {
-    if (!confirm) {
-      setConfirm(true);
-      return;
-    }
+    if (!confirm("S'eliminarà la importació i el fitxer. Continuar?")) return;
+    setError(null);
     startTransition(async () => {
-      await eliminarImportAction(importId, { redirect: false });
+      const res = await eliminarImportAction(importId, { redirect: false });
+      if (!res.ok) {
+        setError(res.missatge);
+        return;
+      }
       router.refresh();
     });
   }
 
   return (
     <div className="flex items-center gap-1 justify-end">
-      {confirm && !isPending && (
-        <button
-          type="button"
-          onClick={() => setConfirm(false)}
-          className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+      {error ? (
+        <span
+          className="text-xs text-[var(--opsia-ui-danger)] max-w-[10rem] truncate"
+          title={error}
         >
-          Cancel·lar
-        </button>
-      )}
+          {error}
+        </span>
+      ) : null}
       <button
         type="button"
         onClick={handleClick}
         disabled={isPending}
-        title={confirm ? "Confirma l'eliminació" : "Eliminar importació"}
+        title={isPending ? "Eliminant…" : "Eliminar importació"}
         className={cn(
           "h-8 w-8 rounded-md flex items-center justify-center",
           "transition-colors disabled:opacity-50",
-          confirm
-            ? "bg-red-100 text-[var(--opsia-ui-danger)] hover:bg-red-200"
-            : "text-muted-foreground hover:text-[var(--opsia-ui-danger)] hover:bg-red-50"
+          "text-muted-foreground hover:text-[var(--opsia-ui-danger)] hover:bg-red-50"
         )}
       >
         <Trash2 size={15} strokeWidth={1.75} />

@@ -52,9 +52,9 @@ function centreCodisDesDeNotes(notes: string | null | undefined): string[] {
 export async function eliminarImportAction(
   importId: string,
   options: { redirect: boolean } = { redirect: true }
-): Promise<void> {
+): Promise<{ ok: boolean; missatge: string }> {
   const user = await requireDadesEditor();
-  if (!user) return;
+  if (!user) return { ok: false, missatge: "Sense permís per eliminar." };
 
   const imp = await db.importacio.findUnique({
     where: { id: importId },
@@ -66,32 +66,44 @@ export async function eliminarImportAction(
     },
   });
 
-  if (!imp) return;
+  if (!imp) return { ok: false, missatge: "Importació no trobada." };
 
-  // Balanç esdeveniments: els ajustos no penjen de la importació → cal esborrar-los explícitament
-  if (imp.formatInforme?.tipusInforme === "PYG_EXERCICI_CENTRE" && imp.period?.any) {
-    const codis = centreCodisDesDeNotes(imp.notes);
-    if (codis.length > 0) {
-      await db.ajust.deleteMany({
-        where: {
-          motiu: MOTIU_REGULARITZACIO,
-          centre: { codi: { in: codis } },
-          period: { any: imp.period.any },
-        },
-      });
+  try {
+    // Balanç esdeveniments: els ajustos no penjen de la importació → cal esborrar-los explícitament
+    if (imp.formatInforme?.tipusInforme === "PYG_EXERCICI_CENTRE" && imp.period?.any) {
+      const codis = centreCodisDesDeNotes(imp.notes);
+      if (codis.length > 0) {
+        await db.ajust.deleteMany({
+          where: {
+            motiu: MOTIU_REGULARITZACIO,
+            centre: { codi: { in: codis } },
+            period: { any: imp.period.any },
+          },
+        });
+      }
     }
-  }
 
-  if (imp.rutaStorage) {
-    await esborrarFitxerDisc(imp.rutaStorage);
-  }
+    // Evita error FK si alguna execució de traspass apunta a aquesta importació
+    await db.execucioTraspassPersonal.updateMany({
+      where: { importacioId: importId },
+      data: { importacioId: null },
+    });
 
-  await db.importacio.delete({ where: { id: importId } });
+    if (imp.rutaStorage) {
+      await esborrarFitxerDisc(imp.rutaStorage);
+    }
+
+    await db.importacio.delete({ where: { id: importId } });
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : String(e);
+    return { ok: false, missatge: `No s'ha pogut eliminar: ${detail}` };
+  }
 
   revalidatePath("/dades");
   revalidatePath("/dades/ajustos");
   revalidateConsultesDades();
   if (options.redirect) redirect("/dades");
+  return { ok: true, missatge: "Importació eliminada." };
 }
 
 export async function updateEstatImportAction(

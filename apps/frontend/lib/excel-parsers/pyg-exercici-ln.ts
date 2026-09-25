@@ -54,27 +54,37 @@ const MES_HEADER: Record<string, number> = {
   desembre: 12,
 };
 
+/** Imports europeus: «1.069,00» / «1069,00»; o nombre ja numèric. */
 function parseImportCel(val: unknown): number | null {
-  if (typeof val === "number" && !Number.isNaN(val)) return val;
+  if (typeof val === "number" && Number.isFinite(val)) return val;
   if (val === null || val === undefined || val === "") return null;
 
   let s = String(val)
     .trim()
-    .replace(/[€$\s]/g, "");
-  if (!s || s === "-" || s === "—") return null;
+    .replace(/[€$\s\u00a0]/g, "")
+    .replace(/−/g, "-");
+  if (!s || s === "-" || s === "—" || s.startsWith("#")) return null;
 
-  if (/^\(\d/.test(s)) {
-    s = `-${s.replace(/[()]/g, "")}`;
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) {
+    neg = true;
+    s = s.slice(1, -1);
   }
+  if (s.startsWith("-")) {
+    neg = true;
+    s = s.slice(1);
+  }
+  if (!s) return null;
 
-  if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+  if (s.includes(",")) {
     s = s.replace(/\./g, "").replace(",", ".");
-  } else if (s.includes(",") && !s.includes(".")) {
-    s = s.replace(",", ".");
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+    s = s.replace(/\./g, "");
   }
 
   const n = Number.parseFloat(s);
-  return Number.isNaN(n) ? null : n;
+  if (Number.isNaN(n)) return null;
+  return neg ? -n : n;
 }
 
 function mesDesDeCapcalera(text: string): number | null {
