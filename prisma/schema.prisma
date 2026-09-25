@@ -188,6 +188,18 @@ model ImportacioFitxer {
   importacio   Importacio @relation(fields: [importacioId], references: [id], onDelete: Cascade)
 }
 
+/// Trossos temporals d'una pujada (Vercel limita el cos de la funció a 4,5 MB)
+model UploadPendent {
+  uploadId  String
+  ordre     Int
+  total     Int
+  nom       String
+  contingut Bytes
+  createdAt DateTime @default(now())
+
+  @@id([uploadId, ordre])
+}
+
 /// Fila normalitzada del model financer intern
 model ImportRow {
   id            String       @id @default(cuid())

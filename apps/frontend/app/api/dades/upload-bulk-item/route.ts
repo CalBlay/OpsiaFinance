@@ -3,7 +3,7 @@ import { handleBulkFileItem } from "@/lib/import-upload";
 import type { TipusInforme } from "@/types";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 /** Puja i processa UN fitxer dins una càrrega massiva. El client crida aquest endpoint en bucle. */
 export async function POST(request: Request) {

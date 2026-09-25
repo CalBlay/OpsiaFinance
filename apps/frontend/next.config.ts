@@ -3,11 +3,13 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Evita que Webpack empaqueti xlsx (trenca `utils` en server actions)
   serverExternalPackages: ["xlsx"],
-  // Next.js 15+: límit de pujada per server actions (per defecte 1 MB → "Failed to fetch")
+  // Next.js 15+: límit de pujada (per defecte 1 MB a server actions i 10 MB al
+  // middleware). Si es supera, el navegador ho veu com a error de connexió.
   experimental: {
     serverActions: {
       bodySizeLimit: "50mb",
     },
+    middlewareClientMaxBodySize: "50mb",
     /**
      * Cache del router al client: en canviar de pestanya no es torna a demanar
      * la RSC si s'ha visitat fa menys de 90s (consultes es beneficen del reuse).

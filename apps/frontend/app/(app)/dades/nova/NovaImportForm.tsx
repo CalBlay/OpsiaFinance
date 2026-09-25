@@ -10,6 +10,7 @@ import {
   codiLnDelNomFitxer,
 } from "@/lib/nom-fitxer";
 import { opcionsMesos } from "@/lib/periodes";
+import { postFitxerImport } from "@/lib/upload-client";
 import { TIPUS_INFORME_LABELS, type TipusInforme } from "@/types";
 import {
   AlertTriangle,
@@ -121,27 +122,30 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
     setIsPending(true);
 
     const form = formRef.current;
-    const fd = new FormData();
-    fd.append("file", files[0]);
+    const fields: Record<string, string> = {
+      mode: overrides?.mode ?? mode,
+      targetId: overrides?.targetId ?? targetId,
+      newName: overrides?.newName ?? newName,
+    };
     if (form) {
       const tipus = (form.elements.namedItem("formatInformeId") as HTMLSelectElement)?.value;
       const any = (form.elements.namedItem("any") as HTMLSelectElement)?.value;
       const mes = (form.elements.namedItem("mes") as HTMLSelectElement)?.value;
       const notes = (form.elements.namedItem("notes") as HTMLTextAreaElement)?.value;
-      if (tipus) fd.append("formatInformeId", tipus);
-      if (any) fd.append("any", any);
-      if (mes) fd.append("mes", mes);
-      if (notes) fd.append("notes", notes);
+      if (tipus) fields.formatInformeId = tipus;
+      if (any) fields.any = any;
+      if (mes) fields.mes = mes;
+      if (notes) fields.notes = notes;
     }
-    if (lnId) fd.append("liniaNegociId", lnId);
-    fd.append("mode", overrides?.mode ?? mode);
-    fd.append("targetId", overrides?.targetId ?? targetId);
-    fd.append("newName", overrides?.newName ?? newName);
+    if (lnId) fields.liniaNegociId = lnId;
 
     try {
-      const res = await fetch("/api/dades/upload", { method: "POST", body: fd });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = (await res.json()) as CreateImportState;
+      const posted = await postFitxerImport("/api/dades/upload", files[0], fields);
+      if (!posted.ok) {
+        setResult({ status: "error", message: posted.message });
+        return;
+      }
+      const data = posted.data as CreateImportState;
       setResult(data);
       setDismissed(false);
       if (data.status === "duplicate") {
@@ -211,29 +215,29 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
       const file = files[i];
       setBulkProgress({ current: i + 1, total: files.length, nom: file.name });
 
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("formatInformeId", tipus);
-      fd.append("politica", politica);
-      fd.append("autoConfirmar", autoConfirmar ? "true" : "false");
-      if (notes) fd.append("notes", notes);
+      const fields: Record<string, string> = {
+        formatInformeId: tipus,
+        politica,
+        autoConfirmar: autoConfirmar ? "true" : "false",
+      };
+      if (notes) fields.notes = notes;
       const parsed = classificacioDesDelNomFitxer(file.name);
-      if (!parsed?.codiLn && bulkLnFallback) fd.append("liniaNegociId", bulkLnFallback);
+      if (!parsed?.codiLn && bulkLnFallback) fields.liniaNegociId = bulkLnFallback;
 
       try {
-        const res = await fetch("/api/dades/upload-bulk-item", { method: "POST", body: fd });
-        if (!res.ok) {
+        const posted = await postFitxerImport("/api/dades/upload-bulk-item", file, fields);
+        if (!posted.ok) {
           resultats.push({
             nom: file.name,
             periode: deduirPeriodeLabel(file.name),
             ln: deduirLnLabel(file.name, linies),
             ok: false,
             confirmat: false,
-            missatge: `Error del servidor (${res.status}).`,
+            missatge: posted.message,
           });
           continue;
         }
-        resultats.push((await res.json()) as BulkFileResult);
+        resultats.push(posted.data as BulkFileResult);
       } catch {
         resultats.push({
           nom: file.name,

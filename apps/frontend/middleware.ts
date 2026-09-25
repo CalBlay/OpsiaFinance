@@ -98,6 +98,9 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|.*\\.png$|.*\\.ico$).*)",
+    // Les pujades d'Excel queden fora: Next.js 15 clona el cos al middleware i,
+    // en producció, la petició es talla (el navegador ho mostra com a error de
+    // connexió). L'autenticació es comprova a cada route d'upload.
+    "/((?!_next/static|_next/image|favicon.ico|manifest\\.webmanifest|api/dades/upload|.*\\.png$|.*\\.ico$).*)",
   ],
 };
