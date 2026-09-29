@@ -102,6 +102,170 @@ assert.equal(dept.costPersonal, 4200, "El cost ha de venir del subtotal, sense d
 assert.match(detall.diagnostica ?? "", /desplaçament \+1/);
 assert.doesNotMatch(JSON.stringify(detall), /000115|000224|AGUIRRE|GOMEZ ROSINES/);
 
+// Jerarquia multi-centre (com IMPUTACIO DE COSTOS): després d'un dept + persones,
+// el centre següent i els seus depts s'han d'importar; no comptar-los com a persones.
+const multi = parseExcelCostPersonalCentre(
+  workbook([
+    header,
+    [
+      "00 - SERVEIS CENTRALS - 00002 - DECORACIO",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      10000,
+      2000,
+      2534,
+      14534,
+    ],
+    [
+      "00 - SERVEIS CENTRALS - 00002 - DECORACIO - 00002001 - PERSONAL D",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      10000,
+      2000,
+      2534,
+      14534,
+    ],
+    [
+      "'000115 AGUIRRE PLA GIRIBERT, MARIA NATACHA",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      9000,
+      900,
+      2700,
+      12_600,
+    ],
+    [
+      "00 - SERVEIS CENTRALS - 00102 - LOGISTICA",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      50000,
+      10000,
+      13482,
+      73482,
+    ],
+    [
+      "00 - SERVEIS CENTRALS - 00102 - LOGISTICA - 00102001 - ADMINISTRACIO",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      10000,
+      2000,
+      3000,
+      15000,
+    ],
+    [
+      "00 - SERVEIS CENTRALS - 00103 - OFICINES CAL BLAY",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      100000,
+      20000,
+      17435,
+      137435,
+    ],
+    [
+      "00 - SERVEIS CENTRALS - 00103 - OFICINES CAL BLAY - 00103001 - DIRECCIO",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      20000,
+      4000,
+      5000,
+      29000,
+    ],
+    [
+      "00 - SERVEIS CENTRALS - 00104 - MANTENIMENT",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      8000,
+      1500,
+      1409,
+      10909,
+    ],
+    [
+      "00 - SERVEIS CENTRALS - 00104 - MANTENIMENT - 00104001 - PERSONAL M",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      8000,
+      1500,
+      1409,
+      10909,
+    ],
+  ])
+);
+
+const multiCentres = multi.files
+  .filter((f) => f.nivell === 0)
+  .map((f) => f.codi)
+  .sort();
+const multiDepts = multi.files
+  .filter((f) => f.nivell === 1)
+  .map((f) => f.codi)
+  .sort();
+assert.deepEqual(multiCentres, ["00002", "00102", "00103", "00104"]);
+assert.deepEqual(multiDepts, ["00002001", "00102001", "00103001", "00104001"]);
+assert.equal(
+  multi.files.find((f) => f.codi === "00002001")?.nombrePersones,
+  1,
+  "Només la fila d'empleat compta com a persona"
+);
+assert.equal(
+  multi.files.reduce((s, f) => s + f.nombrePersones, 0),
+  1,
+  "Els centres/depts posteriors no s'han de comptar com a persones"
+);
+
 const legacy = parseExcelCostPersonalCentre(
   workbook([
     header,

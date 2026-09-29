@@ -531,14 +531,12 @@ function extreureFiles(
         }
       }
     }
-    // Els empleats del nou format tenen codi de 6 dígits + «COGNOMS, NOM».
-    // També protegim qualsevol identificador que no pertanyi al centre actiu.
-    const semblaPersona =
-      Boolean(departamentActual) &&
-      Boolean(codiPropi) &&
-      ((codiPropi?.length === 6 && /,\s*\p{L}/u.test(text)) ||
-        Boolean(centreContext && !codiPropi?.startsWith(centreContext)));
-    if (semblaPersona) {
+    // Empleats del nou format: codi 6 dígits + «COGNOMS, NOM».
+    // Important: NO tractar com a persona un centre (5) ni un dept (6–8) només
+    // perquè el codi no penja del centre obert — això “menjava” la resta de
+    // centres del fitxer després del primer departament.
+    const esEmpleatAmbNom = codiPropi != null && codiPropi.length === 6 && /,\s*\p{L}/u.test(text);
+    if (esEmpleatAmbNom && departamentActual) {
       codiPropi = null;
       centreActual = centreContext;
       textCentreActual = textCentreContext;
