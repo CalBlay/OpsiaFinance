@@ -12,6 +12,33 @@ function revalidateImportacionsLlista() {
   revalidateConsultesDades();
 }
 
+/** Processa l'Excel i, si cal, confirma. Un sol pas després de pujar. */
+async function processarIOpcionalConfirmar(
+  importId: string,
+  autoConfirmar: boolean
+): Promise<{ ok: boolean; missatge: string; confirmat: boolean }> {
+  let res: { ok: boolean; missatge: string };
+  try {
+    res = await processarImportExcel(importId);
+  } catch {
+    res = { ok: false, missatge: "Error processant el fitxer." };
+  }
+
+  let confirmat = false;
+  if (res.ok && autoConfirmar) {
+    await db.importacio.update({
+      where: { id: importId },
+      data: { estat: "CONFIRMAT", confirmatAt: new Date() },
+    });
+    confirmat = true;
+    revalidatePath(`/dades/${importId}`);
+  }
+
+  revalidateImportacionsLlista();
+  const missatge = confirmat ? `${res.missatge} Importació confirmada.` : res.missatge;
+  return { ok: res.ok, missatge, confirmat };
+}
+
 function esTipusExerciciAnual(tipus: TipusInforme | null | undefined): boolean {
   return tipus === "PYG_FDLC" || tipus === "PYG_EXERCICI_LN" || tipus === "PYG_EXERCICI_CENTRE";
 }
@@ -29,7 +56,7 @@ const MESOS = MESOS_PER_NUM;
 export type CreateImportState =
   | { status: "idle" }
   | { status: "error"; message: string }
-  | { status: "success"; importId: string }
+  | { status: "success"; importId: string; missatge?: string; confirmat?: boolean }
   | {
       status: "duplicate";
       existingId: string;
@@ -249,6 +276,7 @@ export async function handleSingleImport(
   const targetId = formData.get("targetId") as string | null;
   const newName = ((formData.get("newName") as string | null) ?? "").trim();
   const liniaNegociId = ((formData.get("liniaNegociId") as string | null) ?? "").trim() || null;
+  const autoConfirmar = formData.get("autoConfirmar") !== "false";
 
   if (!file || file.size === 0)
     return { status: "error", message: "Has de seleccionar un fitxer Excel." };
@@ -383,7 +411,16 @@ export async function handleSingleImport(
     });
 
     revalidateImportacionsLlista();
-    return { status: "success", importId: targetId };
+    const proc = await processarIOpcionalConfirmar(targetId, autoConfirmar);
+    if (!proc.ok) {
+      return { status: "error", message: proc.missatge };
+    }
+    return {
+      status: "success",
+      importId: targetId,
+      missatge: proc.missatge,
+      confirmat: proc.confirmat,
+    };
   }
 
   let nomFitxer = file.name;
@@ -421,7 +458,16 @@ export async function handleSingleImport(
   }
 
   revalidateImportacionsLlista();
-  return { status: "success", importId: newImport.id };
+  const proc = await processarIOpcionalConfirmar(newImport.id, autoConfirmar);
+  if (!proc.ok) {
+    return { status: "error", message: proc.missatge };
+  }
+  return {
+    status: "success",
+    importId: newImport.id,
+    missatge: proc.missatge,
+    confirmat: proc.confirmat,
+  };
 }
 
 export async function handleBulkFileItem(
@@ -641,32 +687,14 @@ export async function handleBulkFileItem(
       }
     }
 
-    let res: { ok: boolean; missatge: string };
-    try {
-      res = await processarImportExcel(importId);
-    } catch {
-      res = { ok: false, missatge: "Error processant el fitxer." };
-    }
-
-    let confirmat = false;
-    if (res.ok && autoConfirmar) {
-      await db.importacio.update({
-        where: { id: importId },
-        data: { estat: "CONFIRMAT", confirmatAt: new Date() },
-      });
-      confirmat = true;
-      revalidatePath(`/dades/${importId}`);
-    }
-
-    revalidateImportacionsLlista();
-    const missatge = confirmat ? `${res.missatge} Importació confirmada.` : res.missatge;
+    const proc = await processarIOpcionalConfirmar(importId, autoConfirmar);
     return {
       nom: file.name,
       periode: periodeLabel,
       ln: lnLabel,
-      ok: res.ok,
-      confirmat,
-      missatge,
+      ok: proc.ok,
+      confirmat: proc.confirmat,
+      missatge: proc.missatge,
     };
   } catch (err) {
     console.error(`handleBulkFileItem(${file.name}):`, err);

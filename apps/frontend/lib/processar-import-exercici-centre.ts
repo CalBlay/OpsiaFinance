@@ -1,10 +1,14 @@
-import { resolCentreBalancEsdeveniments } from "@/lib/balanc-esdeveniments/mapeig";
+import {
+  esNomFitxerBalancTotal,
+  resolCentreBalancEsdeveniments,
+} from "@/lib/balanc-esdeveniments/mapeig";
 import { MOTIU_REGULARITZACIO } from "@/lib/balanc-esdeveniments/nodes";
 import { parseBalancEsdevenimentsTots } from "@/lib/balanc-esdeveniments/parser";
 import { revalidateConsultesDades } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { ensureConceptesCompteBase } from "@/lib/fdlc/conceptes-base";
 import { MESOS_PER_NUM } from "@/lib/periodes";
+import { processarImportBalancTotal } from "@/lib/processar-import-balanc-total";
 import { revalidatePath } from "next/cache";
 
 const MESOS_NOMS = MESOS_PER_NUM;
@@ -31,12 +35,17 @@ async function upsertPeriode(any: number, mes: number): Promise<string> {
 
 /**
  * Importa un balanç d'esdeveniments (totes les pestanyes = centres) com a ajustos
- * «Regularització». No escriu DadaResultat.
+ * «Regularització». Si el nom del fitxer és «Balanç total», calcula el residual.
+ * No escriu DadaResultat.
  */
 export async function processarImportExerciciCentre(
   imp: ImportWithRelations,
   fitxer: Buffer
 ): Promise<{ ok: boolean; missatge: string }> {
+  if (esNomFitxerBalancTotal(imp.nomFitxer)) {
+    return processarImportBalancTotal(imp, fitxer);
+  }
+
   const anyMatch = imp.nomFitxer.match(/20\d{2}/)?.[0];
   const anyFallback = imp.period?.any ?? (anyMatch ? Number(anyMatch) : null);
 

@@ -37,10 +37,16 @@ export function mapEtiquetaEsdevenimentsANode(etiqueta: string): number | null {
   return node;
 }
 
+/**
+ * Convenció de signe:
+ * - Excel positiu: vendes/ingressos → + ; resta → −
+ * - Excel negatiu: es gira respecte a la premissa (es conserva el sentit d'excepció).
+ *   Equivalent: vendes = raw; resta = −raw.
+ */
 export function normalitzarImportEsdeveniments(node: number, raw: number): number {
   if (raw === 0) return 0;
   if (NODES_POSITIUS_ESDEVENIMENTS.has(node)) {
-    return raw < 0 ? -raw : raw;
+    return raw;
   }
-  return raw > 0 ? -raw : raw;
+  return -raw;
 }

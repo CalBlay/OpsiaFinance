@@ -1,7 +1,23 @@
 import { db } from "@/lib/db";
 
+/** Text de mapeig per al fitxer residual (A2 buit; es reconeix pel nom del fitxer). */
+export const TEXT_MAPEIG_BALANC_TOTAL = "Balanç total";
+
 export function normalitzarTextMapeigEsdeveniments(raw: string): string {
   return raw.replace(/\s+/g, " ").trim().toUpperCase();
+}
+
+/** True si el nom del fitxer indica el document «Balanç total» (A2 va en blanc). */
+export function esNomFitxerBalancTotal(nomFitxer: string): boolean {
+  const base = nomFitxer.replace(/\.[^.]+$/, "");
+  const n = base
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return /\bbalanc\s*total\b/.test(n);
 }
 
 export async function resolCentreBalancEsdeveniments(textRaw: string): Promise<{

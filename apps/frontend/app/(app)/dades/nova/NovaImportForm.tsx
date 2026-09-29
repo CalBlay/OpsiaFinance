@@ -87,6 +87,8 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
   const [targetId, setTargetId] = useState("");
   const [newName, setNewName] = useState("");
   const [dismissed, setDismissed] = useState(false);
+  /** Per defecte: pujar + processar + confirmar (mínim de clics). */
+  const [autoConfirmar, setAutoConfirmar] = useState(true);
 
   const showDuplicate = result.status === "duplicate" && !dismissed;
 
@@ -130,6 +132,7 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
       mode: overrides?.mode ?? mode,
       targetId: overrides?.targetId ?? targetId,
       newName: overrides?.newName ?? newName,
+      autoConfirmar: autoConfirmar ? "true" : "false",
     };
     if (form) {
       const tipus = (form.elements.namedItem("formatInformeId") as HTMLSelectElement)?.value;
@@ -185,7 +188,6 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
 
   const [bulkResult, setBulkResult] = useState<BulkImportState>({ status: "idle" });
   const [bulkPending, setBulkPending] = useState(false);
-  const [autoConfirmar, setAutoConfirmar] = useState(true);
   const [bulkProgress, setBulkProgress] = useState<{
     current: number;
     total: number;
@@ -454,7 +456,8 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
               {esBalancEsdeveniments && (
                 <p className="col-span-full text-xs text-muted-foreground">
                   Massiu de balanços: cada fitxer (o cada pestanya dins d&apos;un Excel) → un centre
-                  via mapeig A2. Prepareu abans els mapeigs a Configuració → Balanç esdeveniments.
+                  via mapeig A2. El fitxer «Balanç total» (pel nom) calcula el residual. Prepareu
+                  els mapeigs a Configuració → Balanç esdeveniments (inclòs text «Balanç total»).
                 </p>
               )}
               <div className={styles.field}>
@@ -663,6 +666,9 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                   <br />
                   <strong>Un Excel per centre:</strong> selecioneu diversos fitxers (càrrega
                   massiva). Accepta .xlsx / .xls / .csv.
+                  <br />
+                  <strong>Balanç total</strong> (nom al fitxer; A2 en blanc): residual = total −
+                  suma Regularització altres centres → mapeig «Balanç total».
                 </p>
               )}
               {lnMismatch && (
@@ -726,9 +732,29 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
             />
           </div>
 
+          <label className="flex cursor-pointer items-start gap-2 text-sm text-foreground">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={autoConfirmar}
+              onChange={(e) => setAutoConfirmar(e.target.checked)}
+              disabled={isPending}
+            />
+            <span>
+              Confirmar automàticament després de processar
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                Amb un sol clic: pujar, processar i deixar l&apos;importació confirmada.
+              </span>
+            </span>
+          </label>
+
           <div className={styles.actions}>
             <Button type="submit" disabled={isPending || files.length === 0}>
-              {isPending ? "Pujant…" : "Pujar i classificar"}
+              {isPending
+                ? "Processant…"
+                : autoConfirmar
+                  ? "Pujar, processar i confirmar"
+                  : "Pujar i processar"}
             </Button>
             <Button asChild variant="outline" disabled={isPending}>
               <Link href="/dades">Cancel·lar</Link>
@@ -770,10 +796,10 @@ export function NovaImportForm({ linies }: { linies: LnOption[] }) {
                 Cancel·lar
               </Button>
               <Button type="button" variant="outline" onClick={chooseUpdate} disabled={anyPending}>
-                {isPending ? "Actualitzant…" : "Actualitzar l'existent"}
+                {isPending ? "Processant…" : "Actualitzar i processar"}
               </Button>
               <Button type="button" onClick={chooseCreate} disabled={anyPending || !newName.trim()}>
-                {isPending ? "Creant…" : "Crear nova"}
+                {isPending ? "Processant…" : "Crear i processar"}
               </Button>
             </div>
           </div>

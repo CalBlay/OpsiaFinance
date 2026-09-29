@@ -51,6 +51,10 @@ export default async function BalancEsdevenimentsSettingsPage() {
           cap a un centre de l&apos;arbre. Un Excel pot tenir moltes pestanyes (una per centre) o
           podeu pujar molts fitxers (càrrega massiva). L&apos;import crea ajustos «Regularització»
           només amb línies de detall.
+          <br />
+          <strong>Balanç total:</strong> creeu un mapeig amb text exacte «Balanç total» → centre/LN
+          destí del residual. El fitxer s&apos;identifica pel nom (A2 va en blanc): total Excel −
+          suma Regularització dels altres centres.
         </p>
       </header>
       <BalancEsdevenimentsSettingsPanel
