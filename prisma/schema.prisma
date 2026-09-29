@@ -70,6 +70,8 @@ model Centre {
   mapeigsCostPersonal          MapeigCodiCostPersonal[]
   mapeigsTextCentre            MapeigTextCentreTreball[]
   mapeigsBalancEsdeveniments   MapeigCentreBalancEsdeveniments[]
+  mapeigsOrgPlantilla          MapeigOrgPlantilla[]
+  plantillesRrhh               PlantillaRrhh[]
   movimentsTraspassDesti       MovimentTraspassPersonal[] @relation("TraspassDesti")
   movimentsTraspassOrigen      MovimentTraspassPersonal[] @relation("TraspassOrigen")
   pressupostCelsCentre         PressupostCelCentre[]
@@ -95,6 +97,8 @@ model Departament {
   rows                 ImportRow[]
   mapeigsCostPersonal       MapeigCodiCostPersonal[]
   mapeigsTextCentre         MapeigTextCentreTreball[]
+  mapeigsOrgPlantilla       MapeigOrgPlantilla[]
+  plantillesRrhh            PlantillaRrhh[]
   costsPersonalsCentre      CostPersonalCentre[]
   configPersonalDept        ConfigPersonalDept[]
   movimentsTraspassOrigen   MovimentTraspassPersonal[] @relation("TraspassDeptOrigen")
@@ -138,6 +142,7 @@ model Period {
   imports                  Importacio[]
   vendesArticles           VendaArticleRestaurant[]
   vendesDiaries            VendaDiariaRestaurant[]
+  plantillesRrhh           PlantillaRrhh[]
 
   @@unique([any, mes])
 }
@@ -630,6 +635,24 @@ model MapeigCentreBalancEsdeveniments {
   @@index([centreId])
 }
 
+/// Mapeig text organització RRHH (plantilla) → centre + departament opcional de Dimensions.
+model MapeigOrgPlantilla {
+  id            String       @id @default(cuid())
+  /// Nom d'organització normalitzat (sense | / || inicials), únic.
+  text          String       @unique
+  centreId      String
+  departamentId String?
+  ordre         Int          @default(0)
+  isActive      Boolean      @default(true)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  centre        Centre       @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  departament   Departament? @relation(fields: [departamentId], references: [id], onDelete: SetNull)
+
+  @@index([centreId])
+  @@index([departamentId])
+}
+
 /// Mapeig text (Organizaciones o Proyecto) → centre de cost + departament de l'arbre.
 model MapeigTextCentreTreball {
   id               String              @id @default(cuid())
@@ -723,9 +746,34 @@ model CarregaFitxer {
   costsSalarials       CostSalarialRestaurant[]
   vendesArticles       VendaArticleRestaurant[]
   vendesDiaries        VendaDiariaRestaurant[]
+  plantillesRrhh       PlantillaRrhh[]
 
   @@index([tipus, createdAt])
   @@index([periodId])
+}
+
+/// Fet de plantilla RRHH (caps) per període × centre (+ dept opcional).
+model PlantillaRrhh {
+  id             String       @id @default(cuid())
+  periodId       String
+  centreId       String
+  departamentId  String?
+  nombrePersones Int
+  /// Text d'organització del fitxer (auditoria; pot ser agregat de diversos).
+  textOrigen     String?
+  carregaId      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  period         Period       @relation(fields: [periodId], references: [id], onDelete: Cascade)
+  centre         Centre       @relation(fields: [centreId], references: [id], onDelete: Cascade)
+  departament    Departament? @relation(fields: [departamentId], references: [id], onDelete: SetNull)
+  carrega        CarregaFitxer? @relation(fields: [carregaId], references: [id], onDelete: Cascade)
+
+  @@index([periodId])
+  @@index([centreId])
+  @@index([departamentId])
+  @@index([carregaId])
+  @@index([periodId, centreId])
 }
 
 /// Fet de cost salarial per restaurant, departament (Sala/Cuina) i període.
@@ -1013,6 +1061,7 @@ enum TipusCarregaFitxer {
   VENDES_PACK
   COST_PERSONAL_CENTRE
   COST_PERSONAL_MILLORES
+  PLANTILLA_RRHH
 }
 
 /// Font del cost personal per centre: nòmina mensual o millores.

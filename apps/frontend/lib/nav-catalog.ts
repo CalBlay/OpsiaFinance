@@ -21,6 +21,7 @@ export type DadesSub =
   | "repartiment"
   | "traspass-personal"
   | "cost-personal-centre"
+  | "plantilla-rrhh"
   | "cost-salarial"
   | "vendes-restaurants"
   | "ajustos"
@@ -33,6 +34,7 @@ export type SettingsSub =
   | "repartiment"
   | "traspass-personal"
   | "cost-personal-centre"
+  | "plantilla-rrhh"
   | "balanc-esdeveniments"
   | "consolidacio";
 
@@ -83,6 +85,7 @@ export const DADES_SUBS: { id: DadesSub; label: string; href: string }[] = [
   { id: "repartiment", label: "Repartiment", href: "/dades/repartiment" },
   { id: "traspass-personal", label: "Traspassos personal", href: "/dades/traspass-personal" },
   { id: "cost-personal-centre", label: "Cost personal", href: "/dades/cost-personal-centre" },
+  { id: "plantilla-rrhh", label: "Plantilla RRHH", href: "/dades/plantilla-rrhh" },
   { id: "cost-salarial", label: "Cost salarial", href: "/dades/cost-salarial" },
   { id: "vendes-restaurants", label: "Vendes rest.", href: "/dades/vendes-restaurants" },
   { id: "ajustos", label: "Ajustos", href: "/dades/ajustos" },
@@ -96,6 +99,7 @@ export const SETTINGS_SUBS: { id: SettingsSub; label: string; href: string }[] =
   { id: "repartiment", label: "Repartiment", href: "/settings/repartiment" },
   { id: "traspass-personal", label: "Traspassos personal", href: "/settings/traspass-personal" },
   { id: "cost-personal-centre", label: "Cost personal", href: "/settings/cost-personal-centre" },
+  { id: "plantilla-rrhh", label: "Plantilla RRHH", href: "/settings/plantilla-rrhh" },
   {
     id: "balanc-esdeveniments",
     label: "Balanç esdeveniments",
@@ -174,6 +178,7 @@ export function resolveDadesSub(pathname: string): DadesSub | null {
   if (pathname.startsWith("/dades/repartiment")) return "repartiment";
   if (pathname.startsWith("/dades/traspass-personal")) return "traspass-personal";
   if (pathname.startsWith("/dades/cost-personal-centre")) return "cost-personal-centre";
+  if (pathname.startsWith("/dades/plantilla-rrhh")) return "plantilla-rrhh";
   if (pathname.startsWith("/dades/cost-salarial")) return "cost-salarial";
   if (pathname.startsWith("/dades/vendes-restaurants")) return "vendes-restaurants";
   if (pathname.startsWith("/dades/ajustos")) return "ajustos";
@@ -189,17 +194,19 @@ export function resolveDadesSub(pathname: string): DadesSub | null {
 
 export function resolveSettingsSub(pathname: string): SettingsSub | "usuaris" | null {
   if (pathname === "/settings" || pathname === "/settings/") return "usuaris";
-  if (pathname.startsWith("/settings/nou") || pathname.match(/^\/settings\/[^/]+$/)) {
-    return "usuaris";
-  }
   if (pathname.startsWith("/settings/dimensions")) return "dimensions";
   if (pathname.startsWith("/settings/compte-resultats")) return "compte-resultats";
   if (pathname.startsWith("/settings/formules")) return "formules";
   if (pathname.startsWith("/settings/repartiment")) return "repartiment";
   if (pathname.startsWith("/settings/traspass-personal")) return "traspass-personal";
   if (pathname.startsWith("/settings/cost-personal-centre")) return "cost-personal-centre";
+  if (pathname.startsWith("/settings/plantilla-rrhh")) return "plantilla-rrhh";
   if (pathname.startsWith("/settings/balanc-esdeveniments")) return "balanc-esdeveniments";
   if (pathname.startsWith("/settings/consolidacio")) return "consolidacio";
+  // Usuaris: /settings/nou o /settings/{id}
+  if (pathname.startsWith("/settings/nou") || pathname.match(/^\/settings\/[^/]+$/)) {
+    return "usuaris";
+  }
   return null;
 }
 

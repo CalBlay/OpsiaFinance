@@ -161,6 +161,7 @@ export function primerHrefModul(
       "repartiment",
       "traspass-personal",
       "cost-personal-centre",
+      "plantilla-rrhh",
       "cost-salarial",
       "vendes-restaurants",
       "ajustos",
@@ -182,6 +183,7 @@ export function primerHrefModul(
       "repartiment",
       "traspass-personal",
       "cost-personal-centre",
+      "plantilla-rrhh",
       "consolidacio",
     ];
     for (const id of order) {

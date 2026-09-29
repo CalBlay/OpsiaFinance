@@ -15,6 +15,7 @@ export type DadesTabId =
   | "repartiment"
   | "traspass-personal"
   | "cost-personal-centre"
+  | "plantilla-rrhh"
   | "cost-salarial"
   | "vendes-restaurants"
   | "ajustos"
@@ -37,6 +38,7 @@ const OTHER_PREFIXES = [
   "/dades/repartiment",
   "/dades/traspass-personal",
   "/dades/cost-personal-centre",
+  "/dades/plantilla-rrhh",
   "/dades/cost-salarial",
   "/dades/vendes-restaurants",
   "/dades/ajustos",
@@ -89,6 +91,16 @@ export const DADES_TABS: DadesTab[] = [
       "Nòmina (Cost_Personal_mm_aa.xlsx) i millores (Cost_Personal_Millores_mm_aa.xlsx). J=brut, K=provisió, L=SS; Sous=J+K; Cost=J+K+L (M ignorada). Informatiu: no alimenta Gestió. Comparativa vs SAP directe (sense ajustos).",
     icon: UserCog,
     match: (p) => p.startsWith("/dades/cost-personal-centre"),
+  },
+  {
+    id: "plantilla-rrhh",
+    href: "/dades/plantilla-rrhh",
+    label: "Plantilla RRHH",
+    title: "Plantilla RRHH (caps)",
+    description:
+      "Excel de caps per organització i mes (M1'AAAA = gener, M2 = febrer…). Es mapeja a centre/departament via Configuració → Plantilla RRHH. Informatiu per anàlisi de personal.",
+    icon: ClipboardList,
+    match: (p) => p.startsWith("/dades/plantilla-rrhh"),
   },
   {
     id: "cost-salarial",
