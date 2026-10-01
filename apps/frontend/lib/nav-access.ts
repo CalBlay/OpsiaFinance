@@ -164,6 +164,7 @@ export function primerHrefModul(
       "plantilla-rrhh",
       "cost-salarial",
       "vendes-restaurants",
+      "despeses-ett",
       "ajustos",
       "pressupost-categories",
     ];

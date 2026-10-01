@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import {
   ArrowLeftRight,
+  Briefcase,
   ClipboardList,
   FileSpreadsheet,
   Scale,
@@ -18,6 +19,7 @@ export type DadesTabId =
   | "plantilla-rrhh"
   | "cost-salarial"
   | "vendes-restaurants"
+  | "despeses-ett"
   | "ajustos"
   | "pressupost-categories";
 
@@ -41,6 +43,7 @@ const OTHER_PREFIXES = [
   "/dades/plantilla-rrhh",
   "/dades/cost-salarial",
   "/dades/vendes-restaurants",
+  "/dades/despeses-ett",
   "/dades/ajustos",
   "/dades/pressupost-categories",
   "/dades/pressupost-partides",
@@ -121,6 +124,16 @@ export const DADES_TABS: DadesTab[] = [
       "Vendes TPV per restaurant (LN00001). Amb el botó + pots pujar V/Detall/Pack, o tickets Dia/Mes/Any/Forma pagament (CCR00008, base = Total ÷ 1,10).",
     icon: ShoppingBag,
     match: (p) => p.startsWith("/dades/vendes-restaurants"),
+  },
+  {
+    id: "despeses-ett",
+    href: "/dades/despeses-ett",
+    label: "Despeses ETT",
+    title: "Despeses ETT",
+    description:
+      "Importa l’Excel d’apunts 629006 (Gastos contratación E.T.T.). Crea ajustos per centre: CONTRACTES ETT en negatiu i resta el mateix a ALTRES DESPESES (motiu ETT).",
+    icon: Briefcase,
+    match: (p) => p.startsWith("/dades/despeses-ett"),
   },
   {
     id: "ajustos",

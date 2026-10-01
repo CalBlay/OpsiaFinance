@@ -24,6 +24,7 @@ export type DadesSub =
   | "plantilla-rrhh"
   | "cost-salarial"
   | "vendes-restaurants"
+  | "despeses-ett"
   | "ajustos"
   | "pressupost-categories";
 
@@ -88,6 +89,7 @@ export const DADES_SUBS: { id: DadesSub; label: string; href: string }[] = [
   { id: "plantilla-rrhh", label: "Plantilla RRHH", href: "/dades/plantilla-rrhh" },
   { id: "cost-salarial", label: "Cost salarial", href: "/dades/cost-salarial" },
   { id: "vendes-restaurants", label: "Vendes rest.", href: "/dades/vendes-restaurants" },
+  { id: "despeses-ett", label: "Despeses ETT", href: "/dades/despeses-ett" },
   { id: "ajustos", label: "Ajustos", href: "/dades/ajustos" },
   { id: "pressupost-categories", label: "Categories press.", href: "/dades/pressupost-categories" },
 ];
@@ -181,6 +183,7 @@ export function resolveDadesSub(pathname: string): DadesSub | null {
   if (pathname.startsWith("/dades/plantilla-rrhh")) return "plantilla-rrhh";
   if (pathname.startsWith("/dades/cost-salarial")) return "cost-salarial";
   if (pathname.startsWith("/dades/vendes-restaurants")) return "vendes-restaurants";
+  if (pathname.startsWith("/dades/despeses-ett")) return "despeses-ett";
   if (pathname.startsWith("/dades/ajustos")) return "ajustos";
   if (
     pathname.startsWith("/dades/pressupost-categories") ||
