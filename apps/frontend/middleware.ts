@@ -67,6 +67,7 @@ export default auth((req) => {
     pathname.startsWith("/dades") ||
     pathname.startsWith("/settings") ||
     pathname.startsWith("/pressupost") ||
+    pathname.startsWith("/rrhh") ||
     pathname.startsWith("/consultes") ||
     pathname === "/"
   ) {

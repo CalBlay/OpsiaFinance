@@ -60,6 +60,7 @@ export function CostPersonalPresentacio({
     totalSegSocial: number;
     pctSobreVendes: number | null;
     nombrePersones: number | null;
+    horesSetmanals: number | null;
     headcountEsMitjana: boolean;
   };
   barres: BarraCostPersonal[];
@@ -102,7 +103,18 @@ export function CostPersonalPresentacio({
                 <span className={styles.heroMetricValuePeople}>
                   {formatNum(totals.nombrePersones, totals.headcountEsMitjana ? 1 : 0)}
                 </span>
-                <span className={styles.heroMetricHint}>Font: nòmina</span>
+                <span className={styles.heroMetricHint}>Font: jornada</span>
+              </div>
+            )}
+            {totals.horesSetmanals != null && (
+              <div className={styles.heroMetric}>
+                <span className={styles.heroMetricLabel}>
+                  {totals.headcountEsMitjana ? "Mitjana h/setmana" : "Hores / setmana"}
+                </span>
+                <span className={styles.heroMetricValuePeople}>
+                  {formatNum(totals.horesSetmanals, 1)}
+                </span>
+                <span className={styles.heroMetricHint}>Contractades</span>
               </div>
             )}
             <div className={styles.heroMetric}>
@@ -210,6 +222,7 @@ export function CostPersonalPresentacio({
                           totals.headcountEsMitjana ? 1 : 0
                         )} pers.${totals.headcountEsMitjana ? "/mes" : ""}`
                       : "—"}
+                    {row.horesSetmanals != null ? ` · ${formatNum(row.horesSetmanals, 1)} h` : ""}
                   </span>
                   <span className={styles.rankEuro}>{formatEuro(row.costPersonal)}</span>
                   {row.href ? <ChevronRight size={16} className={styles.rankChevron} /> : <span />}

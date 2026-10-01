@@ -47,6 +47,8 @@ function navExtraToStore(role: UserRole, raw: unknown): NavExtra | null {
   if (r) out.resultats = r as NavExtra["resultats"];
   const rest = trim("restaurants", parsed.restaurants);
   if (rest) out.restaurants = rest as NavExtra["restaurants"];
+  const rrhh = trim("rrhh", parsed.rrhh);
+  if (rrhh) out.rrhh = rrhh as NavExtra["rrhh"];
   const p = trim("pressupost", parsed.pressupost);
   if (p) out.pressupost = p as NavExtra["pressupost"];
   const d = trim("dades", parsed.dades);

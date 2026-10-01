@@ -36,7 +36,7 @@ export type ImportCostPersonalResult = {
   origen?: OrigenCostPersonalCentre;
 };
 
-type MapeigRow = {
+export type MapeigRow = {
   id: string;
   codi: string;
   text: string | null;

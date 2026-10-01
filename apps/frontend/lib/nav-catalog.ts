@@ -2,7 +2,14 @@
  * Catàleg de mòduls i subpestanyes (edge-safe, sense dependències de UI).
  */
 
-export type NavModul = "inici" | "resultats" | "restaurants" | "pressupost" | "dades" | "settings";
+export type NavModul =
+  | "inici"
+  | "resultats"
+  | "restaurants"
+  | "rrhh"
+  | "pressupost"
+  | "dades"
+  | "settings";
 
 export type ResultatsSub =
   | "empresa"
@@ -14,6 +21,8 @@ export type ResultatsSub =
 
 export type RestaurantsSub = "quadre-mando" | "vendes" | "cost-salarial";
 
+export type RrhhSub = "resum" | "centre" | "departament" | "comparativa";
+
 export type PressupostSub = "resum" | "ln" | "departaments" | "seguiment" | "aprovacio";
 
 export type DadesSub =
@@ -21,7 +30,7 @@ export type DadesSub =
   | "repartiment"
   | "traspass-personal"
   | "cost-personal-centre"
-  | "plantilla-rrhh"
+  | "jornada-personal"
   | "cost-salarial"
   | "vendes-restaurants"
   | "despeses-ett"
@@ -35,7 +44,6 @@ export type SettingsSub =
   | "repartiment"
   | "traspass-personal"
   | "cost-personal-centre"
-  | "plantilla-rrhh"
   | "balanc-esdeveniments"
   | "consolidacio";
 
@@ -44,6 +52,7 @@ export type NavExtra = {
   inici?: boolean;
   resultats?: ResultatsSub[];
   restaurants?: RestaurantsSub[];
+  rrhh?: RrhhSub[];
   pressupost?: PressupostSub[];
   dades?: DadesSub[];
   settings?: SettingsSub[];
@@ -73,6 +82,13 @@ export const RESTAURANTS_SUBS: { id: RestaurantsSub; label: string; href: string
   { id: "cost-salarial", label: "Cost salarial", href: "/consultes/cost-salarial" },
 ];
 
+export const RRHH_SUBS: { id: RrhhSub; label: string; href: string }[] = [
+  { id: "resum", label: "Resum", href: "/rrhh" },
+  { id: "centre", label: "Per centre", href: "/rrhh/centre" },
+  { id: "departament", label: "Per departament", href: "/rrhh/departament" },
+  { id: "comparativa", label: "Comparativa", href: "/rrhh/comparativa" },
+];
+
 export const PRESSUPOST_SUBS: { id: PressupostSub; label: string; href: string }[] = [
   { id: "resum", label: "Vista general", href: "/pressupost" },
   { id: "ln", label: "Per línia (vendes)", href: "/pressupost/ln" },
@@ -86,7 +102,7 @@ export const DADES_SUBS: { id: DadesSub; label: string; href: string }[] = [
   { id: "repartiment", label: "Repartiment", href: "/dades/repartiment" },
   { id: "traspass-personal", label: "Traspassos personal", href: "/dades/traspass-personal" },
   { id: "cost-personal-centre", label: "Cost personal", href: "/dades/cost-personal-centre" },
-  { id: "plantilla-rrhh", label: "Plantilla RRHH", href: "/dades/plantilla-rrhh" },
+  { id: "jornada-personal", label: "Jornada", href: "/dades/jornada-personal" },
   { id: "cost-salarial", label: "Cost salarial", href: "/dades/cost-salarial" },
   { id: "vendes-restaurants", label: "Vendes rest.", href: "/dades/vendes-restaurants" },
   { id: "despeses-ett", label: "Despeses ETT", href: "/dades/despeses-ett" },
@@ -101,7 +117,6 @@ export const SETTINGS_SUBS: { id: SettingsSub; label: string; href: string }[] =
   { id: "repartiment", label: "Repartiment", href: "/settings/repartiment" },
   { id: "traspass-personal", label: "Traspassos personal", href: "/settings/traspass-personal" },
   { id: "cost-personal-centre", label: "Cost personal", href: "/settings/cost-personal-centre" },
-  { id: "plantilla-rrhh", label: "Plantilla RRHH", href: "/settings/plantilla-rrhh" },
   {
     id: "balanc-esdeveniments",
     label: "Balanç esdeveniments",
@@ -114,6 +129,7 @@ export const MODUL_LABELS: Record<NavModul, string> = {
   inici: "Inici",
   resultats: "Resultats",
   restaurants: "Restaurants",
+  rrhh: "RRHH",
   pressupost: "Pressupost",
   dades: "Dades",
   settings: "Configuració",
@@ -124,6 +140,7 @@ export const MODULS_EXTRA: NavModul[] = [
   "inici",
   "resultats",
   "restaurants",
+  "rrhh",
   "pressupost",
   "dades",
   "settings",
@@ -135,6 +152,8 @@ export function subsDelModul(modul: NavModul): { id: string; label: string; href
       return RESULTATS_SUBS;
     case "restaurants":
       return RESTAURANTS_SUBS;
+    case "rrhh":
+      return RRHH_SUBS;
     case "pressupost":
       return PRESSUPOST_SUBS;
     case "dades":
@@ -176,11 +195,19 @@ export function resolvePressupostSub(pathname: string): PressupostSub | null {
   return null;
 }
 
+export function resolveRrhhSub(pathname: string): RrhhSub | null {
+  if (pathname === "/rrhh" || pathname === "/rrhh/") return "resum";
+  if (pathname.startsWith("/rrhh/centre")) return "centre";
+  if (pathname.startsWith("/rrhh/departament")) return "departament";
+  if (pathname.startsWith("/rrhh/comparativa")) return "comparativa";
+  return null;
+}
+
 export function resolveDadesSub(pathname: string): DadesSub | null {
   if (pathname.startsWith("/dades/repartiment")) return "repartiment";
   if (pathname.startsWith("/dades/traspass-personal")) return "traspass-personal";
   if (pathname.startsWith("/dades/cost-personal-centre")) return "cost-personal-centre";
-  if (pathname.startsWith("/dades/plantilla-rrhh")) return "plantilla-rrhh";
+  if (pathname.startsWith("/dades/jornada-personal")) return "jornada-personal";
   if (pathname.startsWith("/dades/cost-salarial")) return "cost-salarial";
   if (pathname.startsWith("/dades/vendes-restaurants")) return "vendes-restaurants";
   if (pathname.startsWith("/dades/despeses-ett")) return "despeses-ett";
@@ -203,7 +230,6 @@ export function resolveSettingsSub(pathname: string): SettingsSub | "usuaris" | 
   if (pathname.startsWith("/settings/repartiment")) return "repartiment";
   if (pathname.startsWith("/settings/traspass-personal")) return "traspass-personal";
   if (pathname.startsWith("/settings/cost-personal-centre")) return "cost-personal-centre";
-  if (pathname.startsWith("/settings/plantilla-rrhh")) return "plantilla-rrhh";
   if (pathname.startsWith("/settings/balanc-esdeveniments")) return "balanc-esdeveniments";
   if (pathname.startsWith("/settings/consolidacio")) return "consolidacio";
   // Usuaris: /settings/nou o /settings/{id}
@@ -233,6 +259,10 @@ export function parseNavExtra(raw: unknown): NavExtra {
   out.restaurants = arr(
     "restaurants",
     RESTAURANTS_SUBS.map((s) => s.id)
+  );
+  out.rrhh = arr(
+    "rrhh",
+    RRHH_SUBS.map((s) => s.id)
   );
   out.pressupost = arr(
     "pressupost",

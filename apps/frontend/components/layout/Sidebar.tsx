@@ -5,7 +5,15 @@ import { potVeureModul, primerHrefModul } from "@/lib/nav-access";
 import type { NavExtra } from "@/lib/nav-catalog";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
-import { BarChart3, CalendarRange, Database, Home, Settings, ShoppingBag } from "lucide-react";
+import {
+  BarChart3,
+  CalendarRange,
+  Database,
+  Home,
+  Settings,
+  ShoppingBag,
+  Users,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import styles from "./Sidebar.module.css";
@@ -45,12 +53,14 @@ export function Sidebar({
   const showInici = potVeureModul(role, "inici", navExtra);
   const showResultats = potVeureModul(role, "resultats", navExtra);
   const showRestaurants = potVeureModul(role, "restaurants", navExtra);
+  const showRrhh = potVeureModul(role, "rrhh", navExtra);
   const showPressupost = potVeureModul(role, "pressupost", navExtra);
   const showDades = potVeureModul(role, "dades", navExtra);
   const showConfig = potVeureModul(role, "settings", navExtra);
   const resultatsHref = primerHrefModul(role, "resultats", navExtra) ?? "/consultes/empresa";
   const restaurantsHref =
     primerHrefModul(role, "restaurants", navExtra) ?? "/consultes/quadre-mando";
+  const rrhhHref = primerHrefModul(role, "rrhh", navExtra) ?? "/rrhh";
   const pressupostHref = primerHrefModul(role, "pressupost", navExtra) ?? "/pressupost";
   const dadesHref = primerHrefModul(role, "dades", navExtra) ?? "/dades";
   const settingsHref = primerHrefModul(role, "settings", navExtra) ?? "/settings";
@@ -98,6 +108,24 @@ export function Sidebar({
               <LinkPending />
               <ShoppingBag size={17} strokeWidth={1.9} className={styles.icon} />
               <span>Restaurants</span>
+            </Link>
+          </li>
+        ) : null}
+        {showRrhh ? (
+          <li>
+            <Link
+              href={rrhhHref}
+              className={cn(
+                styles.navItem,
+                (pathname === "/rrhh" || pathname.startsWith("/rrhh/")) && styles.active
+              )}
+              aria-current={
+                pathname === "/rrhh" || pathname.startsWith("/rrhh/") ? "page" : undefined
+              }
+            >
+              <LinkPending />
+              <Users size={17} strokeWidth={1.9} className={styles.icon} />
+              <span>RRHH</span>
             </Link>
           </li>
         ) : null}

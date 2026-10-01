@@ -4,29 +4,18 @@ import { DadesFilterBar, coincideixCerca } from "@/components/dades/DadesFilterB
 import { DadesEmpty, DadesIconBtn, DadesPanel, dadesUi as ui } from "@/components/dades/DadesPanel";
 import { FloatingAddButton } from "@/components/ui/FloatingAddButton";
 import type { CarregaFitxerLlistaItem } from "@/lib/carrega-fitxer";
+import type { RegistreJornadaDTO } from "@/lib/jornada-personal/service";
 import { MESOS_LLARGS } from "@/lib/periodes";
-import { cn } from "@/lib/utils";
+import { cn, formatNum } from "@/lib/utils";
 import { Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useMemo, useRef, useState, useTransition } from "react";
 import styles from "../cost-salarial/page.module.css";
-import { deleteCarregaPlantillaRrhhAction, uploadPlantillaRrhhAction } from "./actions";
+import { deleteCarregaJornadaAction, uploadJornadaPersonalAction } from "./actions";
 
-type Registre = {
-  id: string;
-  nombrePersones: number;
-  textOrigen: string | null;
-  centreLabel: string;
-  centreCodi: string;
-  dept: string;
-  periodNom: string;
-  periodAny: number;
-  periodMes: number;
-};
+type Result = { ok: boolean; missatge: string; errors?: string[]; avisos?: string[] };
 
-type Result = { ok: boolean; missatge: string; errors?: string[] };
-
-export function PlantillaRrhhPanel({
+export function JornadaPersonalPanel({
   registres,
   carregues,
   anys,
@@ -34,7 +23,7 @@ export function PlantillaRrhhPanel({
   filtreMes,
   canEdit,
 }: {
-  registres: Registre[];
+  registres: RegistreJornadaDTO[];
   carregues: CarregaFitxerLlistaItem[];
   anys: number[];
   filtreAny: number;
@@ -46,45 +35,61 @@ export function PlantillaRrhhPanel({
   const [pending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState<Result | null>(null);
   const [query, setQuery] = useState("");
+  const ara = new Date();
+  const [uploadAny, setUploadAny] = useState(filtreAny || ara.getFullYear());
+  const [uploadMes, setUploadMes] = useState(filtreMes || ara.getMonth() + 1);
 
   const notify = (r: Result) => {
     setFeedback(r);
     router.refresh();
-    if (r.ok) setTimeout(() => setFeedback(null), 10000);
+    if (r.ok) setTimeout(() => setFeedback(null), 12000);
   };
 
   const aplicarFiltre = (nextAny: string, nextMes: string) => {
     const p = new URLSearchParams();
     if (nextAny) p.set("any", nextAny);
     if (nextMes) p.set("mes", nextMes);
-    router.push(`/dades/plantilla-rrhh?${p}`);
+    router.push(`/dades/jornada-personal?${p}`);
   };
 
   const filtrats = useMemo(() => {
     return registres.filter((r) =>
-      coincideixCerca(
-        [r.centreLabel, r.centreCodi, r.dept, r.textOrigen, r.periodNom].filter(Boolean).join(" "),
-        query
-      )
+      coincideixCerca([r.centreCodi, r.centreNom, r.dept, r.periodNom].join(" "), query)
     );
   }, [registres, query]);
 
-  const pujar = (file: File | null) => {
-    if (!file) return;
+  const pujar = (list: FileList | null) => {
+    if (!list?.length) return;
     const fd = new FormData();
-    fd.set("fitxer", file);
+    for (const f of Array.from(list)) fd.append("fitxers", f);
+    fd.set("any", String(uploadAny));
+    fd.set("mes", String(uploadMes));
     startTransition(async () => {
-      const r = await uploadPlantillaRrhhAction(fd);
+      const r = await uploadJornadaPersonalAction(fd);
       notify(r);
       if (fileRef.current) fileRef.current.value = "";
     });
   };
+
+  const anysUpload = useMemo(() => {
+    const s = new Set(anys);
+    s.add(ara.getFullYear());
+    s.add(uploadAny);
+    return [...s].sort((a, b) => b - a);
+  }, [anys, ara, uploadAny]);
 
   return (
     <>
       {feedback && (
         <div className={cn(styles.feedback, feedback.ok ? styles.feedbackOk : styles.feedbackErr)}>
           <div>{feedback.missatge}</div>
+          {feedback.avisos && feedback.avisos.length > 0 && (
+            <ul className={styles.errorList}>
+              {feedback.avisos.slice(0, 6).map((e) => (
+                <li key={e}>{e}</li>
+              ))}
+            </ul>
+          )}
           {feedback.errors && feedback.errors.length > 0 && (
             <ul className={styles.errorList}>
               {feedback.errors.slice(0, 8).map((e) => (
@@ -97,16 +102,63 @@ export function PlantillaRrhhPanel({
 
       {canEdit && (
         <>
+          <div className={styles.uploadCard}>
+            <div>
+              <p className={styles.uploadTitle}>Període d&apos;importació</p>
+              <p className={styles.uploadHint}>
+                Si el nom del fitxer porta la data (ex. …a 30092026.xls), s&apos;usa aquella. Si no,
+                s&apos;aplica l&apos;any i mes seleccionats aquí. Columnes: B = % jornada (blanc =
+                40 h), C = codi imputació (mapeig de Cost personal).
+              </p>
+              <div style={{ display: "flex", gap: "0.75rem", marginTop: "0.75rem" }}>
+                <label
+                  className={ui.muted}
+                  style={{ display: "flex", gap: 6, alignItems: "center" }}
+                >
+                  Any
+                  <select
+                    value={uploadAny}
+                    onChange={(e) => setUploadAny(Number(e.target.value))}
+                    disabled={pending}
+                  >
+                    {anysUpload.map((y) => (
+                      <option key={y} value={y}>
+                        {y}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label
+                  className={ui.muted}
+                  style={{ display: "flex", gap: 6, alignItems: "center" }}
+                >
+                  Mes
+                  <select
+                    value={uploadMes}
+                    onChange={(e) => setUploadMes(Number(e.target.value))}
+                    disabled={pending}
+                  >
+                    {MESOS_LLARGS.map((m, i) => (
+                      <option key={m} value={i + 1}>
+                        {m}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
           <input
             ref={fileRef}
             type="file"
             accept=".xlsx,.xls"
+            multiple
             hidden
             disabled={pending}
-            onChange={(e) => pujar(e.target.files?.[0] ?? null)}
+            onChange={(e) => pujar(e.target.files)}
           />
           <FloatingAddButton
-            label="Pujar Excel de plantilla RRHH"
+            label="Pujar Excel de jornada"
             disabled={pending}
             onClick={() => fileRef.current?.click()}
           />
@@ -118,7 +170,7 @@ export function PlantillaRrhhPanel({
           className={styles.filterBar}
           query={query}
           onQueryChange={setQuery}
-          placeholder="Cerca centre, departament, organització…"
+          placeholder="Cerca centre o departament…"
           onClear={() => {
             setQuery("");
             aplicarFiltre("", "");
@@ -144,19 +196,13 @@ export function PlantillaRrhhPanel({
               "aria-label": "Filtra per mes",
             },
           ]}
-          summary={query.trim() ? `${filtrats.length} de ${registres.length} registres` : undefined}
+          summary={query.trim() ? `${filtrats.length} de ${registres.length}` : undefined}
         />
       </div>
 
-      <p className={ui.muted} style={{ marginBottom: "0.75rem" }}>
-        Columnes del fitxer: <strong>M1&apos;AAAA</strong> = gener, <strong>M2</strong> = febrer, …
-        fins a M12. Només s&apos;importen les fulles amb mapeig (Configuració → Plantilla RRHH). Els
-        mesos presents al fitxer es substitueixen.
-      </p>
-
-      <DadesPanel title="Registres de plantilla" meta={`${filtrats.length} registres`}>
+      <DadesPanel title="Caps i hores per centre" meta={`${filtrats.length}`}>
         {filtrats.length === 0 ? (
-          <DadesEmpty text="Encara no hi ha plantilla per aquest filtre. Puja l'Excel amb el botó +." />
+          <DadesEmpty text="Encara no hi ha dades de jornada. Puja l'Excel mensual amb el botó +." />
         ) : (
           <div className={ui.tableWrap}>
             <table className={ui.table}>
@@ -165,18 +211,21 @@ export function PlantillaRrhhPanel({
                   <th>Període</th>
                   <th>Centre</th>
                   <th>Departament</th>
-                  <th>Organització</th>
-                  <th style={{ textAlign: "right" }}>Persones</th>
+                  <th className={ui.right}>Persones</th>
+                  <th className={ui.right}>Hores / setmana</th>
                 </tr>
               </thead>
               <tbody>
                 {filtrats.map((r) => (
                   <tr key={r.id}>
                     <td>{r.periodNom}</td>
-                    <td>{r.centreLabel}</td>
+                    <td>
+                      {r.centreCodi}
+                      <span className={ui.muted}> · {r.centreNom}</span>
+                    </td>
                     <td>{r.dept}</td>
-                    <td className={ui.muted}>{r.textOrigen ?? "—"}</td>
-                    <td style={{ textAlign: "right" }}>{r.nombrePersones}</td>
+                    <td className={ui.right}>{formatNum(r.nombrePersones, 0)}</td>
+                    <td className={ui.right}>{formatNum(r.horesSetmanals, 1)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -187,16 +236,16 @@ export function PlantillaRrhhPanel({
 
       <DadesPanel title="Historial de càrregues" meta={`${carregues.length}`}>
         {carregues.length === 0 ? (
-          <DadesEmpty text="Encara no s'ha pujat cap fitxer de plantilla." />
+          <DadesEmpty text="Encara no s'ha pujat cap fitxer de jornada." />
         ) : (
           <div className={ui.tableWrap}>
             <table className={ui.table}>
               <thead>
                 <tr>
                   <th>Fitxer</th>
+                  <th>Període</th>
                   <th>Data</th>
                   <th>Resum</th>
-                  <th>Registres</th>
                   {canEdit && <th />}
                 </tr>
               </thead>
@@ -207,9 +256,9 @@ export function PlantillaRrhhPanel({
                       <strong>{c.nomFitxer}</strong>
                       <div className={ui.muted}>{c.usuari}</div>
                     </td>
+                    <td>{c.periodLabel ?? "—"}</td>
                     <td>{c.createdAtLabel}</td>
                     <td className={ui.muted}>{c.resum ?? "—"}</td>
-                    <td>{c.registres}</td>
                     {canEdit && (
                       <td>
                         <DadesIconBtn
@@ -219,11 +268,12 @@ export function PlantillaRrhhPanel({
                           onClick={() => {
                             if (!confirm(`Eliminar «${c.nomFitxer}» i les seves dades?`)) return;
                             startTransition(async () => {
-                              notify(await deleteCarregaPlantillaRrhhAction(c.id));
+                              const r = await deleteCarregaJornadaAction(c.id);
+                              notify(r);
                             });
                           }}
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={14} />
                         </DadesIconBtn>
                       </td>
                     )}

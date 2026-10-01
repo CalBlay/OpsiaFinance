@@ -292,46 +292,42 @@ const filesHeadcount = [
   {
     centreId: "centre-a",
     departamentId: "dept-1",
-    origen: "NOMINA" as const,
     nombrePersones: 2,
-    period: { mes: 1 },
-  },
-  {
-    centreId: "centre-a",
-    departamentId: "dept-1",
-    origen: "MILLORES" as const,
-    nombrePersones: 2,
+    horesSetmanals: 80,
     period: { mes: 1 },
   },
   {
     centreId: "centre-a",
     departamentId: "dept-2",
-    origen: "NOMINA" as const,
     nombrePersones: 3,
+    horesSetmanals: 120,
     period: { mes: 1 },
   },
   {
     centreId: "centre-a",
     departamentId: "dept-1",
-    origen: "NOMINA" as const,
     nombrePersones: 4,
+    horesSetmanals: 160,
     period: { mes: 2 },
   },
   {
     centreId: "centre-a",
     departamentId: "dept-2",
-    origen: "MILLORES" as const,
     nombrePersones: 2,
+    horesSetmanals: 80,
     period: { mes: 2 },
   },
 ];
 
 const gener = agregarHeadcount(filesHeadcount, 1, (fila) => fila.departamentId);
-assert.equal(gener.perClau.get("dept-1"), 2, "Nòmina preval sobre millores");
+assert.equal(gener.perClau.get("dept-1"), 2);
+assert.equal(gener.perClauHores.get("dept-1"), 80);
 assert.equal(gener.total, 5);
+assert.equal(gener.totalHores, 200);
 
 const anual = agregarHeadcount(filesHeadcount, null, (fila) => fila.departamentId);
 assert.equal(anual.perClau.get("dept-1"), 3);
+assert.equal(anual.perClauHores.get("dept-1"), 120);
 assert.equal(anual.perClau.get("dept-2"), 2.5);
 assert.equal(anual.total, 5.5, "L'acumulat anual és una mitjana mensual, no una suma");
 assert.equal(anual.esMitjana, true);

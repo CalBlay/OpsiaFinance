@@ -6,7 +6,6 @@ import {
   ArrowLeftRight,
   BookOpen,
   CalendarRange,
-  ClipboardList,
   GitBranch,
   Layers,
   ListTree,
@@ -61,13 +60,6 @@ const SETTINGS_TABS = [
     icon: UserCog,
     exact: false,
     sub: "cost-personal-centre",
-  },
-  {
-    href: "/settings/plantilla-rrhh",
-    label: "Plantilla RRHH",
-    icon: ClipboardList,
-    exact: false,
-    sub: "plantilla-rrhh",
   },
   {
     href: "/settings/balanc-esdeveniments",

@@ -1,10 +1,18 @@
-import type { DadesSub, NavExtra, NavModul, ResultatsSub, SettingsSub } from "@/lib/nav-catalog";
+import type {
+  DadesSub,
+  NavExtra,
+  NavModul,
+  ResultatsSub,
+  RrhhSub,
+  SettingsSub,
+} from "@/lib/nav-catalog";
 import {
   isRestaurantsPath,
   parseNavExtra,
   resolveConsultesSub,
   resolveDadesSub,
   resolvePressupostSub,
+  resolveRrhhSub,
   resolveSettingsSub,
 } from "@/lib/nav-catalog";
 import type { UserRole } from "@/types";
@@ -54,6 +62,8 @@ function extraSubs(extra: NavExtra | null | undefined, modul: NavModul): string[
       return extra.resultats ?? [];
     case "restaurants":
       return extra.restaurants ?? [];
+    case "rrhh":
+      return extra.rrhh ?? [];
     case "pressupost":
       return extra.pressupost ?? [];
     case "dades":
@@ -90,6 +100,7 @@ export function potVeureModul(
       case "inici":
       case "resultats":
       case "restaurants":
+      case "rrhh":
       case "pressupost":
         return true;
       case "dades":
@@ -155,13 +166,23 @@ export function primerHrefModul(
     if (potVeureSub(role, "pressupost", "aprovacio", extra)) return "/pressupost/aprovacio";
     return "/pressupost/departaments";
   }
+  if (modul === "rrhh") {
+    const order: RrhhSub[] = ["resum", "centre", "departament", "comparativa"];
+    for (const id of order) {
+      if (potVeureSub(role, "rrhh", id, extra)) {
+        if (id === "resum") return "/rrhh";
+        return `/rrhh/${id}`;
+      }
+    }
+    return "/rrhh";
+  }
   if (modul === "dades") {
     const order: DadesSub[] = [
       "importacions",
       "repartiment",
       "traspass-personal",
       "cost-personal-centre",
-      "plantilla-rrhh",
+      "jornada-personal",
       "cost-salarial",
       "vendes-restaurants",
       "despeses-ett",
@@ -184,7 +205,6 @@ export function primerHrefModul(
       "repartiment",
       "traspass-personal",
       "cost-personal-centre",
-      "plantilla-rrhh",
       "consolidacio",
     ];
     for (const id of order) {
@@ -235,6 +255,12 @@ export function potAccedirPath(
     const sub = resolvePressupostSub(pathname);
     if (!sub) return potVeureModul(role, "pressupost", extra);
     return potVeureSub(role, "pressupost", sub, extra);
+  }
+
+  if (pathname.startsWith("/rrhh")) {
+    const sub = resolveRrhhSub(pathname);
+    if (!sub) return potVeureModul(role, "rrhh", extra);
+    return potVeureSub(role, "rrhh", sub, extra);
   }
 
   if (pathname.startsWith("/dades")) {

@@ -5,7 +5,7 @@ export type TipusCarregaFitxer =
   | "COST_SALARIAL"
   | "COST_PERSONAL_CENTRE"
   | "COST_PERSONAL_MILLORES"
-  | "PLANTILLA_RRHH"
+  | "PLANTILLA_JORNADA"
   | "VENDES_V"
   | "VENDES_DETALL"
   | "VENDES_PACK";
@@ -14,7 +14,7 @@ export const TIPUS_CARREGA_LABELS: Record<TipusCarregaFitxer, string> = {
   COST_SALARIAL: "Cost salarial",
   COST_PERSONAL_CENTRE: "Cost personal (nòmina)",
   COST_PERSONAL_MILLORES: "Cost personal (millores)",
-  PLANTILLA_RRHH: "Plantilla RRHH",
+  PLANTILLA_JORNADA: "Jornada personal",
   VENDES_V: "Vendes diàries (V)",
   VENDES_DETALL: "Vendes detall",
   VENDES_PACK: "Vendes pack",
@@ -78,7 +78,7 @@ export async function llistaCarreguesFitxerUncached(
           costsPersonalsCentre: true,
           vendesDiaries: true,
           vendesArticles: true,
-          plantillesRrhh: true,
+          plantillesJornada: true,
         },
       },
     },
@@ -103,7 +103,7 @@ export async function llistaCarreguesFitxerUncached(
       (r._count.costsPersonalsCentre ?? 0) +
       r._count.vendesDiaries +
       r._count.vendesArticles +
-      (r._count.plantillesRrhh ?? 0),
+      (r._count.plantillesJornada ?? 0),
   }));
 }
 

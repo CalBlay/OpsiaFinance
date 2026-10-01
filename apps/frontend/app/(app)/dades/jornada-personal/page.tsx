@@ -3,14 +3,14 @@ import { getDadesTabById } from "@/components/dades/dades-tabs";
 import { RouteLoading } from "@/components/ui/RouteLoading";
 import { auth } from "@/lib/auth";
 import { getCarreguesFitxerLlista } from "@/lib/dades-list";
+import { getAnysAmbJornadaPersonal, llistaJornadaPersonal } from "@/lib/jornada-personal/service";
 import { esSuperOAdmin } from "@/lib/roles";
-import { getAnysAmbPlantillaRrhh, llistaPlantillaRrhh } from "@/lib/rrhh-plantilla/service-import";
 import { Suspense } from "react";
-import { PlantillaRrhhPanel } from "./PlantillaRrhhPanel";
+import { JornadaPersonalPanel } from "./JornadaPersonalPanel";
 
-export const metadata = { title: "Plantilla RRHH — OpsiaFinance" };
+export const metadata = { title: "Jornada personal — OpsiaFinance" };
 
-const tab = getDadesTabById("plantilla-rrhh");
+const tab = getDadesTabById("jornada-personal");
 
 async function Content({
   searchParams,
@@ -20,8 +20,8 @@ async function Content({
   const sp = await searchParams;
   const [session, anys, carregues] = await Promise.all([
     auth(),
-    getAnysAmbPlantillaRrhh(),
-    getCarreguesFitxerLlista("PLANTILLA_RRHH"),
+    getAnysAmbJornadaPersonal(),
+    getCarreguesFitxerLlista("PLANTILLA_JORNADA"),
   ]);
 
   const anyFiltre = sp.any ? Number(sp.any) : (anys[0] ?? new Date().getFullYear());
@@ -29,14 +29,14 @@ async function Content({
   const role = session?.user?.role;
   const canEdit = esSuperOAdmin(role) || role === "EDICIO";
 
-  const registres = await llistaPlantillaRrhh(
+  const registres = await llistaJornadaPersonal(
     Number.isFinite(anyFiltre) ? anyFiltre : null,
     mesFiltre && mesFiltre >= 1 && mesFiltre <= 12 ? mesFiltre : null
   );
 
   return (
     <DadesPageShell title={tab.title} description={tab.description}>
-      <PlantillaRrhhPanel
+      <JornadaPersonalPanel
         registres={registres}
         carregues={carregues}
         anys={anys.length ? anys : [anyFiltre]}
@@ -48,7 +48,7 @@ async function Content({
   );
 }
 
-export default function PlantillaRrhhDadesPage({
+export default function JornadaPersonalPage({
   searchParams,
 }: {
   searchParams: Promise<{ any?: string; mes?: string }>;

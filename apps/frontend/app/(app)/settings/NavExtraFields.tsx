@@ -9,13 +9,22 @@ import {
   PRESSUPOST_SUBS,
   RESTAURANTS_SUBS,
   RESULTATS_SUBS,
+  RRHH_SUBS,
   SETTINGS_SUBS,
 } from "@/lib/nav-catalog";
 import type { UserRole } from "@/types";
 import { useMemo } from "react";
 import styles from "./nou/page.module.css";
 
-const MODULS: NavModul[] = ["inici", "resultats", "restaurants", "pressupost", "dades", "settings"];
+const MODULS: NavModul[] = [
+  "inici",
+  "resultats",
+  "restaurants",
+  "rrhh",
+  "pressupost",
+  "dades",
+  "settings",
+];
 
 function subsOf(modul: NavModul) {
   switch (modul) {
@@ -23,6 +32,8 @@ function subsOf(modul: NavModul) {
       return RESULTATS_SUBS;
     case "restaurants":
       return RESTAURANTS_SUBS;
+    case "rrhh":
+      return RRHH_SUBS;
     case "pressupost":
       return PRESSUPOST_SUBS;
     case "dades":

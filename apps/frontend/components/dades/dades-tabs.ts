@@ -16,7 +16,7 @@ export type DadesTabId =
   | "repartiment"
   | "traspass-personal"
   | "cost-personal-centre"
-  | "plantilla-rrhh"
+  | "jornada-personal"
   | "cost-salarial"
   | "vendes-restaurants"
   | "despeses-ett"
@@ -40,7 +40,7 @@ const OTHER_PREFIXES = [
   "/dades/repartiment",
   "/dades/traspass-personal",
   "/dades/cost-personal-centre",
-  "/dades/plantilla-rrhh",
+  "/dades/jornada-personal",
   "/dades/cost-salarial",
   "/dades/vendes-restaurants",
   "/dades/despeses-ett",
@@ -96,14 +96,14 @@ export const DADES_TABS: DadesTab[] = [
     match: (p) => p.startsWith("/dades/cost-personal-centre"),
   },
   {
-    id: "plantilla-rrhh",
-    href: "/dades/plantilla-rrhh",
-    label: "Plantilla RRHH",
-    title: "Plantilla RRHH (caps)",
+    id: "jornada-personal",
+    href: "/dades/jornada-personal",
+    label: "Jornada",
+    title: "Jornada personal",
     description:
-      "Excel de caps per organització i mes (M1'AAAA = gener, M2 = febrer…). Es mapeja a centre/departament via Configuració → Plantilla RRHH. Informatiu per anàlisi de personal.",
+      "Excel de resum nòmina per codi imputació i jornada (B=% jornada / blanc=40 h, C=codi). Mapeig de Cost personal. Alimenta caps i hores/setmana a Resultats → Cost de personal.",
     icon: ClipboardList,
-    match: (p) => p.startsWith("/dades/plantilla-rrhh"),
+    match: (p) => p.startsWith("/dades/jornada-personal"),
   },
   {
     id: "cost-salarial",
