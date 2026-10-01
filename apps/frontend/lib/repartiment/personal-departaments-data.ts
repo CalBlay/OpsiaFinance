@@ -13,6 +13,7 @@ import {
   CODIS_LN_PERSONAL_CONFIG,
   FRACCIO_SOBRANT_IGUALS_DEFECTE,
   clampFraccio01,
+  esDeptScExclosRepartiment,
 } from "@/lib/repartiment/personal-departaments-constants";
 import { unstable_cache } from "next/cache";
 
@@ -58,13 +59,65 @@ export async function carregarArbreDeptSc(): Promise<ArbreDeptSc[]> {
   }));
 }
 
-/** Cost nòmina + millores per departament SC d'un mes. */
+/**
+ * Cost nòmina SC exclòs del repartiment (Serveis Externs + Serveis Logística).
+ * Es resta del pool SAP Central perquè ja es comptabilitza via traspassos.
+ */
+export async function carregarCostPersonalCentresExclososRepartiment(
+  any: number,
+  mes: number
+): Promise<number> {
+  return unstable_cache(
+    () => carregarCostPersonalCentresExclososRepartimentUncached(any, mes),
+    consultesCacheKey("config-repartiment-cost-personal-exclos-v2", String(any), String(mes)),
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
+  )();
+}
+
+async function carregarCostPersonalCentresExclososRepartimentUncached(
+  any: number,
+  mes: number
+): Promise<number> {
+  const costs = await carregarCostPersonalDeptSc(any, mes);
+  return costs
+    .filter((c) =>
+      esDeptScExclosRepartiment({
+        centreCodi: c.centreCodi,
+        centreNom: c.centreNom,
+        deptCodi: c.deptCodi,
+        deptNom: c.deptNom,
+      })
+    )
+    .reduce((s, c) => s + Math.abs(c.costPersonal), 0);
+}
+
+/** Cost nòmina + millores per departament SC d'un mes (tots els centres). */
 export async function carregarCostPersonalDeptSc(any: number, mes: number): Promise<CostDeptMes[]> {
   return unstable_cache(
     () => carregarCostPersonalDeptScUncached(any, mes),
-    consultesCacheKey("config-repartiment-cost-personal", String(any), String(mes)),
+    consultesCacheKey("config-repartiment-cost-personal-v4", String(any), String(mes)),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 300 }
   )();
+}
+
+/**
+ * Cost SC de la matriu de repartiment: sense Serveis Externs ni Serveis Logística.
+ * Les APIs d'estructura (pots L+C) continuen usant {@link carregarCostPersonalDeptSc}.
+ */
+export async function carregarCostPersonalDeptScRepartiment(
+  any: number,
+  mes: number
+): Promise<CostDeptMes[]> {
+  const costs = await carregarCostPersonalDeptSc(any, mes);
+  return costs.filter(
+    (c) =>
+      !esDeptScExclosRepartiment({
+        centreCodi: c.centreCodi,
+        centreNom: c.centreNom,
+        deptCodi: c.deptCodi,
+        deptNom: c.deptNom,
+      })
+  );
 }
 
 async function carregarCostPersonalDeptScUncached(

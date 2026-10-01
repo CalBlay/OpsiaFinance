@@ -77,7 +77,7 @@ export const getRepartimentPeriodsLlista = cache(async (): Promise<RepartimentPe
         };
       });
     },
-    consultesCacheKey("dades-repartiment-periods"),
+    consultesCacheKey("dades-repartiment-periods-v2"),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 60 }
   )();
 });

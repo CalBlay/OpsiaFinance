@@ -1,11 +1,15 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
+import report from "@/components/consultes/report.module.css";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
-import { getAnysRrhh, getInformeRrhhDepartaments } from "@/lib/rrhh/consultes";
-import { RrhhKpis, RrhhTaulaInforme } from "../RrhhPresentacio";
+import {
+  getAnysRrhh,
+  getEvolucioMensualRrhh,
+  getInformeRrhhDepartaments,
+} from "@/lib/rrhh/consultes";
+import { RrhhBoard } from "../RrhhPresentacio";
 import { RrhhSelectors } from "../RrhhSelectors";
-import styles from "../rrhh.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "RRHH — Per departament — OpsiaFinance" };
@@ -46,18 +50,26 @@ export default async function RrhhDepartamentPage({
     if (ln && !ln.centres.some((c) => c.id === centreId)) centreId = null;
   }
 
-  const informe = await getInformeRrhhDepartaments(any, mes, {
-    liniaNegociId: lnId,
-    centreId,
-  });
-  const esMitjana = mes == null;
+  const ln = lnId ? arbre.find((l) => l.id === lnId) : null;
+  const centre = centreId ? arbre.flatMap((l) => l.centres).find((c) => c.id === centreId) : null;
+
+  const [informe, evolucio] = await Promise.all([
+    getInformeRrhhDepartaments(any, mes, { liniaNegociId: lnId, centreId }),
+    mes == null
+      ? getEvolucioMensualRrhh(any, { liniaNegociId: lnId, centreId })
+      : Promise.resolve([]),
+  ]);
 
   return (
-    <div className={styles.page}>
+    <div className={report.page}>
       <ConsultaHeader
         title="RRHH · Per departament"
-        subtitle={
-          <>Persones i hores/setmana per departament (Dimensions). {informe.periodeLabel}.</>
+        subtitle="Dimensió 3: persones, hores i composició de jornades per departament."
+        meta={
+          <span>
+            {ln ? `${ln.codi} · ${ln.nom}` : "Totes les LN"}
+            {centre ? ` → ${centre.codi} · ${centre.nom}` : ""}
+          </span>
         }
         actions={
           <RrhhSelectors
@@ -73,13 +85,16 @@ export default async function RrhhDepartamentPage({
           />
         }
       />
-
-      <RrhhKpis
-        persones={informe.totals.nombrePersones}
-        hores={informe.totals.horesSetmanals}
-        esMitjana={esMitjana}
+      <RrhhBoard
+        titol={
+          centre ? `${centre.codi} · ${centre.nom}` : ln ? `${ln.codi} · ${ln.nom}` : "Empresa"
+        }
+        periodeLabel={informe.periodeLabel}
+        nivellLabel="Per departament"
+        informe={informe}
+        evolucio={evolucio}
+        esMitjana={mes == null}
       />
-      <RrhhTaulaInforme informe={informe} esMitjana={esMitjana} />
     </div>
   );
 }

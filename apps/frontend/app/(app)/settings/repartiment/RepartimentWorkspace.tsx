@@ -462,7 +462,9 @@ export function RepartimentWorkspace({
               <h2>Quina part de cada equip dedica a cada LN?</h2>
               <p>
                 Edita directament els percentatges. L’import de sota es recalcula al moment
-                {refMesLabel ? ` amb el cost de referència de ${refMesLabel}` : ""}.
+                {refMesLabel ? ` amb el cost de referència de ${refMesLabel}` : ""}. Serveis Externs
+                i Serveis Logística (DCL0005) no hi surten: el seu cost va per traspassos i es
+                comptabilitza directament a cada LN.
               </p>
             </div>
             {canEdit && <AutosaveStatus state={personalSaveState} />}

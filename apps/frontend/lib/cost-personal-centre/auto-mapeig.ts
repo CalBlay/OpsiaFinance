@@ -74,7 +74,7 @@ type CentreOpt = {
 };
 
 /** Encaixa un text payroll amb un departament de Dimensions del centre. */
-function trobarDepartamentPerEtiqueta(
+export function trobarDepartamentPerEtiqueta(
   etiquetaRaw: string,
   depts: DeptOpt[]
 ): { dept: DeptOpt; puntuacio: number; motiu: string } | null {

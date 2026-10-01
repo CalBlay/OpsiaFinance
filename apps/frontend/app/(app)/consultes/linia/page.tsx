@@ -68,7 +68,8 @@ import { carregarCostSapAdminRestaurants } from "@/lib/repartiment/personal-admi
 import { calcularMovimentsPersonalDepartaments } from "@/lib/repartiment/personal-departaments";
 import {
   carregarConfigPersonal,
-  carregarCostPersonalDeptSc,
+  carregarCostPersonalCentresExclososRepartiment,
+  carregarCostPersonalDeptScRepartiment,
 } from "@/lib/repartiment/personal-departaments-data";
 import { getInfoGestioConsulta } from "@/lib/repartiment/service";
 import { esSuperOAdmin } from "@/lib/roles";
@@ -498,7 +499,10 @@ export default async function ConsultaLiniaPage({
               return [ln.id, nodes] as const;
             })
           );
-          const [costs] = await Promise.all([carregarCostPersonalDeptSc(anyActual, mesIdx + 1)]);
+          const [costs, poolExclosAbs] = await Promise.all([
+            carregarCostPersonalDeptScRepartiment(anyActual, mesIdx + 1),
+            carregarCostPersonalCentresExclososRepartiment(anyActual, mesIdx + 1),
+          ]);
           const moviments = calcularMovimentsPersonalDepartaments(
             costs,
             configPersonal.configsLn,
@@ -506,7 +510,8 @@ export default async function ConsultaLiniaPage({
             directe,
             lnIdByCodi,
             configPersonal.pesDefecte,
-            configPersonal.fraccioSobrantIguals
+            configPersonal.fraccioSobrantIguals,
+            poolExclosAbs
           );
           const objectiu = moviments.find(
             (moviment) =>

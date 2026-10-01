@@ -10,6 +10,42 @@ export const CODIS_LN_PERSONAL_CONFIG = [
 ] as const;
 
 /**
+ * Centres SC fora del repartiment personal (sencer): el cost va per traspassos
+ * i queda comptabilitzat directament a cada LN.
+ */
+export const CODIS_CENTRE_SC_EXCLOSOS_REPARTIMENT = ["CCC00008"] as const;
+
+/**
+ * Departaments SC fora del repartiment (dins d'un centre que sí es reparteix).
+ * Ex.: SERVEIS LOGISTICA dins LOGISTICA — va per traspassos a cada LN.
+ */
+export const CODIS_DEPT_SC_EXCLOSOS_REPARTIMENT = ["DCL0005"] as const;
+
+/** True si tot el centre queda fora del repartiment personal. */
+export function esCentreScExclosRepartiment(codi: string, nom?: string | null): boolean {
+  const c = codi.trim().toUpperCase();
+  if ((CODIS_CENTRE_SC_EXCLOSOS_REPARTIMENT as readonly string[]).includes(c)) {
+    return true;
+  }
+  return /serveis?\s*externs?/i.test(nom ?? "");
+}
+
+/** True si el departament (o el seu centre) queda fora del repartiment personal. */
+export function esDeptScExclosRepartiment(input: {
+  centreCodi: string;
+  centreNom?: string | null;
+  deptCodi: string;
+  deptNom?: string | null;
+}): boolean {
+  if (esCentreScExclosRepartiment(input.centreCodi, input.centreNom)) return true;
+  const dept = input.deptCodi.trim().toUpperCase();
+  if ((CODIS_DEPT_SC_EXCLOSOS_REPARTIMENT as readonly string[]).includes(dept)) {
+    return true;
+  }
+  return /serveis?\s*log[ií]stic/i.test(input.deptNom ?? "");
+}
+
+/**
  * Compatibilitat amb configuracions antigues. La nova matriu no deixa sobrants
  * automàtics: cada fila de departament ha de sumar el 100%.
  */

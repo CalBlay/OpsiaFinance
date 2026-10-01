@@ -217,12 +217,15 @@ export function primerHrefModul(
       "evolucio",
       "linia",
       "centre",
+      "consolidat-centres",
       "comparativa",
       "cost-personal",
     ];
     for (const id of order) {
       if (potVeureSub(role, "resultats", id, extra)) {
-        return id === "cost-personal" ? "/consultes/cost-personal" : `/consultes/${id}`;
+        if (id === "cost-personal") return "/consultes/cost-personal";
+        if (id === "consolidat-centres") return "/consultes/consolidat-centres";
+        return `/consultes/${id}`;
       }
     }
   }

@@ -4,6 +4,7 @@ import { type MapeigRow, resolMapeigPerFila } from "@/lib/cost-personal-centre/s
 import { db } from "@/lib/db";
 import { periodeDesDelNomFitxerJornada } from "@/lib/jornada-personal/nom-fitxer";
 import { parseJornadaPersonal } from "@/lib/jornada-personal/parser";
+import { resolDepartamentDesDeDescripcio } from "@/lib/jornada-personal/resol-departament";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { revalidatePath } from "next/cache";
 
@@ -21,6 +22,7 @@ export type RegistreJornadaDTO = {
   dept: string;
   nombrePersones: number;
   horesSetmanals: number;
+  horesPersona: number;
   periodNom: string;
   periodAny: number;
   periodMes: number;
@@ -46,8 +48,11 @@ async function upsertPeriode(any: number, mes: number): Promise<string> {
 }
 
 /**
- * Importa l'Excel de jornada: agrega persones i hores setmanals per centre×dept
- * via el mapeig de Cost personal (columna C).
+ * Importa l'Excel de jornada: agrega persones i hores setmanals per
+ * centre × departament (dimensió 3) × jornada (hores/persona).
+ * - Columna C → centre via mapeig Cost personal
+ * - Columna A → departament de l'arbre (o departamentId del mapeig)
+ * - Columna B → % jornada → hores
  * Substitueix les dades del període.
  */
 export async function importarJornadaPersonalDesDeBuffer(
@@ -104,15 +109,33 @@ export async function importarJornadaPersonalDesDeBuffer(
     ])
   );
 
+  const centresUsats = new Set(
+    [...byCodi.values()].map((m) => m.centreId).filter(Boolean) as string[]
+  );
+  const deptsDb = await db.departament.findMany({
+    where: { isActive: true, centreId: { in: [...centresUsats] } },
+    select: { id: true, codi: true, nom: true, centreId: true },
+  });
+  const deptsPerCentre = new Map<string, { id: string; codi: string; nom: string }[]>();
+  for (const d of deptsDb) {
+    const list = deptsPerCentre.get(d.centreId) ?? [];
+    list.push({ id: d.id, codi: d.codi, nom: d.nom });
+    deptsPerCentre.set(d.centreId, list);
+  }
+
+  /** Una fila per centre×dept×jornada (p.ex. 40h vs 20h). */
   type Agg = {
     centreId: string;
     departamentId: string | null;
+    horesPersona: number;
     nombrePersones: number;
-    horesSetmanals: number;
   };
   const agregats = new Map<string, Agg>();
   const avisSense = new Set<string>();
+  const avisSenseDept = new Set<string>();
   let mapejats = 0;
+  let ambDept = 0;
+  let senseDept = 0;
 
   for (const f of parsed.files) {
     const hit = resolMapeigPerFila(f.codi, f.codi, byCodi);
@@ -121,17 +144,46 @@ export async function importarJornadaPersonalDesDeBuffer(
       continue;
     }
     mapejats++;
-    const key = `${hit.mapeig.centreId}::${hit.mapeig.departamentId ?? "_"}`;
+
+    const centreId = hit.mapeig.centreId;
+    const depts = deptsPerCentre.get(centreId) ?? [];
+    let departamentId: string | null = null;
+
+    // 1) Prioritat: columna A (font de veritat del fitxer de jornada)
+    if (f.descripcio) {
+      const match = resolDepartamentDesDeDescripcio(f.descripcio, depts);
+      if (match) departamentId = match.dept.id;
+    }
+    // 2) Fallback: departament del mapeig Cost personal
+    if (!departamentId) {
+      departamentId = hit.mapeig.departamentId ?? null;
+    }
+    // 3) Fallback: text del mapeig
+    if (!departamentId && hit.mapeig.text) {
+      const match = resolDepartamentDesDeDescripcio(hit.mapeig.text, depts);
+      if (match) departamentId = match.dept.id;
+    }
+
+    if (departamentId) {
+      ambDept++;
+    } else {
+      senseDept++;
+      if (avisSenseDept.size < 8 && f.descripcio) {
+        avisSenseDept.add(f.descripcio.slice(0, 60));
+      }
+    }
+
+    const horesPersona = Math.round(f.horesSetmanals * 10) / 10;
+    const key = `${centreId}::${departamentId ?? "_"}::${horesPersona.toFixed(1)}`;
     const prev = agregats.get(key);
     if (prev) {
       prev.nombrePersones += 1;
-      prev.horesSetmanals += f.horesSetmanals;
     } else {
       agregats.set(key, {
-        centreId: hit.mapeig.centreId,
-        departamentId: hit.mapeig.departamentId,
+        centreId,
+        departamentId,
+        horesPersona,
         nombrePersones: 1,
-        horesSetmanals: f.horesSetmanals,
       });
     }
   }
@@ -151,7 +203,6 @@ export async function importarJornadaPersonalDesDeBuffer(
 
   const periodId = await upsertPeriode(opts.any, opts.mes);
 
-  // Substitueix tot el període
   await db.plantillaJornada.deleteMany({ where: { periodId } });
 
   const carregaId = await crearCarregaFitxer({
@@ -159,7 +210,7 @@ export async function importarJornadaPersonalDesDeBuffer(
     nomFitxer: opts.nomFitxer,
     mida: opts.mida ?? null,
     periodId,
-    resum: `${finals.length} centres/depts · ${finals.reduce((s, a) => s + a.nombrePersones, 0)} persones · ${finals.reduce((s, a) => s + a.horesSetmanals, 0).toFixed(1)} h/setm.`,
+    resum: `${finals.length} jornades · ${finals.reduce((s, a) => s + a.nombrePersones, 0)} persones · ${finals.reduce((s, a) => s + a.nombrePersones * a.horesPersona, 0).toFixed(1)} h/setm.`,
     creatPer: opts.creatPer,
   });
 
@@ -169,7 +220,7 @@ export async function importarJornadaPersonalDesDeBuffer(
       centreId: a.centreId,
       departamentId: a.departamentId,
       nombrePersones: a.nombrePersones,
-      horesSetmanals: a.horesSetmanals,
+      horesSetmanals: a.nombrePersones * a.horesPersona,
       carregaId,
     })),
   });
@@ -180,12 +231,18 @@ export async function importarJornadaPersonalDesDeBuffer(
   if (avisSense.size) {
     avisos.push(`Sense mapeig (exemples): ${[...avisSense].join(", ")}.`);
   }
+  if (senseDept > 0) {
+    avisos.push(
+      `${senseDept} persones sense departament a Dimensions (exemples col. A: ${[...avisSenseDept].join(" | ") || "—"}). Revisa que el centre tingui creats els departaments (Sala, Cuina…).`
+    );
+  }
   const nPers = finals.reduce((s, a) => s + a.nombrePersones, 0);
-  const nHores = finals.reduce((s, a) => s + a.horesSetmanals, 0);
+  const nHores = finals.reduce((s, a) => s + a.nombrePersones * a.horesPersona, 0);
+  const nDepts = new Set(finals.map((a) => a.departamentId).filter(Boolean)).size;
 
   return {
     ok: true,
-    missatge: `${MESOS_LLARGS[opts.mes - 1]} ${opts.any}: ${nPers} persones · ${nHores.toFixed(1)} h/setmana · ${finals.length} agrupacions (${mapejats}/${parsed.files.length} files mapejades).`,
+    missatge: `${MESOS_LLARGS[opts.mes - 1]} ${opts.any}: ${nPers} persones · ${nHores.toFixed(1)} h/setmana · ${nDepts} departaments · ${finals.length} jornades (${mapejats}/${parsed.files.length} files, ${ambDept} amb dept).`,
     avisos: avisos.length ? avisos : undefined,
   };
 }
@@ -212,20 +269,26 @@ export async function llistaJornadaPersonal(
       { period: { any: "desc" } },
       { period: { mes: "desc" } },
       { centre: { codi: "asc" } },
+      { departament: { codi: "asc" } },
     ],
   });
 
-  return rows.map((r) => ({
-    id: r.id,
-    centreCodi: r.centre.codi,
-    centreNom: r.centre.nom,
-    dept: r.departament ? `${r.departament.codi} · ${r.departament.nom}` : "—",
-    nombrePersones: r.nombrePersones,
-    horesSetmanals: Number(r.horesSetmanals),
-    periodNom: r.period.nom,
-    periodAny: r.period.any,
-    periodMes: r.period.mes,
-  }));
+  return rows.map((r) => {
+    const hores = Number(r.horesSetmanals);
+    const horesPers = r.nombrePersones > 0 ? Math.round((hores / r.nombrePersones) * 10) / 10 : 0;
+    return {
+      id: r.id,
+      centreCodi: r.centre.codi,
+      centreNom: r.centre.nom,
+      dept: r.departament ? `${r.departament.codi} · ${r.departament.nom}` : "Sense departament",
+      nombrePersones: r.nombrePersones,
+      horesSetmanals: hores,
+      horesPersona: horesPers,
+      periodNom: r.period.nom,
+      periodAny: r.period.any,
+      periodMes: r.period.mes,
+    };
+  });
 }
 
 export async function getAnysAmbJornadaPersonal(): Promise<number[]> {

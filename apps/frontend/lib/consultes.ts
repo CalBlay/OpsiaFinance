@@ -2,7 +2,12 @@ import { esSubtotalPresentacio, recalcularSubtotalsCompte } from "@/lib/compte-s
 import { construirParellsInterEmpresaLn } from "@/lib/consolidacio/parells";
 import { aplicarConsolidacio } from "@/lib/consolidacio/service";
 import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
-import { etiquetaCentre, etiquetaLiniaNegoci, ordenaPerCodi } from "@/lib/consultes-etiquetes";
+import {
+  comparaPerCodi,
+  etiquetaCentre,
+  etiquetaLiniaNegoci,
+  ordenaPerCodi,
+} from "@/lib/consultes-etiquetes";
 import { db } from "@/lib/db";
 import { FDLC_LN_CODI } from "@/lib/fdlc/constants";
 import {
@@ -390,6 +395,119 @@ export async function getCompteExplotacioCentreParell(
     directe,
     traspassos: ambTraspass,
     gestio: ambTraspass,
+  };
+}
+
+/* ─── Consulta: C.Explotació consolidat (suma simple de centres multi-LN) ───── */
+
+export interface CompteExplotacioCentresConsolidat {
+  centres: {
+    id: string;
+    codi: string;
+    nom: string;
+    liniaNegoci: { codi: string; nom: string };
+  }[];
+  any: number;
+  concepts: ConceptePivot[];
+  buit: boolean;
+}
+
+/** Normalitza ids (únic + ordenat) per cache i URL estables. */
+export function normalitzaCentreIds(centreIds: string[]): string[] {
+  return [...new Set(centreIds.map(String).filter(Boolean))].sort();
+}
+
+/** Suma per node×mes els comptes ja calculats (sense recalcular subtotals). */
+function sumarComptesCentres(comptes: CompteExplotacioCentre[]): ConceptePivot[] {
+  if (!comptes.length) return [];
+  const template = comptes[0].concepts;
+  const byNode = comptes.map((c) => new Map(c.concepts.map((row) => [row.node, row] as const)));
+  return template.map((row) => {
+    const nCols = row.valors.length;
+    const valors = Array.from({ length: nCols }, (_, col) => {
+      let s = 0;
+      for (const m of byNode) s += m.get(row.node)?.valors[col] ?? 0;
+      return s;
+    });
+    return {
+      node: row.node,
+      concepteId: row.concepteId,
+      descripcio: row.descripcio,
+      esSubtotal: row.esSubtotal,
+      valors,
+      total: valors.reduce((a, b) => a + b, 0),
+    };
+  });
+}
+
+/**
+ * Compte d'explotació conjunt = suma simple dels centres triats (poden ser de LN diferents).
+ * Gestió = suma de Gestió per centre (Directe + traspassos; sense nou repartiment).
+ */
+export async function getCompteExplotacioCentresConsolidat(
+  centreIds: string[],
+  any: number,
+  vista: VistaCompte = "directe"
+): Promise<CompteExplotacioCentresConsolidat> {
+  const ids = normalitzaCentreIds(centreIds);
+  if (!ids.length) {
+    return { centres: [], any, concepts: [], buit: true };
+  }
+
+  const [centresMeta, comptes] = await Promise.all([
+    db.centre.findMany({
+      where: { id: { in: ids }, isActive: true },
+      select: {
+        id: true,
+        codi: true,
+        nom: true,
+        liniaNegoci: { select: { codi: true, nom: true } },
+      },
+    }),
+    Promise.all(ids.map((id) => getCompteExplotacioCentre(id, any, vista))),
+  ]);
+
+  const centres = [...centresMeta].sort((a, b) => {
+    const lnCmp = comparaPerCodi(a.liniaNegoci, b.liniaNegoci);
+    if (lnCmp !== 0) return lnCmp;
+    return comparaPerCodi(a, b);
+  });
+
+  const conceptsRaw = sumarComptesCentres(comptes);
+  const conceptsDb = await getConceptsActius();
+  const concepts = recalcularSubtotalsCompte(conceptsDb, conceptsRaw);
+
+  return {
+    centres,
+    any,
+    concepts,
+    buit: comptes.every((c) => c.buit) || centres.length === 0,
+  };
+}
+
+/** Capes consolidat amb lectura eager (canvi de vista al client). */
+export async function getCompteExplotacioCentresConsolidatParell(
+  centreIds: string[],
+  any: number
+): Promise<{
+  sap: CompteExplotacioCentresConsolidat;
+  ajustos: CompteExplotacioCentresConsolidat;
+  directe: CompteExplotacioCentresConsolidat;
+  traspassos: CompteExplotacioCentresConsolidat;
+  gestio: CompteExplotacioCentresConsolidat;
+}> {
+  const ids = normalitzaCentreIds(centreIds);
+  const [sap, directe, traspassos] = await Promise.all([
+    getCompteExplotacioCentresConsolidat(ids, any, "sap"),
+    getCompteExplotacioCentresConsolidat(ids, any, "directe"),
+    getCompteExplotacioCentresConsolidat(ids, any, "traspassos"),
+  ]);
+  return {
+    sap,
+    ajustos: { ...directe, concepts: restarConceptesPivot(directe.concepts, sap.concepts) },
+    directe,
+    traspassos,
+    gestio: traspassos,
   };
 }
 

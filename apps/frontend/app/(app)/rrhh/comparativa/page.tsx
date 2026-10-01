@@ -1,10 +1,10 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
+import report from "@/components/consultes/report.module.css";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
 import { getAnysRrhh, getComparativaRrhh } from "@/lib/rrhh/consultes";
-import { RrhhKpis, RrhhTaulaComparativa } from "../RrhhPresentacio";
-import styles from "../rrhh.module.css";
+import { RrhhComparativaBoard } from "../RrhhPresentacio";
 import { RrhhComparativaSelectors } from "./RrhhComparativaSelectors";
 
 export const dynamic = "force-dynamic";
@@ -49,10 +49,10 @@ export default async function RrhhComparativaPage({
   );
 
   return (
-    <div className={styles.page}>
+    <div className={report.page}>
       <ConsultaHeader
         title="RRHH · Comparativa"
-        subtitle="Compara persones i hores/setmana entre dos períodes (mesos o anys)."
+        subtitle="Anàlisi A→B de plantilla i hores per al comitè de direcció."
         actions={
           <RrhhComparativaSelectors
             anys={anys}
@@ -66,27 +66,7 @@ export default async function RrhhComparativaPage({
           />
         }
       />
-
-      <div className={styles.kpis}>
-        <div>
-          <p className={styles.hint}>{data.labelA}</p>
-          <RrhhKpis
-            persones={data.totalsA.nombrePersones}
-            hores={data.totalsA.horesSetmanals}
-            esMitjana={mesA == null}
-          />
-        </div>
-        <div>
-          <p className={styles.hint}>{data.labelB}</p>
-          <RrhhKpis
-            persones={data.totalsB.nombrePersones}
-            hores={data.totalsB.horesSetmanals}
-            esMitjana={mesB == null}
-          />
-        </div>
-      </div>
-
-      <RrhhTaulaComparativa data={data} />
+      <RrhhComparativaBoard data={data} />
     </div>
   );
 }

@@ -13,6 +13,7 @@ export const FILTRE = {
   ambit: "Àmbit",
   linia: "Línia",
   centre: "Centre",
+  centres: "Centres",
   restaurant: "Restaurant",
   granularitat: "Granularitat",
   mesosComparar: "Mesos",

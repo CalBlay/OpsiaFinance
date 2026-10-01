@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import type { UserRole } from "@/types";
 import {
   Building2,
+  GitCompare,
   GitCompareArrows,
   Landmark,
   Layers,
@@ -26,6 +27,12 @@ const RESULTATS_TABS = [
   { href: "/consultes/evolucio", label: "Evolució mensual", icon: TrendingUp, sub: "evolucio" },
   { href: "/consultes/linia", label: "Per línia", icon: Layers, sub: "linia" },
   { href: "/consultes/centre", label: "Per centre", icon: Building2, sub: "centre" },
+  {
+    href: "/consultes/consolidat-centres",
+    label: "Consolidat centres",
+    icon: GitCompare,
+    sub: "consolidat-centres",
+  },
   {
     href: "/consultes/comparativa",
     label: "Comparativa temporal",

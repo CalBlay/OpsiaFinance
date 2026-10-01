@@ -1,54 +1,34 @@
 import { CONSULTES_CACHE_TAG, consultesCacheKey } from "@/lib/consultes-cache";
 import { db } from "@/lib/db";
 import { MESOS_CURTS, MESOS_LLARGS } from "@/lib/periodes";
+import type {
+  RrhhComparativa,
+  RrhhComparativaFila,
+  RrhhDistribucioHores,
+  RrhhFila,
+  RrhhInforme,
+  RrhhMes,
+} from "@/lib/rrhh/format";
 import { unstable_cache } from "next/cache";
 import { cache } from "react";
 
-export type RrhhFila = {
-  key: string;
-  label: string;
-  sublabel?: string;
-  nombrePersones: number;
-  horesSetmanals: number;
-  /** Hores mitjanes per persona (si persones > 0). */
-  horesPerPersona: number | null;
-};
-
-export type RrhhInforme = {
-  any: number;
-  mes: number | null;
-  periodeLabel: string;
-  totals: { nombrePersones: number; horesSetmanals: number };
-  files: RrhhFila[];
-  buit: boolean;
-};
-
-export type RrhhComparativaFila = {
-  key: string;
-  label: string;
-  sublabel?: string;
-  personesA: number;
-  personesB: number;
-  deltaPersones: number;
-  horesA: number;
-  horesB: number;
-  deltaHores: number;
-};
-
-export type RrhhComparativa = {
-  labelA: string;
-  labelB: string;
-  totalsA: { nombrePersones: number; horesSetmanals: number };
-  totalsB: { nombrePersones: number; horesSetmanals: number };
-  files: RrhhComparativaFila[];
-  buit: boolean;
-};
+export type {
+  RrhhComparativa,
+  RrhhComparativaFila,
+  RrhhDistribucioHores,
+  RrhhFila,
+  RrhhInforme,
+  RrhhMes,
+} from "@/lib/rrhh/format";
+export { formatDistribucioJornada } from "@/lib/rrhh/format";
 
 type RawRow = {
   centreId: string;
   departamentId: string | null;
   nombrePersones: number;
   horesSetmanals: number;
+  /** Jornada individual de la fila (hores/persona). */
+  horesPersona: number;
   centre: {
     id: string;
     codi: string;
@@ -72,6 +52,26 @@ function periodeLabel(any: number, mes: number | null): string {
 function horesPerPersona(persones: number, hores: number): number | null {
   if (persones <= 0) return null;
   return hores / persones;
+}
+
+function roundHores(h: number): number {
+  return Math.round(h * 10) / 10;
+}
+
+function mergeDist(into: Map<number, number>, hores: number, persones: number) {
+  if (persones <= 0) return;
+  const k = roundHores(hores);
+  into.set(k, (into.get(k) ?? 0) + persones);
+}
+
+function distToArray(map: Map<number, number>, divisor = 1): RrhhDistribucioHores[] {
+  return [...map.entries()]
+    .map(([hores, persones]) => ({
+      hores,
+      persones: persones / divisor,
+    }))
+    .filter((d) => d.persones > 0)
+    .sort((a, b) => b.hores - a.hores || b.persones - a.persones);
 }
 
 async function carregarFiles(
@@ -103,10 +103,20 @@ async function carregarFiles(
       period: { select: { any: true, mes: true, nom: true } },
     },
   });
-  return rows.map((r) => ({
-    ...r,
-    horesSetmanals: Number(r.horesSetmanals),
-  }));
+  return rows.map((r) => {
+    const horesSetmanals = Number(r.horesSetmanals);
+    const horesPersona = r.nombrePersones > 0 ? roundHores(horesSetmanals / r.nombrePersones) : 0;
+    return {
+      centreId: r.centreId,
+      departamentId: r.departamentId,
+      nombrePersones: r.nombrePersones,
+      horesSetmanals,
+      horesPersona,
+      centre: r.centre,
+      departament: r.departament,
+      period: r.period,
+    };
+  });
 }
 
 /** Mitjana mensual quan es consulta tot l'any (mesos amb dades). */
@@ -120,7 +130,7 @@ function agregarAmbMitjanaAnual(
     key: string;
     label: string;
     sublabel?: string;
-    perMes: Map<number, { persones: number; hores: number }>;
+    perMes: Map<number, { persones: number; hores: number; dist: Map<number, number> }>;
   };
   const map = new Map<string, Acc>();
 
@@ -134,9 +144,14 @@ function agregarAmbMitjanaAnual(
       map.set(key, acc);
     }
     const m = r.period.mes;
-    const prev = acc.perMes.get(m) ?? { persones: 0, hores: 0 };
+    const prev = acc.perMes.get(m) ?? {
+      persones: 0,
+      hores: 0,
+      dist: new Map<number, number>(),
+    };
     prev.persones += r.nombrePersones;
     prev.hores += r.horesSetmanals;
+    mergeDist(prev.dist, r.horesPersona, r.nombrePersones);
     acc.perMes.set(m, prev);
   }
 
@@ -147,6 +162,10 @@ function agregarAmbMitjanaAnual(
     const divisor = mes == null ? mesos.length : 1;
     const persones = mesos.reduce((s, x) => s + x.persones, 0) / divisor;
     const hores = mesos.reduce((s, x) => s + x.hores, 0) / divisor;
+    const distMerged = new Map<number, number>();
+    for (const x of mesos) {
+      for (const [h, p] of x.dist) mergeDist(distMerged, h, p);
+    }
     out.push({
       key: acc.key,
       label: acc.label,
@@ -154,6 +173,7 @@ function agregarAmbMitjanaAnual(
       nombrePersones: persones,
       horesSetmanals: hores,
       horesPerPersona: horesPerPersona(persones, hores),
+      distribucio: distToArray(distMerged, divisor),
     });
   }
 
@@ -163,9 +183,14 @@ function agregarAmbMitjanaAnual(
 }
 
 function totalsDe(files: RrhhFila[]) {
+  const distMerged = new Map<number, number>();
+  for (const f of files) {
+    for (const d of f.distribucio) mergeDist(distMerged, d.hores, d.persones);
+  }
   return {
     nombrePersones: files.reduce((s, f) => s + f.nombrePersones, 0),
     horesSetmanals: files.reduce((s, f) => s + f.horesSetmanals, 0),
+    distribucio: distToArray(distMerged),
   };
 }
 
@@ -205,7 +230,7 @@ export async function getInformeRrhhLinies(any: number, mes: number | null): Pro
         buit: files.length === 0,
       };
     },
-    consultesCacheKey("rrhh-ln-v1", String(any), String(mes ?? 0)),
+    consultesCacheKey("rrhh-ln-v4", String(any), String(mes ?? 0)),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 60 }
   )();
 }
@@ -237,7 +262,7 @@ export async function getInformeRrhhCentres(
         buit: files.length === 0,
       };
     },
-    consultesCacheKey("rrhh-centres-v1", String(any), String(mes ?? 0), lnKey),
+    consultesCacheKey("rrhh-centres-v4", String(any), String(mes ?? 0), lnKey),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 60 }
   )();
 }
@@ -272,7 +297,7 @@ export async function getInformeRrhhDepartaments(
         buit: files.length === 0,
       };
     },
-    consultesCacheKey("rrhh-depts-v1", String(any), String(mes ?? 0), lnKey, cKey),
+    consultesCacheKey("rrhh-depts-v4", String(any), String(mes ?? 0), lnKey, cKey),
     { tags: [CONSULTES_CACHE_TAG], revalidate: 60 }
   )();
 }
@@ -307,7 +332,7 @@ export async function getComparativaRrhh(
   const files: RrhhComparativaFila[] = [...keys].map((key) => {
     const fa = mapA.get(key);
     const fb = mapB.get(key);
-    const m = meta.get(key)!;
+    const m = meta.get(key) ?? { label: key };
     const personesA = fa?.nombrePersones ?? 0;
     const personesB = fb?.nombrePersones ?? 0;
     const horesA = fa?.horesSetmanals ?? 0;
@@ -340,6 +365,35 @@ export async function getComparativaRrhh(
   };
 }
 
-export function etiquetaMesCurt(mes: number): string {
-  return MESOS_CURTS[mes - 1] ?? String(mes);
+/** Evolució mensual d'un any (suma empresa o filtre LN/centre). */
+export async function getEvolucioMensualRrhh(
+  any: number,
+  filtre?: { liniaNegociId?: string | null; centreId?: string | null }
+): Promise<RrhhMes[]> {
+  const lnKey = filtre?.liniaNegociId ?? "";
+  const cKey = filtre?.centreId ?? "";
+  return unstable_cache(
+    async () => {
+      const rows = await carregarFiles(any, null, filtre);
+      const byMes = new Map<number, { persones: number; hores: number }>();
+      for (const r of rows) {
+        const prev = byMes.get(r.period.mes) ?? { persones: 0, hores: 0 };
+        prev.persones += r.nombrePersones;
+        prev.hores += r.horesSetmanals;
+        byMes.set(r.period.mes, prev);
+      }
+      return MESOS_CURTS.map((label, i) => {
+        const mes = i + 1;
+        const v = byMes.get(mes);
+        return {
+          mes,
+          label,
+          nombrePersones: v?.persones ?? 0,
+          horesSetmanals: v?.hores ?? 0,
+        };
+      }).filter((m) => m.nombrePersones > 0 || m.horesSetmanals > 0);
+    },
+    consultesCacheKey("rrhh-evol-v1", String(any), lnKey, cKey),
+    { tags: [CONSULTES_CACHE_TAG], revalidate: 60 }
+  )();
 }

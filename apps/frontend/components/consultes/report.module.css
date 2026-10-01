@@ -229,6 +229,152 @@
   flex-shrink: 0;
 }
 
+/* Consolidat centres: LN → centre → Afegir → llista → OK */
+.consolidatPicker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  align-items: flex-end;
+  max-width: 100%;
+}
+
+.consolidatAddBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 2.15rem;
+  padding: 0.4rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--opsia-green-600, #2f6f6a) 35%, var(--color-border));
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--opsia-green-600, #2f6f6a) 10%, #fff);
+  color: var(--opsia-green-700, #245956);
+  font-size: 0.8125rem;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.consolidatAddBtn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--opsia-green-600, #2f6f6a) 16%, #fff);
+}
+
+.consolidatAddBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.consolidatListRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.55rem 0.75rem;
+  max-width: min(52rem, 100%);
+}
+
+.consolidatHint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--opsia-cx-subtitle, var(--color-muted-foreground));
+  line-height: 1.35;
+}
+
+.consolidatChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  justify-content: flex-end;
+}
+
+.consolidatChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  max-width: 100%;
+  padding: 0.22rem 0.28rem 0.22rem 0.5rem;
+  border: 1px solid var(--opsia-cx-border, var(--color-border));
+  border-radius: 999px;
+  background: #fff;
+  font-size: 0.75rem;
+  color: var(--opsia-cx-ink, var(--color-foreground));
+}
+
+.consolidatChipText {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.consolidatChipLn {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--opsia-green-700, #245956);
+  background: color-mix(in srgb, var(--opsia-green-600, #2f6f6a) 12%, #fff);
+  border-radius: 0.3rem;
+  padding: 0.08rem 0.28rem;
+}
+
+.consolidatChipRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-muted-foreground);
+  cursor: pointer;
+  padding: 0;
+}
+
+.consolidatChipRemove:hover:not(:disabled) {
+  background: var(--color-muted);
+  color: var(--color-foreground);
+}
+
+.consolidatChipRemove:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.consolidatListActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-shrink: 0;
+}
+
+.consolidatOkBtn {
+  min-height: 1.9rem;
+  padding: 0.3rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--opsia-green-600, #2f6f6a) 40%, var(--color-border));
+  border-radius: 0.45rem;
+  background: var(--opsia-green-600, #2f6f6a);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.consolidatOkBtn:hover:not(:disabled) {
+  filter: brightness(0.96);
+}
+
+.consolidatOkBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 /* KPIs executiu (comparativa període) */
 .kpiRowExec {
   display: grid;

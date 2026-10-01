@@ -27,7 +27,9 @@ import {
 } from "@/lib/repartiment/personal-departaments";
 import {
   carregarConfigPersonal,
+  carregarCostPersonalCentresExclososRepartiment,
   carregarCostPersonalDeptSc,
+  carregarCostPersonalDeptScRepartiment,
 } from "@/lib/repartiment/personal-departaments-data";
 
 export { assertExternalApiKey };
@@ -174,9 +176,10 @@ async function loadLiveGestioByLn(
   ]);
 
   const lnIdByCodi = new Map(lns.map((l) => [l.codi, l.id]));
-  const [directe, costs] = await Promise.all([
+  const [directe, costs, poolExclosAbs] = await Promise.all([
     getDirectePerLnNode(period.id),
-    carregarCostPersonalDeptSc(period.any, period.mes),
+    carregarCostPersonalDeptScRepartiment(period.any, period.mes),
+    carregarCostPersonalCentresExclososRepartiment(period.any, period.mes),
   ]);
   const pesosCalc = await calcularPesosGrups(period.id, directe);
   const moviments = movimentsADeltas(
@@ -195,6 +198,7 @@ async function loadLiveGestioByLn(
         pesDefecte: configPers.pesDefecte,
         fraccioSobrantIguals: configPers.fraccioSobrantIguals,
         costAdminRestaurants: null,
+        poolExclosAbs,
       }
     ),
     directe

@@ -1,11 +1,11 @@
 import { ConsultaHeader } from "@/components/consultes/ConsultaHeader";
+import report from "@/components/consultes/report.module.css";
 import { getArbreSeleccio } from "@/lib/consultes";
 import { getGrupEmpresaActual } from "@/lib/grup-cookie";
 import { liniesPerConsultaDetall } from "@/lib/grups-empresa";
-import { getAnysRrhh, getInformeRrhhLinies } from "@/lib/rrhh/consultes";
-import { RrhhKpis, RrhhTaulaInforme } from "./RrhhPresentacio";
+import { getAnysRrhh, getEvolucioMensualRrhh, getInformeRrhhLinies } from "@/lib/rrhh/consultes";
+import { RrhhBoard } from "./RrhhPresentacio";
 import { RrhhSelectors } from "./RrhhSelectors";
-import styles from "./rrhh.module.css";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "RRHH — Resum — OpsiaFinance" };
@@ -30,27 +30,36 @@ export default async function RrhhResumPage({
       : (anysRrhh[0] ?? anyCal);
   const anys = anysRrhh.length ? anysRrhh : [any];
   const mes = sp.mes ? Number(sp.mes) : null;
-  const informe = await getInformeRrhhLinies(any, mes);
-  const esMitjana = mes == null;
+
+  const [informe, evolucio] = await Promise.all([
+    getInformeRrhhLinies(any, mes),
+    mes == null ? getEvolucioMensualRrhh(any) : Promise.resolve([]),
+  ]);
 
   return (
-    <div className={styles.page}>
+    <div className={report.page}>
       <ConsultaHeader
-        title="RRHH · Resum per línia"
-        subtitle={
-          <>
-            Persones i hores setmanals contractades (font: Dades → Jornada). {informe.periodeLabel}.
-          </>
-        }
+        title="RRHH · Resum executiu"
+        subtitle="Plantilla i hores contractades per línia de negoci — pack de comitè."
         actions={<RrhhSelectors basePath="/rrhh" anys={anys} any={any} mes={mes} arbre={arbre} />}
       />
-
-      <RrhhKpis
-        persones={informe.totals.nombrePersones}
-        hores={informe.totals.horesSetmanals}
-        esMitjana={esMitjana}
+      <RrhhBoard
+        titol="Empresa"
+        periodeLabel={informe.periodeLabel}
+        nivellLabel="Per línia de negoci"
+        informe={informe}
+        evolucio={evolucio}
+        esMitjana={mes == null}
+        hrefByKey={Object.fromEntries(
+          informe.files.map((f) => {
+            const p = new URLSearchParams();
+            p.set("any", String(any));
+            if (mes != null) p.set("mes", String(mes));
+            p.set("ln", f.key);
+            return [f.key, `/rrhh/centre?${p}`] as const;
+          })
+        )}
       />
-      <RrhhTaulaInforme informe={informe} esMitjana={esMitjana} />
     </div>
   );
 }

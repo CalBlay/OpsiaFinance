@@ -16,6 +16,7 @@ export type ResultatsSub =
   | "evolucio"
   | "linia"
   | "centre"
+  | "consolidat-centres"
   | "comparativa"
   | "cost-personal";
 
@@ -72,6 +73,11 @@ export const RESULTATS_SUBS: { id: ResultatsSub; label: string; href: string }[]
   { id: "evolucio", label: "Evolució mensual", href: "/consultes/evolucio" },
   { id: "linia", label: "Per línia", href: "/consultes/linia" },
   { id: "centre", label: "Per centre", href: "/consultes/centre" },
+  {
+    id: "consolidat-centres",
+    label: "Consolidat centres",
+    href: "/consultes/consolidat-centres",
+  },
   { id: "comparativa", label: "Comparativa temporal", href: "/consultes/comparativa" },
   { id: "cost-personal", label: "Cost de personal", href: "/consultes/cost-personal" },
 ];
@@ -180,6 +186,7 @@ export function resolveConsultesSub(pathname: string): ResultatsSub | Restaurant
   if (pathname.startsWith("/consultes/empresa")) return "empresa";
   if (pathname.startsWith("/consultes/evolucio")) return "evolucio";
   if (pathname.startsWith("/consultes/linia")) return "linia";
+  if (pathname.startsWith("/consultes/consolidat-centres")) return "consolidat-centres";
   if (pathname.startsWith("/consultes/centre")) return "centre";
   if (pathname.startsWith("/consultes/comparativa")) return "comparativa";
   if (pathname.startsWith("/consultes/cost-personal")) return "cost-personal";

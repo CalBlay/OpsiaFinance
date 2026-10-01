@@ -3,6 +3,8 @@ import * as XLSX from "xlsx";
 
 export type FilaJornadaParsejada = {
   codi: string;
+  /** Text columna A (p.ex. «SALA», «CUINA», «MARKETING»…). */
+  descripcio: string;
   horesSetmanals: number;
   filaExcel: number;
 };
@@ -28,26 +30,41 @@ function parseNumero(raw: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** % jornada → hores setmanals. En blanc = 100% = 40 h. */
+/**
+ * % jornada → hores setmanals.
+ * En blanc = 100% = 40 h. Si el valor és ≤ 1, es tracta com a fracció (0,5 = 50%).
+ */
 export function horesDesDePercentatge(raw: unknown): number {
   const pct = parseNumero(raw);
   if (pct == null) return HORES_JORNADA_COMPLETA;
-  return (pct / 100) * HORES_JORNADA_COMPLETA;
+  const base = pct > 0 && pct <= 1 ? pct * 100 : pct;
+  return Math.round((base / 100) * HORES_JORNADA_COMPLETA * 10) / 10;
 }
 
 function trobarCapçaleres(rows: unknown[][]): {
   headerRow: number;
+  colDesc: number;
   colPct: number;
   colCodi: number;
 } | null {
   const maxScan = Math.min(rows.length, 40);
   for (let r = 0; r < maxScan; r++) {
     const row = rows[r] ?? [];
+    let colDesc = -1;
     let colPct = -1;
     let colCodi = -1;
     for (let c = 0; c < row.length; c++) {
       const cap = normalitzaCap(String(row[c] ?? ""));
       if (!cap) continue;
+      if (
+        colDesc < 0 &&
+        (cap.includes("descripcion") ||
+          cap.includes("descripcio") ||
+          cap === "desc" ||
+          cap === "text")
+      ) {
+        colDesc = c;
+      }
       if (
         colPct < 0 &&
         (cap.includes("porcentaje") ||
@@ -67,31 +84,34 @@ function trobarCapçaleres(rows: unknown[][]): {
         colCodi = c;
       }
     }
-    // Fallback posicional: B=% , C=codi (si els headers són parcials)
-    if (colCodi < 0 && colPct >= 0 && row.length > colPct + 1) {
-      // no forcem
-    }
     if (colPct >= 0 && colCodi >= 0) {
-      return { headerRow: r, colPct, colCodi };
+      return {
+        headerRow: r,
+        colDesc: colDesc >= 0 ? colDesc : 0,
+        colPct,
+        colCodi,
+      };
     }
-    // Capçaleres típiques A/B/C amb noms parcials: si veiem «Descripcion» a A
     const a0 = normalitzaCap(String(row[0] ?? ""));
     const a1 = normalitzaCap(String(row[1] ?? ""));
     const a2 = normalitzaCap(String(row[2] ?? ""));
     if (
-      (a0.includes("descripcion") || a0.includes("descripcio")) &&
+      (a0.includes("descripcion") || a0.includes("descripcio") || a0 === "") &&
       (a1.includes("porcentaje") || a1.includes("jornada") || a1.includes("percent")) &&
       (a2.includes("codigo") || a2.includes("codi"))
     ) {
-      return { headerRow: r, colPct: 1, colCodi: 2 };
+      return { headerRow: r, colDesc: 0, colPct: 1, colCodi: 2 };
     }
+  }
+  if (rows.length > 1) {
+    return { headerRow: 0, colDesc: 0, colPct: 1, colCodi: 2 };
   }
   return null;
 }
 
 /**
- * Parseja l'Excel de resum nòmina per codi imputació i jornada.
- * Només usa B (% jornada) i C (codi). A s'ignora.
+ * Parseja l'Excel de resum nòmina:
+ * A = descripció (departament / etiquetatge), B = % jornada, C = codi imputació.
  */
 export function parseJornadaPersonal(buffer: Buffer): ParseJornadaResult {
   const errors: string[] = [];
@@ -122,35 +142,33 @@ export function parseJornadaPersonal(buffer: Buffer): ParseJornadaResult {
   if (!cap) {
     return {
       files: [],
-      errors: ["No s'han trobat les columnes «Porcentaje Jornada» (B) i «Código Imputación» (C)."],
+      errors: ["No s'han trobat les columnes A (descripció), B (% jornada) i C (codi)."],
       avisos: [],
     };
   }
 
   let senseCodi = 0;
+  let senseDesc = 0;
   for (let i = cap.headerRow + 1; i < rows.length; i++) {
     const row = rows[i] ?? [];
     const filaExcel = i + 1;
+    const descripcio = String(row[cap.colDesc] ?? "").trim();
     const codiRaw = String(row[cap.colCodi] ?? "")
       .trim()
       .replace(/\s/g, "");
-    // Excel pot perdre zeros a l'esquerra → normalitza a dígits
     const digits = codiRaw.replace(/\D/g, "");
     if (!digits) {
-      // fila buida
       const buit =
         (row[cap.colPct] == null || row[cap.colPct] === "") &&
-        (row[cap.colCodi] == null || row[cap.colCodi] === "");
+        (row[cap.colCodi] == null || row[cap.colCodi] === "") &&
+        !descripcio;
       if (!buit) senseCodi++;
       continue;
     }
-    // Conserva zeros a l'esquerra si el text els tenia; si ve com a número, pad a 8 si sembla fulla
     let codi = /^\d+$/.test(codiRaw) ? codiRaw : digits;
     if (typeof row[cap.colCodi] === "number") {
-      // 6002001 → sovint era 06002001
       const n = String(Math.trunc(row[cap.colCodi] as number));
       codi = n.length <= 8 ? n.padStart(Math.max(n.length, 5), "0") : n;
-      // Preferència 8 dígits si cal
       if (n.length <= 7) codi = n.padStart(8, "0");
     }
 
@@ -159,8 +177,11 @@ export function parseJornadaPersonal(buffer: Buffer): ParseJornadaResult {
       continue;
     }
 
+    if (!descripcio) senseDesc++;
+
     files.push({
       codi,
+      descripcio,
       horesSetmanals: horesDesDePercentatge(row[cap.colPct]),
       filaExcel,
     });
@@ -168,6 +189,11 @@ export function parseJornadaPersonal(buffer: Buffer): ParseJornadaResult {
 
   if (senseCodi > 0) {
     avisos.push(`${senseCodi} files sense codi d'imputació vàlid (ignorades).`);
+  }
+  if (senseDesc > 0) {
+    avisos.push(
+      `${senseDesc} files sense text a la columna A (departament més difícil de resoldre).`
+    );
   }
   if (!files.length) {
     errors.push("No s'ha trobat cap fila amb codi d'imputació (columna C).");

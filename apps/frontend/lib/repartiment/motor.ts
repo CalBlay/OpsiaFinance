@@ -35,6 +35,11 @@ export type ContextPersonalDept = {
   fraccioSobrantIguals: number;
   /** Cost SAP sous+SS del centre Admin restaurants (opcional). */
   costAdminRestaurants?: CostSapAdminRestaurants | null;
+  /**
+   * Cost nòmina exclòs del repartiment (Serveis Externs, Serveis Logística, …).
+   * Es resta del pool SAP Central: va per traspassos, no per repartiment.
+   */
+  poolExclosAbs?: number;
 };
 
 /** Redueix el pool distribuïble segons normes pròpies de Central (destí LN00000). */
@@ -125,7 +130,8 @@ export function calcularMoviments(
     directe,
     lnIdByCodi,
     personalDept.pesDefecte,
-    personalDept.fraccioSobrantIguals
+    personalDept.fraccioSobrantIguals,
+    personalDept.poolExclosAbs ?? 0
   );
   const movimentsAdminRest = calcularMovimentsAdminRestGreenVita(
     normesActives,

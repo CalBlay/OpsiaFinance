@@ -1,6 +1,8 @@
 "use client";
 
-import { ConsultaToolbar, FILTRE } from "@/components/consultes/ConsultaToolbar";
+import { ConsultaToolbar } from "@/components/consultes/ConsultaToolbar";
+import { FILTRE, MES_TOT_ANY } from "@/components/consultes/consulta-filtres";
+import styles from "@/components/consultes/report.module.css";
 import { MESOS_LLARGS } from "@/lib/periodes";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
@@ -51,58 +53,72 @@ export function RrhhSelectors({
     for (const [k, v] of Object.entries(next)) {
       if (v != null && v !== "") p.set(k, v);
     }
-    startTransition(() => {
-      router.push(`${basePath}?${p}`);
-    });
+    startTransition(() => router.push(`${basePath}?${p}`));
   };
 
   const ln = arbre?.find((l) => l.id === lnId);
-  const centres = ln?.centres ?? arbre?.flatMap((l) => l.centres) ?? [];
+  const centres = showCentre ? (ln?.centres ?? arbre?.flatMap((l) => l.centres) ?? []) : [];
 
   return (
     <ConsultaToolbar
       pending={pending}
       dates={
         <>
-          <label>
-            {FILTRE.any}
-            <select value={any} onChange={(e) => push({ any: e.target.value })} aria-label="Any">
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="rrhh-any">
+              {FILTRE.any}
+            </label>
+            <select
+              id="rrhh-any"
+              className={styles.select}
+              style={{ minWidth: 100 }}
+              value={any}
+              onChange={(e) => push({ any: e.target.value })}
+            >
               {anys.map((y) => (
                 <option key={y} value={y}>
                   {y}
                 </option>
               ))}
             </select>
-          </label>
-          <label>
-            {FILTRE.mes}
+          </div>
+          <div className={styles.field}>
+            <label className={styles.fieldLabel} htmlFor="rrhh-mes">
+              {FILTRE.mes}
+            </label>
             <select
+              id="rrhh-mes"
+              className={styles.select}
+              style={{ minWidth: 130 }}
               value={mes ?? ""}
-              onChange={(e) => push({ mes: e.target.value || null })}
-              aria-label="Mes"
               lang="ca"
               translate="no"
+              onChange={(e) => push({ mes: e.target.value || null })}
             >
-              <option value="">Tot l&apos;any</option>
+              <option value="">{MES_TOT_ANY}</option>
               {MESOS_LLARGS.map((m, i) => (
                 <option key={m} value={i + 1}>
                   {m}
                 </option>
               ))}
             </select>
-          </label>
+          </div>
         </>
       }
       camps={
         (showLn || showCentre) && arbre ? (
           <>
             {showLn ? (
-              <label>
-                Línia
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="rrhh-ln">
+                  {FILTRE.linia}
+                </label>
                 <select
+                  id="rrhh-ln"
+                  className={styles.select}
+                  style={{ minWidth: 160 }}
                   value={lnId ?? ""}
                   onChange={(e) => push({ ln: e.target.value || null, centre: null })}
-                  aria-label="Línia de negoci"
                 >
                   <option value="">Totes</option>
                   {arbre.map((l) => (
@@ -111,15 +127,19 @@ export function RrhhSelectors({
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             ) : null}
             {showCentre ? (
-              <label>
-                Centre
+              <div className={styles.field}>
+                <label className={styles.fieldLabel} htmlFor="rrhh-centre">
+                  {FILTRE.centre}
+                </label>
                 <select
+                  id="rrhh-centre"
+                  className={styles.select}
+                  style={{ minWidth: 160 }}
                   value={centreId ?? ""}
                   onChange={(e) => push({ centre: e.target.value || null })}
-                  aria-label="Centre"
                 >
                   <option value="">Tots</option>
                   {centres.map((c) => (
@@ -128,7 +148,7 @@ export function RrhhSelectors({
                     </option>
                   ))}
                 </select>
-              </label>
+              </div>
             ) : null}
           </>
         ) : undefined

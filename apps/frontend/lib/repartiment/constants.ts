@@ -12,6 +12,15 @@ import {
 export const REPARTIMENT_APLICAT_A_GESTIO = true;
 
 /**
+ * Canvis de lògica al codi (exclusions de centres/depts, fórmules del motor)
+ * que no toquen normes ni config a BD. Si `calculatAt` d'una execució és anterior,
+ * a Dades → Repartiment surt «Aplicar regles noves».
+ *
+ * Cal actualitzar aquesta data cada vegada que es canviï el motor sense desar config.
+ */
+export const REPARTIMENT_CODI_UPDATED_AT = new Date("2026-10-01T15:45:00.000Z");
+
+/**
  * Nodes actius a consultes Gestió.
  * Compres, Personal SC i despeses de gestió.
  */

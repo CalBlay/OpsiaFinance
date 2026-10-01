@@ -31,7 +31,8 @@ import {
 } from "@/lib/repartiment/personal-admin-restaurants-data";
 import {
   carregarConfigPersonal,
-  carregarCostPersonalDeptSc,
+  carregarCostPersonalCentresExclososRepartiment,
+  carregarCostPersonalDeptScRepartiment,
   desactivarNormesPersonalObsoletes,
   ensureConfigPersonalInicial,
 } from "@/lib/repartiment/personal-departaments-data";
@@ -75,12 +76,13 @@ async function carregarContextPersonalDept(
   mes: number,
   periodId?: string
 ): Promise<ContextPersonalDept> {
-  const [costs, config, costAdminRestaurants] = await Promise.all([
-    carregarCostPersonalDeptSc(any, mes),
+  const [costs, config, costAdminRestaurants, poolExclosAbs] = await Promise.all([
+    carregarCostPersonalDeptScRepartiment(any, mes),
     carregarConfigPersonal(),
     periodId ? carregarCostSapAdminRestaurants(periodId) : Promise.resolve(null),
+    carregarCostPersonalCentresExclososRepartiment(any, mes),
   ]);
-  return { costs, ...config, costAdminRestaurants };
+  return { costs, ...config, costAdminRestaurants, poolExclosAbs };
 }
 
 function pesosOverridesDesDeExecucio(

@@ -11,7 +11,7 @@ import { NOM_NORMA_ADMIN_REST_GREEN_VITA } from "@/lib/repartiment/personal-admi
 import { CODIS_LN_PERSONAL_CONFIG } from "@/lib/repartiment/personal-departaments-constants";
 import {
   carregarConfigPersonal,
-  carregarCostPersonalDeptSc,
+  carregarCostPersonalDeptScRepartiment,
 } from "@/lib/repartiment/personal-departaments-data";
 import { decimalToNumber } from "@/lib/repartiment/serialize";
 import { esSuperOAdmin } from "@/lib/roles";
@@ -45,7 +45,7 @@ export default async function RepartimentSettingsPage() {
       orderBy: { codi: "asc" },
       select: { id: true, codi: true, nom: true },
     }),
-    carregarCostPersonalDeptSc(refAny, refMes),
+    carregarCostPersonalDeptScRepartiment(refAny, refMes),
     carregarConfigPersonal(),
     db.concepteResultat.findMany({
       where: { node: { in: [...NODES_GESTIO_DETALL] }, isActive: true },

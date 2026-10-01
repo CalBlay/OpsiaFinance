@@ -15,7 +15,8 @@ import { getNormesVigents } from "@/lib/repartiment/normes-default";
 import { esNormaAdminRestGreenVita } from "@/lib/repartiment/personal-admin-restaurants";
 import {
   carregarConfigPersonal,
-  carregarCostPersonalDeptSc,
+  carregarCostPersonalCentresExclososRepartiment,
+  carregarCostPersonalDeptScRepartiment,
 } from "@/lib/repartiment/personal-departaments-data";
 
 function esMovimentAdminRestGreenVita(
@@ -108,9 +109,10 @@ async function importEstructuraCentralLnLive(
   let total = 0;
 
   for (const period of periods) {
-    const [directe, costs] = await Promise.all([
+    const [directe, costs, poolExclosAbs] = await Promise.all([
       getDirectePerLnNode(period.id),
-      carregarCostPersonalDeptSc(period.any, period.mes),
+      carregarCostPersonalDeptScRepartiment(period.any, period.mes),
+      carregarCostPersonalCentresExclososRepartiment(period.any, period.mes),
     ]);
     const pesosCalc = await calcularPesosGrups(period.id, directe);
     const moviments = movimentsADeltas(
@@ -130,6 +132,7 @@ async function importEstructuraCentralLnLive(
           fraccioSobrantIguals: configPers.fraccioSobrantIguals,
           // Sense cost Admin → no es generen moviments LN00001↔LN00006.
           costAdminRestaurants: null,
+          poolExclosAbs,
         }
       ),
       directe

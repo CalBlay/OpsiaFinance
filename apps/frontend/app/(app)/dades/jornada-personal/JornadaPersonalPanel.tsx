@@ -212,6 +212,7 @@ export function JornadaPersonalPanel({
                   <th>Centre</th>
                   <th>Departament</th>
                   <th className={ui.right}>Persones</th>
+                  <th className={ui.right}>Jornada</th>
                   <th className={ui.right}>Hores / setmana</th>
                 </tr>
               </thead>
@@ -225,6 +226,7 @@ export function JornadaPersonalPanel({
                     </td>
                     <td>{r.dept}</td>
                     <td className={ui.right}>{formatNum(r.nombrePersones, 0)}</td>
+                    <td className={ui.right}>{formatNum(r.horesPersona, 1)} h</td>
                     <td className={ui.right}>{formatNum(r.horesSetmanals, 1)}</td>
                   </tr>
                 ))}

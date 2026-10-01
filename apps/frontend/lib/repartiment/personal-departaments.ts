@@ -224,7 +224,7 @@ export function calcularAllocacionsPersonalDept(
  * Moviments Personal SC (objectiu abans de deltas).
  *
  * Regla:
- *   pool     = |SAP personal Central| (font del cost)
+ *   pool     = |SAP personal Central| − exclosos (Serveis Externs / Serveis Logística → traspassos)
  *   LN00000  = LN destí amb import fix/% (com 01/04/05/06)
  *   fixes    = LN00001/04/05/06
  *   sobrant  = pool − LN00000 − fixes → LN00002 i LN00003
@@ -239,15 +239,19 @@ export function calcularMovimentsPersonalDepartaments(
   directe: Map<string, Map<number, number>>,
   lnIdByCodi: Map<string, string>,
   pesDefecte: PesDefecteComercial[],
-  fraccioSobrantIguals = FRACCIO_SOBRANT_IGUALS_DEFECTE
+  fraccioSobrantIguals = FRACCIO_SOBRANT_IGUALS_DEFECTE,
+  /** Cost exclosos (Serveis Externs / Serveis Logística): resta del pool SAP. */
+  poolExclosAbs = 0
 ): MovimentCalculat[] {
   const pesosComercial = calcularPesosComercialPersonal(directe, lnIdByCodi, pesDefecte);
   const configLnById = new Map(configsLn.map((c) => [c.liniaNegociId, c]));
 
   const centralLnId = lnIdByCodi.get("LN00000");
-  const sapCentralAbs = centralLnId
+  const sapBrutAbs = centralLnId
     ? Math.abs(directeLn(directe, centralLnId, NODE_COST_SALARIAL))
     : 0;
+  const exclosAbs = Math.max(0, poolExclosAbs);
+  const sapCentralAbs = Math.max(0, sapBrutAbs - exclosAbs);
 
   const explicitPerLn = new Map<string, number>();
   for (const codi of CODIS_LN_PERSONAL_CONFIG) {
@@ -298,7 +302,11 @@ export function calcularMovimentsPersonalDepartaments(
 
   const marcaSobrant = marcaSobrantPersonal(fraccioSobrantIguals);
   const moviments: MovimentCalculat[] = [];
-  const reglaInfo = `pool SAP Central ${sapCentralAbs.toFixed(2)} − LN00000 ${retencioAbs.toFixed(2)} − fixes ${sumaFixAltres.toFixed(2)} → sobrant ${sobrantAbs.toFixed(2)} a 02/03 (${marcaSobrant})`;
+  const exclosInfo =
+    exclosAbs > 1e-9
+      ? ` − exclosos (Serveis Externs / Serveis Logística) ${exclosAbs.toFixed(2)}`
+      : "";
+  const reglaInfo = `pool SAP Central ${sapBrutAbs.toFixed(2)}${exclosInfo} = ${sapCentralAbs.toFixed(2)} − LN00000 ${retencioAbs.toFixed(2)} − fixes ${sumaFixAltres.toFixed(2)} → sobrant ${sobrantAbs.toFixed(2)} a 02/03 (${marcaSobrant})`;
 
   // LN00000 com a LN destí: objectiu = import fix (no residual opac).
   if (centralLnId && retencioAbs > 1e-9) {
