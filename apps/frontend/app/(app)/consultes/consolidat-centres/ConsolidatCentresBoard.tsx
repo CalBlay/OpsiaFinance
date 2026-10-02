@@ -247,6 +247,19 @@ export function ConsolidatCentresBoard({
               totalLabel="Any"
               firstColLabel="Concepte"
               canEdit={false}
+              drilldown={{
+                any: anyActual,
+                vista,
+                colMap: Object.fromEntries(
+                  Array.from({ length: 12 }, (_, i) => [
+                    String(i),
+                    {
+                      mes: i + 1,
+                      ...(centreIds.length === 1 ? { centreId: centreIds[0] } : {}),
+                    },
+                  ])
+                ),
+              }}
             />
           </DetallCompteCollapsible>
         </div>
